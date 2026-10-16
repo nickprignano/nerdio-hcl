@@ -47,6 +47,7 @@ templates/
   nerdio-manager/    drop the exported Marketplace template here
 docs/
   deployment-runbook.md
+  cloud-shell.md
   architecture.md
 ```
 
@@ -70,6 +71,9 @@ cd ../02-nerdio-config
 cp terraform.tfvars.example terraform.tfvars   # workspace and host pools
 terraform get && terraform apply               # get, not init, with dev_overrides
 ```
+
+From Azure Cloud Shell (any browser, tablets included) `scripts/cloudshell-bootstrap.sh` reads
+the tenant and subscription from your sign-in instead; see [docs/cloud-shell.md](docs/cloud-shell.md).
 
 The full order of operations, including the manual Nerdio steps, is in
 [docs/deployment-runbook.md](docs/deployment-runbook.md).

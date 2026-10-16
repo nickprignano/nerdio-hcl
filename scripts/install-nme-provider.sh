@@ -9,7 +9,8 @@
 #   NME_PROVIDER_DIR   install directory (default ~/.terraform.d/dev-overrides/nme)
 #   TF_CLI_CONFIG_FILE CLI config to write (default ~/.terraformrc)
 #
-# Requires: gh (authenticated), unzip, sha256sum.
+# Requires: unzip, sha256sum, and either an authenticated gh or curl + jq (used when gh isn't
+# signed in, as in Azure Cloud Shell; the release is public).
 set -euo pipefail
 
 tag="${NME_PROVIDER_TAG:-v0.0.1-preview.1}"
@@ -20,13 +21,27 @@ repo="Get-Nerdio/NME-Terraform-Provider"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-echo "Assets in $repo $tag:"
-gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' | sed 's/^/  /'
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  echo "Assets in $repo $tag:"
+  gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' | sed 's/^/  /'
 
-gh release download "$tag" --repo "$repo" --dir "$work" --pattern '*linux*amd64*'
-gh release download "$tag" --repo "$repo" --dir "$work" --pattern '*SHA256SUMS*' 2>/dev/null \
-  || gh release download "$tag" --repo "$repo" --dir "$work" --pattern '*checksums*' 2>/dev/null \
-  || true
+  gh release download "$tag" --repo "$repo" --dir "$work" --pattern '*linux*amd64*'
+  gh release download "$tag" --repo "$repo" --dir "$work" --pattern '*SHA256SUMS*' 2>/dev/null \
+    || gh release download "$tag" --repo "$repo" --dir "$work" --pattern '*checksums*' 2>/dev/null \
+    || true
+else
+  # Unauthenticated GitHub API: fine for a public release, rate-limited to 60 calls an hour.
+  assets="$(curl -fsSL "https://api.github.com/repos/$repo/releases/tags/$tag" \
+    | jq -r '.assets[] | "\(.name) \(.browser_download_url)"')"
+  echo "Assets in $repo $tag:"
+  echo "$assets" | cut -d' ' -f1 | sed 's/^/  /'
+  echo "$assets" | while read -r name url; do
+    case "$name" in
+      *linux*amd64* | *[Ss][Hh][Aa]256[Ss][Uu][Mm][Ss]* | *checksums*)
+        curl -fsSL -o "$work/$name" "$url" ;;
+    esac
+  done
+fi
 
 sums="$(find "$work" -maxdepth 1 -type f \( -iname '*sha256sums*' -o -iname '*checksums*' \) | head -n1)"
 if [ -n "$sums" ]; then
