@@ -2,7 +2,7 @@
 
 `scripts/cloudshell-bootstrap.sh` runs both stages from Cloud Shell (Bash) in a browser, tablet
 included, without typing tenant or subscription IDs. It reads them from `az account show`,
-writes gitignored tfvars, installs Terraform if Cloud Shell's is older than 1.9, and installs
+writes gitignored tfvars, installs Terraform if Cloud Shell's is older than 1.11, and installs
 `nerdio/nme` without `gh` sign-in. Use a Cloud Shell with storage (persistent mode), because
 Terraform keeps its local state in your home directory.
 
@@ -42,17 +42,18 @@ Follow step 4 of the [deployment runbook](deployment-runbook.md).
 ./scripts/cloudshell-bootstrap.sh config --apply    # apply
 ```
 
-This installs `nerdio/nme`, writes `02-nerdio-config/platform.auto.tfvars.json` from stage 1,
-copies `terraform.tfvars.example` to `terraform.tfvars` if missing, and passes the REST client
-secret through `NME_CLIENT_SECRET` only.
+This installs `nerdio/nme`, writes `02-nerdio-config/platform.auto.tfvars.json` from stage 1 and
+copies `terraform.tfvars.example` to `terraform.tfvars` if missing. The REST client secret never
+reaches the shell: Terraform reads it from Key Vault with your Cloud Shell sign-in (see
+[secret hand-off](secrets.md)). With the optional OpenBao server, the script gets a short-lived
+Entra token for it instead.
 
 ## Clean up
 
 Destroy stage 2 first, then stage 1:
 
 ```bash
-export NME_CLIENT_SECRET="$(terraform -chdir=environments/example/01-platform output -raw nme_client_secret)"
-terraform -chdir=environments/example/02-nerdio-config destroy
+terraform -chdir=environments/example/02-nerdio-config destroy   # reads the secret from Key Vault
 terraform -chdir=environments/example/01-platform destroy
 ```
 

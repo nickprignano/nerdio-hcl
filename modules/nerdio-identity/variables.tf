@@ -45,6 +45,18 @@ variable "create_rest_api_client" {
   default     = false
 }
 
+variable "create_rest_api_client_secret" {
+  description = "Create a long-lived secret on the REST API client app. False when a secrets broker (the optional OpenBao module) mints short-lived ones per run."
+  type        = bool
+  default     = true
+}
+
+variable "rest_api_client_extra_owner_object_ids" {
+  description = "Extra owners of the REST API client app, such as the OpenBao module's managed identity, so it can manage the app's passwords with Application.ReadWrite.OwnedBy."
+  type        = list(string)
+  default     = []
+}
+
 variable "create_client_secret" {
   description = "Create a client secret on the Nerdio app. Needed for Nerdio's \"Use existing AD app\" install path; modules/nerdio-core signs in with Key Vault certificates instead."
   type        = bool

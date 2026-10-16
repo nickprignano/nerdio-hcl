@@ -15,7 +15,8 @@ tracked with evidence in [nerdio/upstream-contributions.md](nerdio/upstream-cont
 Revised 2026-10-16. **Goal:** automate everything that can and should be automated, and
 wrap it in a turnkey experience, copy-paste, button or chat, so a community user does as little
 heavy lifting as possible. Every item is judged on two tests: does it remove a manual step, and
-does it make the kit easier to pick up? Claims were red-teamed against primary sources. Nothing here is built yet.
+does it make the kit easier to pick up? Claims were red-teamed against primary sources. Build items 1
+(single-apply install) and 2 (secret hand-off) are built; the rest isn't yet.
 
 ## The experience
 
@@ -133,8 +134,8 @@ encryption, Intune/ConfigMgr, security review, readiness, troubleshooting and da
 | Wizard: directory profile (Entra-joined, AD DS or Entra DS) | **No API; optional Playwright bridge** | The API only has `GET /api/v1/ad/config`, with no create. Until that changes, an optional Playwright script can click through this step (see below). | Add an API (and a provider resource) to create directory profiles. |
 | Wizard: registration and first-run state | **No API; optional Playwright bridge** | It's UI only, with no API. The same Playwright script covers it. | Add an API or setting to finish first-run setup. |
 | Enable the REST API | **Yes, already in the kit** | The documented manual method: the client app tag `NMW_REST_API_CLIENT:<app id>`, the RestClient role and token version 2. `modules/nerdio-identity/rest_api.tf` does this. Nerdio says to wait a few minutes before using it. | Confirm the tag method is a supported replacement for the UI toggle. |
-| Hand the secret from stage 1 to stage 2 | **Yes** | See Vault below. | None. |
-| Install the `nme` provider (dev_overrides script) | **Partly** | Host it in an HCP Terraform private registry, or keep the install script. The repo has no LICENSE, so redistributing the binary is unclear. | Publish to the public Registry and add a license. |
+| Hand the secret from stage 1 to stage 2 | **Yes, built** | Key Vault plus an ephemeral read by default, or OpenBao minting a short-lived secret ([docs/secrets.md](../secrets.md), decision 0015). | Federated sign-in in the provider would remove the secret. |
+| Install the `nme` provider (install script) | **Partly** | The script installs Nerdio's release into a local plugin directory, so a plain `terraform init` works. Hosting it in an HCP Terraform private registry would need a license. | Publish to the public Registry and add a license. |
 | Import the Packer image into Nerdio | **Likely yes, untested** | Correction: the API *can* see gallery images. `GET /api/v1/image?imageType=ComputeGalleryImage` lists them, and `create-from-library` takes any `sourceImageId` from that list. The host pool `image` format for a gallery image isn't documented, and the provider example only shows Marketplace format. | Add an `nme_image` data source and a desktop image resource to the provider; desktop images aren't in its coverage matrix at all. |
 
 **Result:** about 7 of the 10 steps can be removed by building on our side. The other two, the
@@ -234,7 +235,8 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 2. **Vault workload identity federation** is **Vault Enterprise only**, added in 1.17, not 1.15.
    Community Vault on Azure uses a managed identity or a client secret.
 3. **Vault minting secrets on the existing REST client app** works (`application_object_id`), but
-   Vault's own identity then needs Graph `Application.ReadWrite.All`, which is a high privilege. The
+   Vault's own identity then needs a Graph permission. OpenBao's docs list `Application.ReadWrite.All`;
+   the kit tries the narrower `Application.ReadWrite.OwnedBy` by making the identity an app owner. The
    ephemeral resource revokes the secret when the run ends. That's fine because the `nme` provider
    only needs it during the run, so no long-lived REST secret would exist at all.
 4. **Terraform Stacks isn't blocked.** It's on HCP Terraform (all plans, including Free up to 500
@@ -283,7 +285,7 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 1. **Single-apply install.** Swap the portal export for the pinned `mainTemplate.json`, add the
    App Service settings, Key Vault secrets and SQL bootstrap the script writes, and deploy the code
    from the package API. This is the biggest win: it removes the export and the install script.
-2. **Secret hand-off without a manual export (decision 0015).** The default is no Vault: stage 1
+2. **Built: secret hand-off without a manual export (decision 0015, [docs/secrets.md](../secrets.md)).** The default is no Vault: stage 1
    stores the Nerdio REST secret in Azure Key Vault, and stage 2 reads it with an ephemeral resource
    over GitHub OIDC. Nothing extra to run, nothing in tfvars or the shell. The optional advanced module
    is OpenBao, or Vault Community for people who already run it, hosted in Azure with a managed

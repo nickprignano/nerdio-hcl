@@ -27,3 +27,6 @@ gitleaks.json
 
 # Python
 __pycache__/
+
+# OpenBao CA certificate for stage 2 (public, but names your deployment)
+openbao-ca.pem

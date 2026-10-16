@@ -19,7 +19,7 @@
 #   NME_LOCATION       Azure region (default eastus2)
 #   NME_GRANT_CONSENT  grant admin consent from Terraform (default true; needs Global Admin or
 #                      Privileged Role Administrator)
-#   NME_TF_VERSION     Terraform to install when Cloud Shell's is older than 1.9 (default 1.16.6)
+#   NME_TF_VERSION     Terraform to install when Cloud Shell's is older than 1.11 (default 1.16.6)
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,8 +38,8 @@ say() { printf '\n== %s\n' "$*"; }
 ensure_terraform() {
   local have=""
   command -v terraform >/dev/null 2>&1 && have="$(terraform version -json | jq -r .terraform_version)"
-  if [ -n "$have" ] && [ "$(printf '%s\n' 1.9.0 "$have" | sort -V | head -n1)" = 1.9.0 ]; then
-    echo "Terraform $have (kit needs >= 1.9)"
+  if [ -n "$have" ] && [ "$(printf '%s\n' 1.11.0 "$have" | sort -V | head -n1)" = 1.11.0 ]; then
+    echo "Terraform $have (kit needs >= 1.11)"
     return
   fi
   local want="${NME_TF_VERSION:-1.16.6}"
@@ -191,7 +191,8 @@ if [ "$stage" = platform ]; then
 fi
 
 say "nerdio/nme provider"
-if [ -x "$HOME/.terraform.d/dev-overrides/nme/terraform-provider-nme" ] && grep -q 'nerdio/nme' "$HOME/.terraformrc" 2>/dev/null; then
+if [ -x "$HOME/.terraform.d/nme-mirror/registry.terraform.io/nerdio/nme/0.0.1-preview.1/linux_amd64/terraform-provider-nme_v0.0.1-preview.1" ] \
+  && grep -q 'nme-mirror' "$HOME/.terraformrc" 2>/dev/null; then
   echo "Already installed"
 else
   "$root/scripts/install-nme-provider.sh"
@@ -200,13 +201,31 @@ fi
 say "Inputs from 01-platform"
 terraform -chdir="$platform" output -json nerdio_config_inputs > "$config/platform.auto.tfvars.json"
 echo "Wrote 02-nerdio-config/platform.auto.tfvars.json"
-NME_CLIENT_SECRET="$(terraform -chdir="$platform" output -raw nme_client_secret)"
-export NME_CLIENT_SECRET
 [ -f "$config/terraform.tfvars" ] || { cp "$config/terraform.tfvars.example" "$config/terraform.tfvars"; echo "Wrote 02-nerdio-config/terraform.tfvars from the example"; }
+
+# The Nerdio REST client secret (decision 0015). With key_vault (the default) Terraform reads it
+# from Key Vault with your az sign-in, so nothing is exported here.
+source_kind="$(jq -r '.nme_secret_source // "output"' "$config/platform.auto.tfvars.json")"
+say "REST API secret: $source_kind"
+case "$source_kind" in
+  key_vault)
+    echo "Terraform reads it from Key Vault during plan and apply; it never reaches this shell." ;;
+  openbao)
+    terraform -chdir="$platform" output -raw openbao_ca_cert > "$config/openbao-ca.pem"
+    # A short-lived Entra token for OpenBao's login app, not the Nerdio secret.
+    scope="$(jq -r '.openbao.scope' "$config/platform.auto.tfvars.json")"
+    TF_VAR_openbao_jwt="$(az account get-access-token --scope "$scope" --query accessToken -o tsv)"
+    export TF_VAR_openbao_jwt
+    echo "OpenBao mints a short-lived secret for this run." ;;
+  *)
+    NME_CLIENT_SECRET="$(terraform -chdir="$platform" output -raw nme_client_secret)"
+    export NME_CLIENT_SECRET
+    echo "Using NME_CLIENT_SECRET (the old hand-off); set nme_secret_store = \"key_vault\" to stop exporting it." ;;
+esac
 
 say "02-nerdio-config: terraform ${mode#--}"
 cd "$config"
-terraform get >/dev/null
+terraform init -input=false -upgrade >/dev/null
 run_tf
 if [ "$mode" = plan ]; then
   echo

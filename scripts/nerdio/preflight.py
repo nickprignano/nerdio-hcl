@@ -64,10 +64,10 @@ def check_tools() -> list[Result]:
             ver = json.loads(res.stdout)["terraform_version"]
         except (ValueError, KeyError):
             ver = "unknown"
-        if _version_at_least(ver, "1.9.0"):
-            out.append(Result(PASS, "Terraform", f"{ver} (the kit needs 1.9 or later)"))
+        if _version_at_least(ver, "1.11.0"):
+            out.append(Result(PASS, "Terraform", f"{ver} (the kit needs 1.11 or later)"))
         else:
-            out.append(Result(FAIL, "Terraform", f"{ver} is older than 1.9",
+            out.append(Result(FAIL, "Terraform", f"{ver} is older than 1.11",
                               "Install a newer one to ~/bin, e.g. NME_TF_VERSION=1.16.6 with the Cloud Shell bootstrap script"))
     for tool in ("az", "jq", "git"):
         out.append(Result(PASS, tool, "found") if shutil.which(tool)

@@ -39,8 +39,9 @@ ranges. Published Microsoft or Nerdio identifiers (the same in every tenant) are
 
 ## 5. Secrets never pass through chat or files in the repo
 
-Secrets come from Key Vault (later Vault), OIDC federation or environment variables, and are
-marked `sensitive` in Terraform. Scripts never print IDs or secrets. A chat assistant never asks
+Secrets come from Key Vault (or the optional OpenBao module), OIDC federation or environment
+variables, are read with ephemeral resources where Terraform supports them, and are marked
+`sensitive` in Terraform ([secret hand-off](secrets.md), [decision 0015](knowledge/decisions/0015-secrets-key-vault-default-openbao-optional.md)). Scripts never print IDs or secrets. A chat assistant never asks
 for, shows or stores a secret; the user runs the step that handles it.
 
 ## 6. Every change through a PR; nothing applies without a yes

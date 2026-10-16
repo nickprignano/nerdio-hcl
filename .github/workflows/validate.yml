@@ -40,14 +40,14 @@ jobs:
           ./scripts/install-nme-provider.sh 2>&1 | tee install.log || { tail -n 10 install.log | sed 's/^/::error::/'; exit 1; }
       - name: validate Nerdio config stage (nerdio/nme provider)
         working-directory: environments/example/02-nerdio-config
-        # init would try to fetch nerdio/nme from the Registry; get installs only the modules and
-        # validate loads the provider from dev_overrides.
+        # nerdio/nme comes from the local plugin directory the install script wrote; azurerm and
+        # vault come from the Registry, so a plain init works.
         run: |
-          terraform get -no-color >/dev/null
+          terraform init -backend=false -input=false -no-color >/dev/null
           terraform validate -no-color 2>&1 | tee validate.log || { grep -v '^$' validate.log | tail -n 8 | sed 's/^/::error::/'; exit 1; }
       - name: module tests
         run: |
-          for dir in modules/network modules/nerdio-core environments/example/01-platform; do
+          for dir in modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao environments/example/01-platform; do
             echo "::group::$dir"
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" test

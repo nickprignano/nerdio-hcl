@@ -2,14 +2,17 @@
 # Install Nerdio's nerdio/nme Terraform provider from its GitHub release.
 #
 # The provider isn't on the Terraform Registry yet; Nerdio ships Linux and Windows builds as
-# GitHub release assets and documents a dev_overrides install. This script downloads the pinned
-# release, verifies its checksum and writes the override into the Terraform CLI config.
+# GitHub release assets. This script downloads the pinned release, verifies its checksum and
+# installs it into a plugin directory in your home directory (Terraform calls the layout a
+# "filesystem mirror"; it's your own download, not a re-hosted copy), so a normal `terraform init`
+# finds it next to the Registry providers that stage 2 also needs (azurerm, vault). Nerdio's
+# docs use dev_overrides instead, but that breaks `terraform init` for every other provider.
 #
 # Guardrail: the provider has no license, so the kit downloads it from Nerdio's own release and
 # never vendors, mirrors or re-hosts the binary (docs/guardrails.md, decision 0013).
 #
 #   NME_PROVIDER_TAG   release tag (default below)
-#   NME_PROVIDER_DIR   install directory (default ~/.terraform.d/dev-overrides/nme)
+#   NME_PROVIDER_MIRROR mirror directory (default ~/.terraform.d/nme-mirror)
 #   TF_CLI_CONFIG_FILE CLI config to write (default ~/.terraformrc)
 #
 # Requires: unzip, sha256sum, and either an authenticated gh or curl + jq (used when gh isn't
@@ -17,7 +20,9 @@
 set -euo pipefail
 
 tag="${NME_PROVIDER_TAG:-v0.0.1-preview.1}"
-dir="${NME_PROVIDER_DIR:-$HOME/.terraform.d/dev-overrides/nme}"
+mirror="${NME_PROVIDER_MIRROR:-$HOME/.terraform.d/nme-mirror}"
+version="${tag#v}"
+dir="$mirror/registry.terraform.io/nerdio/nme/$version/linux_amd64"
 rc="${TF_CLI_CONFIG_FILE:-$HOME/.terraformrc}"
 repo="Get-Nerdio/NME-Terraform-Provider"
 
@@ -63,21 +68,39 @@ case "$asset" in
 esac
 bin="$(find "$dir" -maxdepth 1 -type f -name 'terraform-provider-nme*' ! -name '*.zip' ! -name '*.tar.gz' | head -n1)"
 [ -n "$bin" ] || { echo "no terraform-provider-nme binary in $(basename "$asset")" >&2; exit 1; }
-[ "$bin" = "$dir/terraform-provider-nme" ] || mv -f "$bin" "$dir/terraform-provider-nme"
-chmod +x "$dir/terraform-provider-nme"
+# Unpacked mirror layout: the binary name starts with terraform-provider-nme.
+[ "$bin" = "$dir/terraform-provider-nme_$tag" ] || mv -f "$bin" "$dir/terraform-provider-nme_$tag"
+chmod +x "$dir/terraform-provider-nme_$tag"
 
-if [ -f "$rc" ] && grep -q 'registry.terraform.io/nerdio/nme' "$rc"; then
-  echo "$rc already overrides nerdio/nme; leaving it as is."
-else
-  cat >> "$rc" <<RC
-provider_installation {
-  dev_overrides {
-    "registry.terraform.io/nerdio/nme" = "$dir"
+# Replace any provider_installation block (including the old dev_overrides one this script used to
+# write) with: nerdio/nme from the local mirror, everything else from the Registry.
+block="provider_installation {
+  filesystem_mirror {
+    path    = \"$mirror\"
+    include = [\"registry.terraform.io/nerdio/nme\"]
   }
-  direct {}
-}
-RC
-  echo "Wrote dev_overrides for nerdio/nme to $rc"
+  direct {
+    exclude = [\"registry.terraform.io/nerdio/nme\"]
+  }
+}"
+if [ -f "$rc" ] && grep -q '^provider_installation' "$rc"; then
+  if grep -qF "path    = \"$mirror\"" "$rc"; then
+    echo "$rc already points nerdio/nme at $mirror"
+  elif ! grep -q 'registry.terraform.io/nerdio/nme' "$rc"; then
+    echo "$rc already has a provider_installation block of your own. Merge this into it, then run terraform init:" >&2
+    printf '%s\n' "$block" >&2
+    exit 1
+  else
+    cp "$rc" "$rc.bak"
+    awk '/^provider_installation[[:space:]]*\{/ {skip=1; depth=0}
+         skip { n=gsub(/\{/,"{"); m=gsub(/\}/,"}"); depth+=n-m; if (depth<=0 && (n||m)) {skip=0}; next }
+         {print}' "$rc.bak" > "$rc"
+    printf '%s\n' "$block" >> "$rc"
+    echo "Replaced the provider_installation block in $rc (old copy: $rc.bak)"
+  fi
+else
+  printf '%s\n' "$block" >> "$rc"
+  echo "Wrote a provider_installation block for nerdio/nme to $rc"
 fi
 
 echo "Installed nerdio/nme $tag to $dir"

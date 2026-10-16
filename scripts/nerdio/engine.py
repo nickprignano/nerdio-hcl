@@ -178,6 +178,7 @@ DERIVATIONS = {
     "subnet_session_hosts": lambda v: str(_quarters(v["address_space"])[0]),
     "subnet_private_endpoints": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=27))[0]),
     "subnet_app_integration": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=27))[1]),
+    "subnet_openbao": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=28))[4]),
     "host_capacity": lambda v: max(1, math.ceil(v["user_count"] / v["max_sessions_per_host"])),
 }
 
@@ -267,6 +268,8 @@ def _check_subnets(values: dict) -> dict:
         space = ipaddress.IPv4Network(values["address_space"])
         subnets = {k: ipaddress.IPv4Network(values[k]) for k in
                    ("session_hosts_subnet", "private_endpoints_subnet", "app_integration_subnet")}
+        if "openbao_subnet" in values:
+            subnets["openbao_subnet"] = ipaddress.IPv4Network(values["openbao_subnet"])
     except (KeyError, ValueError, TypeError):
         return {}
     errors = {}

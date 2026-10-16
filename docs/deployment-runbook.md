@@ -85,21 +85,24 @@ host) to reach the console.
    `grant_admin_consent` was false.
 2. Install the provider. `nerdio/nme` isn't on the Terraform Registry yet, so
    `scripts/install-nme-provider.sh` downloads Nerdio's pinned GitHub release, verifies it and
-   adds a `dev_overrides` entry to `~/.terraformrc` (needs `gh auth login`). With the override in
-   place, run `terraform get` instead of `terraform init` in stage 2.
-3. Hand stage 1's values to stage 2 and export the secret:
+   installs it in a plugin directory under `~/.terraform.d`, with a `provider_installation`
+   entry in `~/.terraformrc`. Stage 2 then runs a normal `terraform init`.
+3. Hand stage 1's values to stage 2:
 
    ```bash
    cd environments/<env>/01-platform
    terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
-   export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
    ```
+
+   Nothing else is needed for the REST client secret: stage 1 stored it in Key Vault, and stage 2
+   reads it with your `az` sign-in during plan and apply ([secret hand-off](secrets.md)). With
+   `nme_secret_store = "openbao"` or `"output"`, follow that page's steps instead.
 
 4. Describe the workspace and host pools in `02-nerdio-config/terraform.tfvars` and apply:
 
    ```bash
    cd ../02-nerdio-config
-   terraform get
+   terraform init
    terraform apply
    ```
 

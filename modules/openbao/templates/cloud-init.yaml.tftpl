@@ -1,0 +1,75 @@
+#cloud-config
+# Rendered by modules/openbao. Holds no secrets; the TLS key is fetched from Key Vault at boot.
+package_update: true
+packages:
+  - curl
+  - openssl
+  - python3
+
+write_files:
+  - path: /etc/openbao/kit.hcl
+    permissions: "0640"
+    encoding: b64
+    content: ${openbao_hcl_b64}
+  - path: /usr/local/sbin/openbao-tls-sync
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Copies OpenBao's TLS certificate and key from Key Vault (managed identity), and reloads
+      # OpenBao when they change, so Key Vault's auto-renewal reaches the server.
+      set -euo pipefail
+      imds="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net&client_id=${identity_client_id}"
+      token="$(curl -fsS -H Metadata:true "$imds" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
+      work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+      curl -fsS -H "Authorization: Bearer $token" \
+        "https://${key_vault_name}.vault.azure.net/secrets/${tls_cert_name}?api-version=7.4" \
+        | python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["value"])' > "$work/bundle.pem"
+      openssl pkey -in "$work/bundle.pem" -out "$work/tls.key"
+      openssl x509 -in "$work/bundle.pem" -out "$work/tls.crt"
+      install -d -o openbao -g openbao -m 0700 /opt/openbao/tls
+      if ! cmp -s "$work/tls.crt" /opt/openbao/tls/tls.crt; then
+        install -o openbao -g openbao -m 0600 "$work/tls.key" /opt/openbao/tls/tls.key
+        install -o openbao -g openbao -m 0644 "$work/tls.crt" /opt/openbao/tls/tls.crt
+        if systemctl is-active --quiet openbao; then systemctl reload openbao; fi
+      fi
+  - path: /etc/systemd/system/openbao-tls-sync.service
+    content: |
+      [Unit]
+      Description=Sync OpenBao TLS certificate from Key Vault
+      After=network-online.target
+      Wants=network-online.target
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/openbao-tls-sync
+  - path: /etc/systemd/system/openbao-tls-sync.timer
+    content: |
+      [Unit]
+      Description=Daily OpenBao TLS certificate sync
+      [Timer]
+      OnCalendar=daily
+      RandomizedDelaySec=1h
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+  - path: /etc/logrotate.d/openbao-audit
+    content: |
+      /var/log/openbao/audit.log {
+        daily
+        rotate 14
+        compress
+        missingok
+        notifempty
+        postrotate
+          systemctl reload openbao >/dev/null 2>&1 || true
+        endscript
+      }
+
+runcmd:
+  - [bash, -euo, pipefail, -c, 'curl -fsSL -o /tmp/openbao.deb "https://github.com/openbao/openbao/releases/download/v${openbao_version}/openbao_${openbao_version}_linux_amd64.deb"']
+  - [bash, -euo, pipefail, -c, 'echo "${openbao_sha256}  /tmp/openbao.deb" | sha256sum --check -']
+  - [bash, -euo, pipefail, -c, 'DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/openbao.deb && rm -f /tmp/openbao.deb']
+  - [install, -o, root, -g, openbao, -m, "0640", /etc/openbao/kit.hcl, /etc/openbao/openbao.hcl]
+  - [install, -d, -o, openbao, -g, openbao, -m, "0750", /opt/openbao/data, /opt/openbao/plugins, /var/log/openbao]
+  - [/usr/local/sbin/openbao-tls-sync]
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, openbao.service, openbao-tls-sync.timer]

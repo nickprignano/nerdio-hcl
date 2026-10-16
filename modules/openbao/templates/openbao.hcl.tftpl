@@ -1,0 +1,145 @@
+# Rendered by modules/openbao. Holds no secrets: unseal is Key Vault, and login is Entra or GitHub.
+ui            = false
+cluster_name  = "nerdio-kit"
+api_addr      = "${address}"
+cluster_addr  = "https://127.0.0.1:8201"
+
+storage "raft" {
+  path    = "/opt/openbao/data"
+  node_id = "openbao-0"
+}
+
+listener "tcp" {
+  address         = "0.0.0.0:8200"
+  cluster_address = "127.0.0.1:8201"
+  tls_cert_file   = "/opt/openbao/tls/tls.crt"
+  tls_key_file    = "/opt/openbao/tls/tls.key"
+  tls_min_version = "tls12"
+}
+
+# Managed identity through IMDS: no client ID or secret here.
+seal "azurekeyvault" {
+  tenant_id  = "${tenant_id}"
+  vault_name = "${key_vault_name}"
+  key_name   = "${unseal_key_name}"
+}
+
+plugin_directory     = "/opt/openbao/plugins"
+plugin_auto_download = true
+plugin_auto_register = true
+
+plugin "secret" "azure" {
+  image = "${azure_plugin_image}"
+}
+
+audit "file" "file" {
+  description = "Every request and response, with secrets hashed."
+  options {
+    file_path = "/var/log/openbao/audit.log"
+  }
+}
+
+# Self-initialization runs once, on first start. OpenBao uses a root token for these requests
+# and revokes it afterwards, so no root token or recovery key is ever handed out.
+initialize "policy" {
+  request "nerdio-rest" {
+    operation = "update"
+    path      = "sys/policies/acl/${secret_role}"
+    data = {
+      policy = ${jsonencode(policy)}
+    }
+  }
+}
+
+initialize "azure" {
+  request "mount" {
+    operation = "update"
+    path      = "sys/mounts/azure"
+    data      = { type = "azure" }
+  }
+  request "config" {
+    operation = "update"
+    path      = "azure/config"
+    data = {
+      tenant_id       = "${tenant_id}"
+      subscription_id = "${subscription_id}"
+    }
+  }
+  request "role" {
+    operation = "update"
+    path      = "azure/roles/${secret_role}"
+    data = {
+      application_object_id = "${application_object_id}"
+      ttl                   = "${credential_ttl}"
+      max_ttl               = "${credential_ttl}"
+    }
+  }
+}
+
+# Cloud Shell: an Entra access token for the login app, from the allowed users only.
+initialize "entra" {
+  request "mount" {
+    operation = "update"
+    path      = "sys/auth/entra"
+    data      = { type = "jwt" }
+  }
+  request "config" {
+    operation = "update"
+    path      = "auth/entra/config"
+    data = {
+      jwks_url     = "https://login.microsoftonline.com/${tenant_id}/discovery/v2.0/keys"
+      bound_issuer = "https://login.microsoftonline.com/${tenant_id}/v2.0"
+    }
+  }
+  request "role" {
+    operation = "update"
+    path      = "auth/entra/role/${secret_role}"
+    data = {
+      role_type       = "jwt"
+      user_claim      = "oid"
+      bound_audiences = ${jsonencode([login_client_id])}
+      bound_claims = {
+        tid = "${tenant_id}"
+        oid = ${jsonencode(login_object_ids)}
+      }
+      token_policies  = ${jsonencode([secret_role])}
+      token_ttl       = "1h"
+      token_max_ttl   = "${credential_ttl}"
+    }
+  }
+}
+%{ if github_repository != null ~}
+
+# GitHub Actions: the job's OIDC token, requested with audience "openbao".
+initialize "github" {
+  request "mount" {
+    operation = "update"
+    path      = "sys/auth/github"
+    data      = { type = "jwt" }
+  }
+  request "config" {
+    operation = "update"
+    path      = "auth/github/config"
+    data = {
+      oidc_discovery_url = "https://token.actions.githubusercontent.com"
+      bound_issuer       = "https://token.actions.githubusercontent.com"
+    }
+  }
+  request "role" {
+    operation = "update"
+    path      = "auth/github/role/${secret_role}"
+    data = {
+      role_type       = "jwt"
+      user_claim      = "sub"
+      bound_audiences = ["openbao"]
+      bound_claims = {
+        repository  = "${github_repository}"
+        environment = "${github_environment}"
+      }
+      token_policies  = ${jsonencode([secret_role])}
+      token_ttl       = "1h"
+      token_max_ttl   = "${credential_ttl}"
+    }
+  }
+}
+%{ endif ~}
