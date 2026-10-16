@@ -7,8 +7,13 @@ that still comes from the Marketplace (see [platform.md](platform.md)).
 - Source: https://github.com/Get-Nerdio/NME-Terraform-Provider
 - Status at last review: README says "under heavy development". Examples pin `0.1.0`
   (one older example uses `0.0.1`).
-- *Unverified:* whether it is published on the public Terraform Registry. Check before relying on
-  `terraform init` pulling it; otherwise build it locally (below).
+- Not on the public Terraform Registry at last review. Releases are zips (Linux and Windows amd64
+  only) on the repo's GitHub Releases page, installed with a `dev_overrides` CLI config. With
+  `dev_overrides`, `terraform init` may fail; a `filesystem_mirror` avoids that
+  ([restricted-networks.md](../terraform/restricted-networks.md#workaround-filesystem-mirror)).
+- Nerdio keeps its own coverage matrix in
+  [AVD-COVERAGE.md](https://github.com/Get-Nerdio/NME-Terraform-Provider/blob/main/AVD-COVERAGE.md).
+- The repo has no license file at last review. See [upstream-contributions.md](upstream-contributions.md).
 
 ## Authentication
 
@@ -44,7 +49,9 @@ Host pool notes: `SecurityType` is `None`, `TrustedLaunch` or `Confidential`; `i
 ## Gaps
 
 Not covered at last review: session hosts, app groups, RemoteApps, MSIX app attach, schedules
-and monitoring. Those stay in the Nerdio console.
+and monitoring. Those stay in the Nerdio console. Nerdio treats imperative actions (power,
+reimage, drain, run script) as out of scope for the provider by design. Gaps worth contributing
+are tracked in [upstream-contributions.md](upstream-contributions.md).
 
 ## Building it locally
 

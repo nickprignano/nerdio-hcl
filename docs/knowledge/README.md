@@ -14,6 +14,7 @@ belongs to instead of starting a new file.
 | [nerdio/platform.md](nerdio/platform.md) | What the Marketplace deployment creates, the install step, setup wizard, roles and hardening |
 | [nerdio/entra-app.md](nerdio/entra-app.md) | The `nerdio-nmw-app` registration, permissions, app roles and the REST API client |
 | [nerdio/terraform-provider.md](nerdio/terraform-provider.md) | Nerdio's own `nerdio/nme` provider: auth, resources, coverage gaps, how to build it |
+| [nerdio/upstream-contributions.md](nerdio/upstream-contributions.md) | Gaps, bugs and doc fixes we could contribute to Nerdio's provider, with evidence |
 | [nerdio/community-projects.md](nerdio/community-projects.md) | Other Nerdio + Terraform projects worth knowing about |
 | [terraform/azurerm-5.md](terraform/azurerm-5.md) | azurerm 5.x and azuread 3.x changes we hit, with fixes |
 | [terraform/restricted-networks.md](terraform/restricted-networks.md) | Running Terraform and Packer where the registry is blocked |
