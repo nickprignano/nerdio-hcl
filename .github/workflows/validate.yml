@@ -41,10 +41,13 @@ jobs:
           terraform get -no-color >/dev/null
           terraform validate -no-color 2>&1 | tee validate.log || { grep -v '^$' validate.log | tail -n 8 | sed 's/^/::error::/'; exit 1; }
       - name: module tests
-        working-directory: modules/network
         run: |
-          terraform init -backend=false -input=false
-          terraform test
+          for dir in modules/network modules/nerdio-core environments/example/01-platform; do
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" test
+            echo "::endgroup::"
+          done
       - uses: terraform-linters/setup-tflint@v4
       - name: tflint
         run: |

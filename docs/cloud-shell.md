@@ -3,38 +3,37 @@
 `scripts/cloudshell-bootstrap.sh` runs both stages from Cloud Shell (Bash) in a browser, tablet
 included, without typing tenant or subscription IDs. It reads them from `az account show`,
 writes gitignored tfvars, installs Terraform if Cloud Shell's is older than 1.9, and installs
-`nerdio/nme` without `gh` sign-in. Use a Cloud Shell with storage (persistent mode): local state
-and Nerdio's own install script both need it.
+`nerdio/nme` without `gh` sign-in. Use a Cloud Shell with storage (persistent mode), because
+Terraform keeps its local state in your home directory.
 
 ## Stage 1
 
-1. Export the Nerdio Manager template: **Marketplace > Nerdio Manager for Enterprise > Create**,
-   fill the Basics, then on **Review + create** choose **Download a template for automation >
-   Download**. Don't click Create. In Cloud Shell, **Manage files > Upload** the zip.
-2. Clone and plan:
+```bash
+az account show --query name -o tsv      # the right subscription? else: az account set --subscription "<name>"
+git clone https://github.com/nickprignano/nerdio-hcl.git && cd nerdio-hcl
+./scripts/cloudshell-bootstrap.sh platform           # plan
+./scripts/cloudshell-bootstrap.sh platform --apply   # apply; Terraform asks for yes
+```
 
-   ```bash
-   az account show --query name -o tsv      # the sandbox subscription? else: az account set --subscription "<name>"
-   git clone https://github.com/nickprignano/nerdio-hcl.git && cd nerdio-hcl
-   ./scripts/cloudshell-bootstrap.sh platform
-   ```
+The script writes `01-platform/sandbox.auto.tfvars` with the IDs, a random `nme-sbx-xxxx` prefix,
+`eastus2`, you as WVD Admin, and the terraform install. Later runs reuse it. To change the
+defaults, set `NME_LOCATION`, `NME_GRANT_CONSENT=false` or `NME_INSTALL=marketplace` before the
+first run.
 
-3. Review the plan, then apply (Terraform asks for `yes`):
+The apply builds Nerdio Manager and starts an Automation job that deploys its code. Give it about
+10 minutes, then open `terraform -chdir=environments/example/01-platform output -raw nerdio_url`.
 
-   ```bash
-   ./scripts/cloudshell-bootstrap.sh platform --apply
-   ```
+### Marketplace install only
 
-The script writes `01-platform/sandbox.auto.tfvars` (IDs, a random `nme-sbx-xxxx` prefix,
-`eastus2`, you as WVD Admin) and `01-platform/nerdio.auto.tfvars.json` (the exported
-parameters). Later runs reuse them. Set `NME_LOCATION` or `NME_GRANT_CONSENT=false` before the
-first run to change those defaults.
+With `NME_INSTALL=marketplace`, export the template first: **Marketplace > Nerdio Manager for
+Enterprise > Create**, fill the Basics, then on **Review + create** choose **Download a template
+for automation > Download** (don't click Create). Upload the zip with **Manage files > Upload**;
+the script unpacks it. Nerdio's install step then needs local PowerShell for the "Use existing
+AD app" path (see the [deployment runbook](deployment-runbook.md#marketplace-install)).
 
-## Install step and wizard
+## Setup wizard
 
-Follow steps 3 and 4 of the [deployment runbook](deployment-runbook.md). The **Use existing AD
-app** path downloads `deploy-az.ps1`, which Nerdio documents for local PowerShell; from a tablet,
-try it in Cloud Shell PowerShell (`pwsh`) and note whether it works.
+Follow step 4 of the [deployment runbook](deployment-runbook.md).
 
 ## Stage 2
 

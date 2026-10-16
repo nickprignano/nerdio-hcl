@@ -10,6 +10,8 @@
 # later runs reuse it, so names stay stable. Every generated file is gitignored, and IDs are
 # never printed. Run `az account set --subscription <name>` first if the default is wrong.
 #
+#   NME_INSTALL        terraform (default: Terraform builds Nerdio Manager) or marketplace (deploy an
+#                      exported Marketplace template, then run Nerdio's install script)
 #   NME_LOCATION       Azure region (default eastus2)
 #   NME_GRANT_CONSENT  grant admin consent from Terraform (default true; needs Global Admin or
 #                      Privileged Role Administrator)
@@ -142,9 +144,10 @@ entra_app = {
   grant_admin_consent  = $consent
 }
 
+nerdio_install   = "$install"
 enable_hardening = false
 TFVARS
-  echo "Wrote 01-platform/sandbox.auto.tfvars (prefix $prefix, region $location, admin consent $consent)"
+  echo "Wrote 01-platform/sandbox.auto.tfvars (prefix $prefix, region $location, $install install, admin consent $consent)"
 }
 
 run_tf() {
@@ -158,14 +161,18 @@ run_tf() {
 say "Account"
 az account show --query '{subscription:name, signedInAs:user.name}' -o table
 location="${NME_LOCATION:-eastus2}"
+install="${NME_INSTALL:-terraform}"
+case "$install" in terraform | marketplace) ;; *) echo "NME_INSTALL must be terraform or marketplace" >&2; exit 64 ;; esac
 [ -d "$HOME/clouddrive" ] || echo "warning: no ~/clouddrive; this looks like an ephemeral Cloud Shell, so state is lost when it closes." >&2
 
 say "Terraform"
 ensure_terraform
 
 if [ "$stage" = platform ]; then
-  say "Nerdio Manager template"
-  ensure_template
+  if [ "$install" = marketplace ]; then
+    say "Nerdio Manager template"
+    ensure_template
+  fi
   say "Variables"
   write_platform_tfvars
   say "01-platform: terraform ${mode#--}"

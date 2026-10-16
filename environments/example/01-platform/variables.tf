@@ -58,14 +58,44 @@ variable "fslogix" {
   default = null
 }
 
+variable "nerdio_install" {
+  description = <<-EOT
+    How Nerdio Manager gets installed:
+    "terraform"   (default) builds it in Terraform (modules/nerdio-core) and deploys the app code
+                  from an Automation job, so there's no install script to run.
+    "marketplace" deploys an exported Marketplace template, then you run Nerdio's install script.
+  EOT
+  type        = string
+  default     = "terraform"
+  validation {
+    condition     = contains(["terraform", "marketplace"], var.nerdio_install)
+    error_message = "nerdio_install must be \"terraform\" or \"marketplace\"."
+  }
+  validation {
+    condition     = var.nerdio_install == "marketplace" || var.create_entra_app
+    error_message = "The terraform install builds the Entra app itself, so it needs create_entra_app = true."
+  }
+}
+
+variable "nerdio_core" {
+  description = "Settings for the terraform install (see modules/nerdio-core)."
+  type = object({
+    package_version      = optional(string, "latest")
+    app_service_plan_sku = optional(string, "B3")
+    database_sku         = optional(string, "S1")
+    name_suffix          = optional(string)
+  })
+  default = {}
+}
+
 variable "nerdio_template_file" {
-  description = "Path to the Nerdio Manager ARM template exported from the Marketplace."
+  description = "Marketplace install only: path to the exported Nerdio Manager ARM template."
   type        = string
   default     = "../../../templates/nerdio-manager/template.json"
 }
 
 variable "nerdio_template_parameters" {
-  description = "Parameter values for the exported template."
+  description = "Marketplace install only: parameter values for the exported template."
   type        = any
   default     = {}
 }

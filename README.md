@@ -14,13 +14,14 @@ built around Nerdio's official Terraform provider, [`nerdio/nme`](https://github
 | Foundation | Terraform | Resource groups, resource provider registration, Log Analytics |
 | Network | Terraform | AVD spoke VNet, session host / private endpoint / App Service subnets, NSGs, NAT gateway, privatelink DNS zones, optional hub peering |
 | Profiles | Terraform | Premium Azure Files for FSLogix with a private endpoint, Entra Kerberos / Entra DS / AD DS auth and SMB RBAC |
-| Nerdio Manager | Terraform | The Marketplace ARM template (App Service, SQL, Key Vault, Automation, App Insights, storage) |
+| Nerdio Manager | Terraform (+ azapi) | App Service, Entra-only SQL, Key Vault, Automation, App Insights and storage with Nerdio's settings, plus an Automation job that deploys the app code. The Marketplace template stays as an alternative. |
 | Identity | Terraform (azuread) | The `nerdio-nmw-app` registration, app roles, Graph permissions, optional admin consent and REST API client |
 | Hardening | Terraform | Private endpoints for SQL and Key Vault, App Service VNet integration, optional private console |
 | Images | Terraform + Packer | Compute Gallery and a Windows 11 multi-session + M365 image (Trusted Launch, VDOT, updates) |
 | Nerdio config | Terraform (`nerdio/nme`) | Linked subscription, resource groups and network, workspace, FSLogix profile, auto-scale profile, dynamic host pools |
 
-Nerdio's install script and setup wizard are the only manual steps; they sit between the two stages.
+Nerdio's setup wizard is the only manual step; it sits between the two stages, because Nerdio has
+no API for the directory profile or first run yet.
 `nerdio/nme` is early (0.x), so check its
 [coverage notes](https://github.com/Get-Nerdio/NME-Terraform-Provider/blob/main/AVD-COVERAGE.md)
 before you rely on it for something; app groups and session host actions aren't covered yet, for example.
@@ -32,8 +33,9 @@ modules/
   foundation/        resource groups, providers, Log Analytics
   network/           AVD spoke network and private DNS
   fslogix-storage/   profile storage
-  nerdio-manager/    Marketplace template deployment + resource discovery
-  nerdio-identity/   Entra app for Nerdio's "Use existing AD app" install path
+  nerdio-core/       Nerdio Manager built in Terraform, plus the app code deploy job (default)
+  nerdio-manager/    Marketplace template deployment + resource discovery (alternative)
+  nerdio-identity/   Nerdio's Entra app, app roles, consent and REST API client
   nerdio-hardening/  private endpoints and VNet integration for Nerdio's core resources
   image-gallery/     Compute Gallery and image definitions for Packer
   nerdio-config/     Nerdio objects through the nerdio/nme provider
@@ -44,7 +46,7 @@ environments/
 packer/
   avd-win11/         Windows 11 multi-session image build
 templates/
-  nerdio-manager/    drop the exported Marketplace template here
+  nerdio-manager/    exported Marketplace template (marketplace install only)
 docs/
   deployment-runbook.md
   cloud-shell.md
@@ -63,7 +65,7 @@ cp terraform.tfvars.example terraform.tfvars   # tenant, subscription, names, CI
 az login --tenant <tenant-id>
 terraform init && terraform apply
 
-# install Nerdio and finish its wizard, enable the REST API, then:
+# Terraform installs Nerdio Manager too; finish its setup wizard, enable the REST API, then:
 ../../../scripts/install-nme-provider.sh      # nerdio/nme ships as a GitHub release for now
 terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
 export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
