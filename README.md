@@ -25,6 +25,20 @@ Nerdio's install script and setup wizard are the only manual steps; they sit bet
 [coverage notes](https://github.com/Get-Nerdio/NME-Terraform-Provider/blob/main/AVD-COVERAGE.md)
 before you rely on it for something; app groups and session host actions aren't covered yet, for example.
 
+## Guided setup
+
+One set of questions, three ways to answer them. All three read
+[`schema/parameters.json`](schema/README.md), so they ask the same things and write the same tfvars:
+
+- **Chat:** open the repo in Claude Code and say "set up Nerdio". The `setup` skill walks you through
+  discover, a readiness check and configure, explaining each choice with a source.
+- **Command line:** `./nerdio init` asks the questions in the terminal (Azure Cloud Shell works),
+  then `./nerdio preflight` checks your roles, providers, region and quota.
+- **Button:** the **configure** workflow in the Actions tab takes the main answers as a form and
+  dry-runs them.
+
+Details: [docs/setup.md](docs/setup.md).
+
 ## Layout
 
 ```

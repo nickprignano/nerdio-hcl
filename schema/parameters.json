@@ -1,0 +1,850 @@
+{
+  "version": 1,
+  "description": "The one list of deployment parameters. The chat setup skill, ./nerdio init and the GitHub Actions form all read it, and each parameter maps onto a Terraform variable. Format: schema/README.md.",
+  "phases": [
+    {
+      "id": "discover",
+      "title": "Discover",
+      "summary": "What you want to run: environment, identity model, users and workload. Drives the defaults."
+    },
+    {
+      "id": "prepare",
+      "title": "Prepare",
+      "summary": "Readiness checks (./nerdio preflight): roles, providers, region, quota, tools. No parameters."
+    },
+    {
+      "id": "configure",
+      "title": "Configure",
+      "summary": "Names, network, storage, identity and the first host pool. Writes the tfvars."
+    },
+    {
+      "id": "bootstrap",
+      "title": "Bootstrap",
+      "summary": "Later: the one admin step that creates the deployment identity and state."
+    },
+    {
+      "id": "deploy",
+      "title": "Deploy",
+      "summary": "Later: plan, an explicit yes, then apply."
+    },
+    {
+      "id": "wizard",
+      "title": "Wizard steps",
+      "summary": "Later: Nerdio's directory profile and first-run screens."
+    },
+    {
+      "id": "verify",
+      "title": "Verify",
+      "summary": "Later: post-deploy checks and a first sign-in."
+    },
+    {
+      "id": "handover",
+      "title": "Handover",
+      "summary": "Later: the environment-specific runbook."
+    }
+  ],
+  "stages": {
+    "platform": "environments/{env}/01-platform",
+    "config": "environments/{env}/02-nerdio-config"
+  },
+  "output_file": "setup.auto.tfvars.json",
+  "roots": [
+    {
+      "stage": "platform",
+      "path": "fslogix",
+      "null_unless": {
+        "fslogix_enabled": true
+      }
+    },
+    {
+      "stage": "platform",
+      "path": "image_gallery",
+      "null_unless": {
+        "image_gallery_enabled": true
+      }
+    }
+  ],
+  "constants": [
+    {
+      "stage": "platform",
+      "path": "tags.workload",
+      "value": "avd"
+    },
+    {
+      "stage": "platform",
+      "path": "tags.managed-by",
+      "value": "terraform"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "environment",
+      "phase": "discover",
+      "type": "enum",
+      "question": "Is this a sandbox, a dev environment or production?",
+      "help": "Sets the environment tag and right-sizes a few defaults (a sandbox gets a smaller profile share). Production should later run through the Actions approval gate.",
+      "choices": [
+        {
+          "value": "sandbox",
+          "label": "Sandbox: try it out, tear it down"
+        },
+        {
+          "value": "dev",
+          "label": "Dev: shared test environment"
+        },
+        {
+          "value": "prod",
+          "label": "Production"
+        }
+      ],
+      "default": "sandbox",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "tags.environment"
+        }
+      ],
+      "form": true
+    },
+    {
+      "id": "identity_model",
+      "phase": "discover",
+      "type": "enum",
+      "question": "How will the session hosts join a directory?",
+      "help": "Entra-joined needs no domain controllers and uses Entra Kerberos for the FSLogix share. Entra Domain Services and AD DS need DNS servers that resolve the domain, and the domain join itself is set in Nerdio's directory profile (a wizard step with no API yet).",
+      "choices": [
+        {
+          "value": "entra_joined",
+          "label": "Entra-joined (recommended, no domain controllers)"
+        },
+        {
+          "value": "entra_ds",
+          "label": "Entra Domain Services"
+        },
+        {
+          "value": "ad_ds",
+          "label": "Active Directory Domain Services (hybrid)",
+          "supported": false,
+          "reason": "The kit doesn't pass AD DS domain details to the FSLogix share yet (the AzFilesHybrid join is also manual). Pick Entra-joined for now, or follow the roadmap."
+        }
+      ],
+      "default": "entra_joined",
+      "form": true,
+      "kb": [
+        "docs/knowledge/nerdio/platform.md#setup-wizard-manual",
+        "docs/knowledge/chat-assistant.md"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/azure/virtual-desktop/authentication"
+      ]
+    },
+    {
+      "id": "user_count",
+      "phase": "discover",
+      "type": "int",
+      "min": 1,
+      "max": 5000,
+      "question": "How many people will use a desktop at the busiest time?",
+      "help": "Sizes the host pool's capacity for auto-scale. A rough number is fine; auto-scale handles the day-to-day swing.",
+      "default": 10,
+      "form": true
+    },
+    {
+      "id": "workload",
+      "phase": "discover",
+      "type": "enum",
+      "question": "What kind of work will they do?",
+      "help": "Picks the VM size and how many sessions share a host. These are conservative starting points, below Microsoft's per-vCPU guidance for multi-session hosts; tune them after a real load test.",
+      "choices": [
+        {
+          "value": "light",
+          "label": "Light: browser, email, data entry"
+        },
+        {
+          "value": "medium",
+          "label": "Medium: Office, Teams, line-of-business apps"
+        },
+        {
+          "value": "heavy",
+          "label": "Heavy: developers, large spreadsheets, many apps at once"
+        }
+      ],
+      "default": "medium",
+      "form": true,
+      "sources": [
+        "https://learn.microsoft.com/windows-server/remote/remote-desktop-services/virtual-machine-recs"
+      ]
+    },
+    {
+      "id": "tenant_id",
+      "phase": "configure",
+      "type": "uuid",
+      "ask": "never",
+      "source": "tenant",
+      "question": "Entra tenant ID",
+      "help": "Read from ARM_TENANT_ID or `az account show`. Never typed into chat and never written to the answers file.",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "tenant_id"
+        }
+      ]
+    },
+    {
+      "id": "subscription_id",
+      "phase": "configure",
+      "type": "uuid",
+      "ask": "never",
+      "source": "subscription",
+      "question": "Subscription ID",
+      "help": "Read from ARM_SUBSCRIPTION_ID or `az account show`. Run `az account set --subscription <name>` first to pick a different one.",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "subscription_id"
+        }
+      ]
+    },
+    {
+      "id": "location",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]{2,30}$",
+      "question": "Which Azure region? Pick one close to most users.",
+      "help": "Use the short name, like eastus2 or westeurope (`az account list-locations -o table`). Preflight checks that AVD's services and your VM size are available there.",
+      "default": "eastus2",
+      "form": true,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "location"
+        }
+      ]
+    },
+    {
+      "id": "prefix",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,14}[a-z0-9]$",
+      "question": "Short naming prefix for every resource?",
+      "help": "3 to 16 lowercase letters, digits or hyphens. The random ending keeps the storage account name globally unique.",
+      "default": "nme-{environment}-{random4}",
+      "form": true,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "prefix"
+        }
+      ]
+    },
+    {
+      "id": "resource_group_pattern",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._(){}-]*\\{role\\}[A-Za-z0-9._(){}-]*$",
+      "ask": "advanced",
+      "question": "Resource group naming pattern?",
+      "help": "{role} becomes nerdio, network, hostpools, storage and monitoring. {prefix} is your prefix. Nerdio's resource group must be new and empty.",
+      "default": "rg-{prefix}-{role}",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "resource_groups",
+          "render": "resource_groups"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/platform.md#marketplace-deployment"
+      ]
+    },
+    {
+      "id": "address_space",
+      "phase": "configure",
+      "type": "cidr",
+      "min_prefix": 16,
+      "max_prefix": 22,
+      "question": "Address range for the AVD network?",
+      "help": "A private range that doesn't overlap your other networks or on-premises ranges, between /16 and /22. Subnets are carved from it: the first quarter for session hosts, then two /27s for private endpoints and app integration.",
+      "default": "10.50.0.0/20",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.address_space",
+          "render": "list"
+        }
+      ],
+      "checks": [
+        "subnets_in_address_space"
+      ]
+    },
+    {
+      "id": "session_hosts_subnet",
+      "phase": "configure",
+      "type": "cidr",
+      "ask": "advanced",
+      "question": "Session host subnet?",
+      "help": "Defaults to the first quarter of the address range.",
+      "default": {
+        "derive": "subnet_session_hosts"
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.subnets.session_hosts"
+        }
+      ]
+    },
+    {
+      "id": "private_endpoints_subnet",
+      "phase": "configure",
+      "type": "cidr",
+      "ask": "advanced",
+      "question": "Private endpoint subnet?",
+      "help": "Defaults to the first /27 of the second quarter.",
+      "default": {
+        "derive": "subnet_private_endpoints"
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.subnets.private_endpoints"
+        }
+      ]
+    },
+    {
+      "id": "app_integration_subnet",
+      "phase": "configure",
+      "type": "cidr",
+      "ask": "advanced",
+      "question": "App Service integration subnet?",
+      "help": "Used by the hardening apply. Defaults to the second /27 of the second quarter.",
+      "default": {
+        "derive": "subnet_app_integration"
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.subnets.app_integration"
+        }
+      ]
+    },
+    {
+      "id": "dns_servers",
+      "phase": "configure",
+      "type": "ipv4_list",
+      "when": {
+        "identity_model": [
+          "entra_ds",
+          "ad_ds"
+        ]
+      },
+      "question": "DNS servers that resolve your domain (comma-separated)?",
+      "help": "Your domain controllers or Entra Domain Services IPs. Session hosts can't join the domain without them.",
+      "default": [],
+      "min_items": 1,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.dns_servers"
+        }
+      ]
+    },
+    {
+      "id": "hub_vnet_id",
+      "phase": "configure",
+      "type": "string",
+      "ask": "advanced",
+      "pattern": "^$|^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+$",
+      "question": "Hub VNet resource ID to peer with (blank for none)?",
+      "help": "Leave blank for a standalone network.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.hub_vnet_id",
+          "omit_empty": true
+        }
+      ]
+    },
+    {
+      "id": "create_nat_gateway",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Create a NAT gateway for outbound internet?",
+      "help": "Session hosts need outbound access to AVD's required URLs. Turn this off only if a hub firewall routes the traffic.",
+      "default": true,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "network.create_nat_gateway"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/platform.md#networking-note"
+      ]
+    },
+    {
+      "id": "fslogix_enabled",
+      "phase": "configure",
+      "type": "bool",
+      "question": "Store user profiles with FSLogix on Azure Files?",
+      "help": "Recommended for pooled desktops so users keep their profile on any host. Creates a premium file share behind a private endpoint.",
+      "default": true,
+      "form": true
+    },
+    {
+      "id": "fslogix_storage_account_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[a-z0-9]{3,24}$",
+      "ask": "advanced",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ]
+      },
+      "question": "Profile storage account name?",
+      "help": "3 to 24 lowercase letters and digits, globally unique.",
+      "default": "st{prefix|compact:15}fslogix",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.storage_account_name"
+        }
+      ]
+    },
+    {
+      "id": "fslogix_share_quota_gb",
+      "phase": "configure",
+      "type": "int",
+      "min": 100,
+      "max": 102400,
+      "ask": "advanced",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ]
+      },
+      "question": "Profile share size in GiB?",
+      "help": "Premium shares bill on the provisioned size, and IOPS scale with it. 100 GiB is the minimum.",
+      "default": {
+        "map": "environment",
+        "values": {
+          "sandbox": 100,
+          "dev": 256,
+          "prod": 1024
+        }
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.share_quota_gb"
+        }
+      ]
+    },
+    {
+      "id": "fslogix_identity_source",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "never",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ]
+      },
+      "choices": [
+        {
+          "value": "AADKERB"
+        },
+        {
+          "value": "AADDS"
+        },
+        {
+          "value": "AD"
+        }
+      ],
+      "question": "How hosts authenticate to the profile share",
+      "help": "Follows the identity model.",
+      "default": {
+        "map": "identity_model",
+        "values": {
+          "entra_joined": "AADKERB",
+          "entra_ds": "AADDS",
+          "ad_ds": "AD"
+        }
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.identity_source"
+        }
+      ]
+    },
+    {
+      "id": "user_groups",
+      "phase": "configure",
+      "type": "group_list",
+      "question": "Which Entra groups hold the desktop users (names, comma-separated, blank to add later)?",
+      "help": "Group names are looked up with az when the files are written, so you don't need to paste object IDs. They get access to the profile share.",
+      "default": [],
+      "when": {
+        "fslogix_enabled": [
+          true
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.user_group_object_ids"
+        }
+      ]
+    },
+    {
+      "id": "admin_groups",
+      "phase": "configure",
+      "type": "group_list",
+      "ask": "advanced",
+      "question": "Which Entra groups administer the profile share?",
+      "help": "Group names or object IDs. They get elevated access to the share.",
+      "default": [],
+      "when": {
+        "fslogix_enabled": [
+          true
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.admin_group_object_ids"
+        }
+      ]
+    },
+    {
+      "id": "image_gallery_enabled",
+      "phase": "configure",
+      "type": "bool",
+      "question": "Create a Compute Gallery for the kit's Packer image?",
+      "help": "The kit builds a Windows 11 multi-session image with Packer. Say no to start from Marketplace images in Nerdio instead.",
+      "default": true,
+      "form": true,
+      "kb": [
+        "docs/knowledge/packer/avd-image.md"
+      ]
+    },
+    {
+      "id": "gallery_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._]{0,78}[A-Za-z0-9]$",
+      "ask": "advanced",
+      "when": {
+        "image_gallery_enabled": [
+          true
+        ]
+      },
+      "question": "Compute Gallery name?",
+      "help": "Letters, digits, dots and underscores (no hyphens).",
+      "default": "gal_{prefix|underscore}",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "image_gallery.name"
+        }
+      ]
+    },
+    {
+      "id": "image_build_resource_group",
+      "phase": "configure",
+      "type": "string",
+      "ask": "advanced",
+      "when": {
+        "image_gallery_enabled": [
+          true
+        ]
+      },
+      "pattern": "^[A-Za-z0-9._()-]{1,90}$",
+      "question": "Resource group Packer builds in?",
+      "help": "Packer creates and deletes temporary VMs here.",
+      "default": "rg-{prefix}-images-build",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "image_gallery.build_resource_group_name"
+        }
+      ]
+    },
+    {
+      "id": "create_entra_app",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Create Nerdio's Entra app in Terraform?",
+      "help": "Yes builds nerdio-nmw-app and the REST API client in Terraform. No leaves it to Nerdio's install script.",
+      "default": true,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "create_entra_app"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/entra-app.md"
+      ]
+    },
+    {
+      "id": "grant_admin_consent",
+      "phase": "configure",
+      "type": "bool",
+      "question": "Grant admin consent for Nerdio's app from Terraform?",
+      "help": "Removes the wizard's consent clicks. The person running the apply needs Global Administrator, or Privileged Role Administrator plus Cloud Application Administrator. Preflight checks this.",
+      "default": true,
+      "form": true,
+      "when": {
+        "create_entra_app": [
+          true
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "entra_app.grant_admin_consent"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/entra-app.md",
+        "docs/knowledge/nerdio/platform.md#roles-needed"
+      ]
+    },
+    {
+      "id": "nerdio_admins",
+      "phase": "configure",
+      "type": "principal_list",
+      "ask": "advanced",
+      "question": "Who gets Nerdio's admin role (group names, or \"me\")?",
+      "help": "\"me\" is the account you're signed in with. Group names are looked up with az.",
+      "default": [
+        "me"
+      ],
+      "when": {
+        "create_entra_app": [
+          true
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "entra_app.wvd_admin_object_ids"
+        }
+      ]
+    },
+    {
+      "id": "enable_hardening",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Add private endpoints for Nerdio's own resources now?",
+      "help": "Leave this off for the first apply. Turn it on in a second apply, once Nerdio Manager exists. Admins then need a route into the VNet.",
+      "default": false,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "enable_hardening"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/platform.md#hardening-private-endpoints",
+        "docs/knowledge/security/README.md"
+      ]
+    },
+    {
+      "id": "workspace_friendly_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^.{1,64}$",
+      "question": "What should users see as the workspace name in the Windows App?",
+      "help": "Shown to users when they sign in.",
+      "default": "Virtual Desktops",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "workspace.friendly_name"
+        },
+        {
+          "stage": "config",
+          "path": "workspace.name",
+          "value": "ws-{prefix}"
+        }
+      ]
+    },
+    {
+      "id": "host_pool_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,62}$",
+      "ask": "advanced",
+      "question": "First host pool name?",
+      "help": "The AVD host pool's resource name.",
+      "default": "hp-general"
+    },
+    {
+      "id": "host_pool_friendly_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^.{1,64}$",
+      "question": "What should the first desktop be called?",
+      "help": "Shown to users in the Windows App.",
+      "default": "General desktops",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.friendly_name"
+        }
+      ]
+    },
+    {
+      "id": "vm_prefix",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,9}$",
+      "ask": "advanced",
+      "question": "Session host name prefix?",
+      "help": "Up to 10 characters: Windows computer names cap at 15 and Nerdio adds a suffix.",
+      "default": "avdgen",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.vm_prefix"
+        }
+      ]
+    },
+    {
+      "id": "vm_size",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^Standard_[A-Za-z0-9_]+$",
+      "question": "Session host VM size?",
+      "help": "Defaults from your workload answer. Preflight checks the size is offered in your region and that you have the vCPU quota.",
+      "default": {
+        "map": "workload",
+        "values": {
+          "light": "Standard_D4s_v5",
+          "medium": "Standard_D8s_v5",
+          "heavy": "Standard_D8s_v5"
+        }
+      },
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.vm_size"
+        }
+      ],
+      "sources": [
+        "https://learn.microsoft.com/windows-server/remote/remote-desktop-services/virtual-machine-recs"
+      ]
+    },
+    {
+      "id": "max_sessions_per_host",
+      "phase": "configure",
+      "type": "int",
+      "min": 1,
+      "max": 999,
+      "ask": "advanced",
+      "question": "Most sessions on one host?",
+      "help": "Defaults from your workload answer.",
+      "default": {
+        "map": "workload",
+        "values": {
+          "light": 12,
+          "medium": 16,
+          "heavy": 8
+        }
+      },
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.max_session_limit"
+        },
+        {
+          "stage": "config",
+          "path": "auto_scale.max_sessions_per_host"
+        }
+      ]
+    },
+    {
+      "id": "host_pool_capacity",
+      "phase": "configure",
+      "type": "int",
+      "min": 1,
+      "max": 500,
+      "ask": "advanced",
+      "question": "Most hosts auto-scale may run?",
+      "help": "Defaults to enough hosts for your peak users at the session limit.",
+      "default": {
+        "derive": "host_capacity"
+      },
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "auto_scale.host_pool_capacity"
+        }
+      ]
+    },
+    {
+      "id": "timezone_id",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9 .+()-]{2,64}$",
+      "question": "Which Windows time zone should the desktops use?",
+      "help": "A Windows time zone ID, like \"Eastern Standard Time\" or \"GMT Standard Time\" (`tzutil /l` on Windows lists them). Auto-scale schedules follow it.",
+      "default": "Eastern Standard Time",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.timezone_id"
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[^\\s]+$",
+      "ask": "advanced",
+      "question": "Desktop image for the host pool?",
+      "help": "A Marketplace path as Nerdio shows it. Switch to the Packer image once it's built and added under Desktop Images in Nerdio.",
+      "default": "MicrosoftWindowsDesktop/office-365/win11-24h2-avd-m365/latest",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.image"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/packer/avd-image.md"
+      ]
+    },
+    {
+      "id": "fslogix_entra_kerberos",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "never",
+      "question": "Use Entra Kerberos for the profile share",
+      "help": "Follows the identity model.",
+      "default": {
+        "map": "identity_model",
+        "values": {
+          "entra_joined": true,
+          "entra_ds": false,
+          "ad_ds": false
+        }
+      },
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "fslogix_entra_kerberos"
+        }
+      ]
+    }
+  ]
+}

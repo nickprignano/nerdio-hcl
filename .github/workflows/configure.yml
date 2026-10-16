@@ -1,0 +1,101 @@
+name: configure
+
+# The button front door for the configure phase. Answers the same questions as ./nerdio init
+# and the chat setup skill (all three read schema/parameters.json), renders the tfvars with
+# placeholder IDs and lets Terraform check them. Nothing touches Azure: plan and apply join the
+# deploy workflow later on the roadmap.
+
+on:
+  workflow_dispatch:
+    inputs:
+      # BEGIN GENERATED INPUTS (./nerdio form --write; edit schema/parameters.json instead)
+      environment:
+        description: "Is this a sandbox, a dev environment or production?"
+        required: true
+        type: choice
+        options:
+          - sandbox
+          - dev
+          - prod
+        default: sandbox
+      identity_model:
+        description: "How will the session hosts join a directory?"
+        required: true
+        type: choice
+        options:
+          - entra_joined
+          - entra_ds
+        default: entra_joined
+      user_count:
+        description: "How many people will use a desktop at the busiest time?"
+        required: true
+        type: number
+        default: 10
+      workload:
+        description: "What kind of work will they do?"
+        required: true
+        type: choice
+        options:
+          - light
+          - medium
+          - heavy
+        default: medium
+      location:
+        description: "Which Azure region? Pick one close to most users."
+        required: true
+        type: string
+        default: "eastus2"
+      prefix:
+        description: "Short naming prefix for every resource? Leave blank for the default."
+        required: false
+        type: string
+        default: ""
+      fslogix_enabled:
+        description: "Store user profiles with FSLogix on Azure Files?"
+        required: true
+        type: boolean
+        default: true
+      image_gallery_enabled:
+        description: "Create a Compute Gallery for the kit's Packer image?"
+        required: true
+        type: boolean
+        default: true
+      grant_admin_consent:
+        description: "Grant admin consent for Nerdio's app from Terraform?"
+        required: true
+        type: boolean
+        default: true
+      # END GENERATED INPUTS
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      - name: answers to tfvars
+        env:
+          # Inputs go in as one JSON env var, so no input is ever spliced into the shell.
+          FORM_INPUTS: ${{ toJSON(inputs) }}
+        run: |
+          ./nerdio init --non-interactive --placeholder-ids --inputs-env FORM_INPUTS | tee init.log
+      - name: summary
+        if: always()
+        run: |
+          {
+            echo "## Configuration (dry run, placeholder IDs)"
+            echo
+            echo '```'
+            ./nerdio show --placeholder-ids 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

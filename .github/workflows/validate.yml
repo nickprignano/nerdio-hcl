@@ -51,6 +51,19 @@ jobs:
           tflint --init
           tflint --recursive --minimum-failure-severity=error
 
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      - name: engine unit tests
+        run: python3 -m unittest discover -s scripts/nerdio -v
+      - name: schema matches the Terraform variables and the Actions form
+        run: ./nerdio schema check
+
   packer:
     runs-on: ubuntu-latest
     steps:
