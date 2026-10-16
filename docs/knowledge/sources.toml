@@ -46,12 +46,6 @@ repo = "Get-Nerdio/NMW"
 kb_page = "nerdio/platform.md"
 
 [[source]]
-name = "MB-External/NME-Terraform (prior art: end-to-end install, no license, reference only)"
-kind = "github_commits"
-repo = "MB-External/NME-Terraform"
-kb_page = "nerdio/community-projects.md"
-
-[[source]]
 name = "Nerdio GitHub org"
 kind = "github_org_repos"
 org = "Get-Nerdio"
