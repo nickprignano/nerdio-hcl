@@ -13,3 +13,4 @@ marked *Superseded by NNNN*.
 | [0005](0005-packer-for-images.md) | Packer builds the golden image | Accepted |
 | [0006](0006-no-ansible.md) | No Ansible; Terraform owns desired state, Nerdio owns runtime work | Accepted |
 | [0007](0007-button-ux.md) | GitHub Actions `workflow_dispatch` forms are the button experience; HCP no-code optional | Accepted |
+| [0008](0008-chat-front-door.md) | Chat is the guided front door; the engine stays deterministic and usable without AI | Accepted |

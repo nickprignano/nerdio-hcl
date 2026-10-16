@@ -33,14 +33,8 @@ operation is a form plus a Run button in the Actions tab:
 
 Protected environments add an approval click before anything touches production.
 
-**Front door 3, chat:** the repo ships a `CLAUDE.md` and skills, so an AI assistant can drive the same
-commands conversationally ("add a host pool for finance with 10 users"). The assistant edits tfvars,
-opens a PR and triggers the workflows, so every change is still reviewed as code. Two MCP servers
-give it context:
-- HashiCorp's official [Terraform MCP server](https://developer.hashicorp.com/terraform/mcp-server/deploy),
-  for provider and module docs.
-- A small Nerdio MCP server we would build over the REST API. It's read-only by default, with
-  write actions gated behind confirmation. It's a candidate to contribute upstream.
+**Front door 3, chat (the primary path):** see "Guided setup by chat" below. Chat leads the user
+through the whole setup and then hands off to the engine and the buttons. It never replaces them.
 
 **The one step that can't be removed: bootstrap.** Someone with Owner and Global Admin rights has to
 create the deployment identity once. `./nerdio bootstrap` does this in a single run:
@@ -60,7 +54,62 @@ Azure Files, the Packer image). Advanced users edit tfvars directly.
 **HCP Terraform no-code modules** would also give a button UX inside HCP Terraform. *Not verified:*
 which paid tier includes them, so treat this as optional. GitHub Actions is the free default.
 
-## Where the manual steps stand
+## Guided setup by chat (white-glove)
+
+The assistant is the concierge. It gathers the parameters, gets the user ready, runs or triggers the
+engine, and walks them through everything before and after the deployment. The engine underneath stays
+deterministic and scriptable, so the kit still works without AI, and every change remains reviewable code.
+
+**Phases the assistant leads:**
+1. **Discover:** ask about the goal in plain language: users, use cases, regions, identity model
+   (Entra-joined, AD DS or Entra DS), GPU or not, budget, compliance needs. Then recommend a
+   profile from the opinionated defaults and explain the trade-offs.
+2. **Prepare:** check readiness and explain the gaps:
+   - Roles: Owner on the subscription; Global Admin, or Privileged Role Admin plus Cloud App Admin.
+   - Licensing: a Nerdio license (separate Marketplace offer), and AVD user eligibility (M365 E3/E5,
+     Business Premium and similar; *verify the current list*).
+   - Quota, resource provider registration and region support.
+   - Network reachability to domain controllers for AD DS.
+   It runs `./nerdio preflight` and translates failures into next steps.
+3. **Configure:** fill in the parameters by interview, then write `terraform.tfvars` and show it for
+   review. The questions come from one machine-readable parameter schema (names, descriptions,
+   defaults, validation, which phase needs each one), so chat, the CLI wizard and the Actions
+   forms all ask the same things.
+4. **Bootstrap:** walk the admin through the one copy-paste step. The admin signs in and runs it
+   themselves, and the assistant explains what it creates and checks the result.
+5. **Deploy:** open the PR with the config, show `terraform plan` in plain language ("this creates
+   23 resources, costs about $X/month"), and only start the deploy workflow after an explicit yes.
+   It narrates progress and explains failures with the fix.
+6. **Wizard steps:** either run the optional Playwright bridge, or give click-by-click guidance
+   for the directory profile and registration screens, then confirm they're done through the API.
+7. **Verify:** run the post-deploy checks, then lead the user through a first sign-in as a test
+   user and interpret the results.
+8. **Handover:** produce a short, environment-specific runbook covering what was built, where it
+   is, how to add users and host pools, how to roll out a new image, cost levers, and the
+   day-2 buttons and chat commands. It's written locally and never committed if it holds tenant details.
+
+**How it's built:**
+- `CLAUDE.md` plus skills in the repo (`.claude/skills/`: setup, deploy, image, troubleshoot,
+  handover) that encode the phases above, so any user of Claude Code (terminal, desktop or web)
+  gets the same guided flow.
+- The parameter schema is the single source of truth. The skills read it, and so do
+  `./nerdio init` (a plain CLI wizard for users without AI) and the workflow forms.
+- MCP for context and actions: HashiCorp's Terraform MCP server for docs, and a Nerdio MCP server
+  that's read-only by default for live state.
+- MCP works with other clients too, but the skills are written for Claude Code first.
+
+**Guardrails:**
+- **Secrets never pass through the chat.** Secrets are entered into `az`, `gh` or Key Vault directly.
+  The assistant only sees names and IDs, and generated tfvars stay gitignored (no-leak rule).
+- **No apply without consent:** a plan summary and an explicit yes come first, and production
+  environments also need the Actions approval click.
+- **Every change goes through a PR,** so the chat can't drift from the code.
+- **Token use is limited to the chat layer.** The engine, workflows, curator and Playwright use
+  no model tokens.
+- **Must test:** whether the interview reliably produces a valid config. Validate it with
+  `terraform validate` plus schema checks before any plan.
+
+
 
 | Manual step today | Can we automate it? | How | What Nerdio would need to change |
 |---|---|---|---|
@@ -234,10 +283,12 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 7. **Experience layer:** the `nerdio` entry point, `bootstrap` with preflight checks, the dev container,
    and the Actions workflow forms. The engine comes first, then the button forms.
 8. **Gap fillers:** restapi-provider resources for app groups and the other uncovered objects.
-9. **Chat:** `CLAUDE.md` and skills, then the read-only Nerdio MCP server.
+9. **Guided chat setup:** the parameter schema first (shared with the CLI wizard and the forms),
+   then `CLAUDE.md` and the setup, deploy, troubleshoot and handover skills, then the read-only Nerdio MCP server.
 
-Suggested sequence: 1 → 4 → 7 (bootstrap and engine) gives a working one-command deploy early;
-2, 3, 5, 6 and 8 harden it; 9 comes last.
+Suggested sequence: 1 → 4 → 7 (bootstrap and engine) gives a working one-command deploy; the
+parameter schema and setup skill (9) come next so the guided flow wraps it early. 2, 3, 5, 6 and 8
+harden it, and the MCP server comes last.
 
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.

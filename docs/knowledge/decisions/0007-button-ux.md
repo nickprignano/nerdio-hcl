@@ -1,6 +1,6 @@
 # 0007. GitHub Actions forms are the button experience
 
-- **Status:** Accepted
+- **Status:** Accepted (chat is the primary front door per [0008](0008-chat-front-door.md); forms remain the button path)
 - **Date:** 2026-10-16
 
 ## Context
