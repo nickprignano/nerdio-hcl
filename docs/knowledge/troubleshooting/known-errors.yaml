@@ -1,0 +1,40 @@
+# Known errors catalog: the source of truth for troubleshooting/README.md.
+# Regenerate the page with `python3 scripts/kb/build.py`. Schema: ../schema/known-errors.schema.json
+# `source` is a KB path (relative to docs/knowledge/) or an https URL.
+
+errors:
+- id: azurerm5-subnet-service-endpoints
+  symptom: '`An argument named "service_endpoints" is not expected here.` on `azurerm_subnet`'
+  cause: azurerm 5.x replaced the list argument with blocks
+  fix: Use repeatable `service_endpoint { service = "..." }` blocks
+  source: terraform/azurerm-5.md#breaking-changes-and-fixes
+  status: verified
+  added: '2026-10-16'
+- id: azurerm5-dns-link-zone-id
+  symptom: '`The argument "private_dns_zone_id" is required` on a private DNS zone VNet link'
+  cause: azurerm 5.x changed how the zone is referenced
+  fix: Set `private_dns_zone_id`; drop `resource_group_name` and `private_dns_zone_name`
+  source: terraform/azurerm-5.md#breaking-changes-and-fixes
+  status: verified
+  added: '2026-10-16'
+- id: azurerm5-storage-public-network-access
+  symptom: '`public_network_access_enabled` deprecation warning on `azurerm_storage_account`'
+  cause: Renamed in azurerm 5.x, removed in 6.0
+  fix: Use `public_network_access = "Disabled"`
+  source: terraform/azurerm-5.md#breaking-changes-and-fixes
+  status: verified
+  added: '2026-10-16'
+- id: registry-blocked
+  symptom: '`terraform init` can''t download providers or Packer plugins'
+  cause: Registry blocked by the network
+  fix: Use a `filesystem_mirror` or a local plugin path
+  source: terraform/restricted-networks.md
+  status: verified
+  added: '2026-10-16'
+- id: nerdio-scripted-actions-private-storage
+  symptom: Nerdio Azure runbook scripted actions fail after hardening
+  cause: The scripted-actions storage account was made private
+  fix: Use a Hybrid Runbook Worker, or leave that account public
+  source: nerdio/platform.md#hardening-private-endpoints
+  status: verified
+  added: '2026-10-16'

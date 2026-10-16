@@ -1,3 +1,11 @@
+---
+title: "Testing and CI"
+summary: "terraform test, tflint, the CI workflow and planned post-deploy checks"
+topic: terraform
+status: verified
+last_reviewed: 2026-10-16
+---
+
 # Testing and CI
 
 ## terraform test
@@ -45,5 +53,3 @@ AVD session host status and health checks through ARM. Only the end-user launch 
 Playwright (Windows App web client), because no API starts a user session; `WVDConnections` and
 `WVDErrors` queries confirm it afterwards. Details and rules are in
 [../stack-options.md](../stack-options.md#post-deployment-checks-with-playwright).
-
-_Last reviewed: 2026-10-16_

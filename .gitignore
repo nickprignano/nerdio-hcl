@@ -21,3 +21,6 @@ packer_cache/
 manifest.json
 *.auto.tfvars.json
 gitleaks.json
+
+# Python
+__pycache__/

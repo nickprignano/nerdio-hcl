@@ -1,3 +1,11 @@
+---
+title: "Windows 11 multi-session image with Packer"
+summary: "Building a Windows 11 multi-session image for Nerdio with Packer"
+topic: packer
+status: verified
+last_reviewed: 2026-10-16
+---
+
 # Windows 11 multi-session image with Packer
 
 A golden image that Nerdio imports from an Azure Compute Gallery
@@ -26,5 +34,3 @@ Packer 1.16.1, `packer-plugin-azure` 2.6.4 (`version = "~> 2.6"`, `source = "git
   and run with `Windows_VDOT.ps1 -Optimizations All -AdvancedOptimizations Edge -AcceptEULA`.
   Pin a release or commit rather than `main` for repeatable builds.
 - Before sysprep, wait for the RdAgent and Azure guest agent services to be running.
-
-_Last reviewed: 2026-10-16_

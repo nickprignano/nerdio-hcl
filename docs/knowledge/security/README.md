@@ -1,3 +1,11 @@
+---
+title: "Security baselines and hardening"
+summary: "Security baselines Nerdio publishes, kit hardening, and how to record accepted risks"
+topic: security
+status: partial
+last_reviewed: 2026-10-16
+---
+
 # Security baselines and hardening
 
 Security building blocks for a Nerdio + AVD deployment, and the patterns for recording accepted
@@ -28,5 +36,3 @@ All in [Get-Nerdio/NMW](https://github.com/Get-Nerdio/NMW):
 When a review finding is accepted instead of fixed, record it as a decision in the environment's
 own (private) decision log: the finding, why it's accepted, and when to revisit it. Only general
 patterns belong here, never a specific environment's findings.
-
-_Last reviewed: 2026-10-16_

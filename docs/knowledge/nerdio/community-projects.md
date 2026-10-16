@@ -1,3 +1,11 @@
+---
+title: "Community projects"
+summary: "Other Nerdio + Terraform projects worth knowing about"
+topic: nerdio
+status: partial
+last_reviewed: 2026-10-16
+---
+
 # Community projects
 
 Other public Nerdio + Terraform work. Useful for comparison; none is endorsed by Nerdio unless noted.
@@ -14,5 +22,3 @@ Other public Nerdio + Terraform work. Useful for comparison; none is endorsed by
 | [Get-Nerdio/NMW](https://github.com/Get-Nerdio/NMW) | Nerdio's own repo: `templates/mainTemplate.json`, the update runbook that uses the package API, `intune-policies/` (baselines, ASR, compliance, CA, Defender, firewall), `azure-custom-roles/nme-custom-role.json` (least-privilege role) and Windows scripted actions (screen capture protection, RDP Shortpath, clipboard). See [../security/README.md](../security/README.md). |
 
 When you review one, replace "not yet reviewed" with what it does and how it differs from this kit.
-
-_Last reviewed: 2026-10-16_

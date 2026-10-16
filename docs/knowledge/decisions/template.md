@@ -1,16 +1,30 @@
-# NNNN. Title in a few words
+---
+# MADR 4 front matter. status: proposed | accepted | rejected | deprecated | superseded by NNNN
+status: proposed
+date: YYYY-MM-DD
+decision-makers: [maintainers]
+---
 
-- **Status:** Proposed | Accepted | Superseded by NNNN
-- **Date:** YYYY-MM-DD
+# NNNN. Short title of the problem and solution
 
-## Context
+## Context and Problem Statement
 
-What problem or question forced a choice.
+What problem or question forced a choice, in two or three sentences, ending in the question.
 
-## Decision
+## Considered Options
 
-What was chosen.
+- Option 1
+- Option 2
 
-## Consequences
+## Decision Outcome
 
-What this makes easier, harder, or rules out.
+Chosen option: "Option 1", because (the deciding reason).
+
+### Consequences
+
+- Good, because ...
+- Bad, because ...
+
+## More Information
+
+Optional: links, review notes, when to revisit.

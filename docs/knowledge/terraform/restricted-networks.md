@@ -1,3 +1,11 @@
+---
+title: "Terraform and Packer behind a restrictive proxy"
+summary: "Running Terraform and Packer where the registry is blocked"
+topic: terraform
+status: verified
+last_reviewed: 2026-10-16
+---
+
 # Terraform and Packer behind a restrictive proxy
 
 Some build environments (locked-down CI runners, sandboxes, corporate proxies) block
@@ -43,5 +51,3 @@ this way. Build them from a git clone instead, as with `nerdio/nme`
 1. Download `packer-plugin-azure_<version>_linux_amd64.zip` from `releases.hashicorp.com`.
 2. Unzip and `chmod +x` the binary. Without it: `fork/exec ... permission denied`.
 3. `packer plugins install --path <binary> github.com/hashicorp/azure`, with `PACKER_PLUGIN_PATH` set.
-
-_Last reviewed: 2026-10-16_

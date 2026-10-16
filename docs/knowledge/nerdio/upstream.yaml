@@ -1,0 +1,143 @@
+# Upstream contribution candidates for Nerdio: the source of truth for the tables in
+# nerdio/upstream-contributions.md. Regenerate with `python3 scripts/kb/build.py`.
+# Schema: ../schema/upstream.schema.json. Markdown links are relative to nerdio/.
+
+feature_gaps:
+- id: app-groups-and-app-group-assignments
+  title: App groups and app group assignments
+  evidence: >-
+    AVD-COVERAGE 3.1 "Manage app groups" and 3.4 "Assign / unassign users & groups to app groups": ❌
+  why: Users can't be granted desktops as code; the kit has to stop at the host pool.
+  status: candidate
+- id: session-host-lifecycle
+  title: Session host lifecycle (create, delete, list)
+  evidence: 'AVD-COVERAGE 3.2: ❌, no data source'
+  why: Host counts on static pools can't be declared.
+  status: candidate
+- id: host-pool-data-sources
+  title: Host pool data sources
+  evidence: AVD-COVERAGE §4 "No host pool data sources"
+  why: >-
+    Other stacks can't reference pools the kit didn't create. Likely the smallest useful first PR.
+  status: candidate
+- id: remoteapps-and-msix-app-attach
+  title: RemoteApps and MSIX app attach
+  evidence: 'AVD-COVERAGE 3.4: ❌'
+  why: RemoteApp deployments need console work.
+  status: candidate
+- id: reimage-and-script-execution-schedules
+  title: Reimage and script-execution schedules
+  evidence: 'AVD-COVERAGE 3.4: ❌'
+  why: Image rollout cadence isn't reviewable as code.
+  status: candidate
+- id: personal-host-to-user-assignment
+  title: Personal host-to-user assignment
+  evidence: 'AVD-COVERAGE 3.2: 🟡 (`nme_user_assignment` is RBAC only)'
+  why: Personal-desktop pools need manual assignment.
+  status: candidate
+- id: per-host-pool-auto-scale-override-profiles
+  title: Per-host-pool auto-scale override profiles
+  evidence: 'AVD-COVERAGE 3.3: ❌'
+  status: candidate
+- id: nme-image-data-source
+  title: '`nme_image` data source and a desktop image resource'
+  evidence: >-
+    The API already lists gallery images (`GET /api/v1/image?imageType=ComputeGalleryImage`), and `create-from-library`
+    takes any `sourceImageId` from that list (OpenAPI spec `internal/client/api.json`). Desktop images
+    are absent from AVD-COVERAGE entirely. A [community request](https://nmmhelp.getnerdio.com/hc/en-us/community/posts/40030830038541)
+    asks for better gallery and version handling.
+  why: >-
+    A Packer-built gallery image can't be looked up or registered in Nerdio as code. The host pool `image`
+    format for a gallery image isn't documented; the provider example only shows Marketplace format.
+  status: candidate
+- id: terraform-actions-for-one-off-operations
+  title: Terraform actions for one-off operations
+  evidence: >-
+    Terraform 1.14+ supports provider actions. Nerdio treats imperative operations (reimage, drain, run
+    script) as out of scope for resources, but actions are designed for exactly these.
+  why: >-
+    Day-2 operations could run from the same Terraform engine instead of separate REST calls in workflows.
+  status: candidate
+- id: nerdio-mcp-server
+  title: A Nerdio MCP server
+  evidence: >-
+    No Nerdio MCP server exists; the REST API covers hosts, sessions, jobs and images. The roadmap's chat
+    front door would use one, read-only by default with write actions gated behind confirmation.
+  why: >-
+    Lets a chat assistant inspect and operate Nerdio safely. Could be built by us first and offered upstream.
+  status: candidate
+- id: in-place-update-linked-objects
+  title: In-place update for `workspace`, `linked_resource_group`, `linked_network`
+  evidence: 'AVD-COVERAGE §4: no update operation in the NME API, so changes force replacement'
+  why: >-
+    Replacing a linked network under live pools is disruptive. Needs a Nerdio API change first, so it's
+    a request, not a PR.
+  status: candidate
+api_asks:
+- id: directory-profile-create-api-and-provider-resource
+  title: Directory profile create API and provider resource
+  evidence: >-
+    The API only has `GET /api/v1/ad/config` (OpenAPI spec, commit `65e547f`); the profile is chosen in
+    the setup wizard.
+  why: 'The only hard blocker to zero-touch: every install needs a human in the wizard for this.'
+  status: candidate
+- id: first-run-registration-completion-api
+  title: First-run / registration completion API
+  evidence: Registration and first-run state are UI only.
+  why: Second wizard step with no API.
+  status: candidate
+- id: supported-non-interactive-install-path
+  title: Supported non-interactive install path
+  evidence: >-
+    `Get-Nerdio/NMW` `templates/mainTemplate.json` exists but isn't declared a supported, versioned deploy
+    path. The install script has no public versioned URL and doesn't support service-principal auth. The
+    package API (`/api/package`, `/{ver}/link`) is used by Nerdio's own update runbook but isn't documented.
+  why: Would let Terraform replace the portal export and install script on a supported path.
+  status: candidate
+- id: are-scripted-ui-sessions-allowed
+  title: Are scripted UI sessions allowed?
+  evidence: >-
+    The roadmap has an optional Playwright bridge for the two wizard-only steps ([stack-options.md](../stack-options.md#optional-bridge-playwright-for-the-two-wizard-steps)).
+    Nerdio's terms on automating the console UI weren't checked.
+  why: Ask before publishing the bridge in a public kit; the API asks above remain the real fix.
+  status: candidate
+docs_packaging:
+- id: registry-publishing-plus-a-license
+  title: Registry publishing plus a LICENSE
+  evidence: >-
+    README installs from GitHub release zips via `dev_overrides`, and notes `terraform init` "can therefore
+    fail". The repo has no license, so even hosting the binary in a private registry is legally unclear.
+  fix: >-
+    Add a license and publish to the public Registry. That makes Terraform Stacks and HCP Terraform runs
+    straightforward (Stacks can use private-registry providers, but only with redistribution rights).
+    Until then, document a `filesystem_mirror` install, which keeps `terraform init` and lock files working
+    (see [restricted-networks.md](../terraform/restricted-networks.md#workaround-filesystem-mirror)).
+  status: candidate
+- id: version-numbers-disagree
+  title: Version numbers disagree
+  evidence: >-
+    The only GitHub release is `v0.0.1-preview.1`, but the README's snippets use `0.1.0` and `examples/main/main.tf`
+    and `examples/provider/provider.tf` use `0.0.1`.
+  fix: Make the README and examples match the published release.
+  status: candidate
+- id: readme-references-missing-ci
+  title: README references missing CI
+  evidence: >-
+    README's layout table lists `.github/workflows`, but the public repo has no `.github` folder.
+  fix: Publish the workflows, or drop the row.
+  status: candidate
+- id: linux-and-windows-amd64-builds-only
+  title: Linux and Windows amd64 builds only
+  evidence: 'README: "packages the provider for Linux amd64 and Windows amd64".'
+  fix: Add darwin/arm64 and linux/arm64 to the release matrix.
+  status: candidate
+- id: rest-api-enablement-by-tag
+  title: REST API enablement by tag
+  evidence: >-
+    The documented manual method (client app tag `NMW_REST_API_CLIENT:<app-id>`, RestClient role, token
+    version 2) is how the kit enables the API without the UI. Which app ID goes in the tag is ambiguous
+    in Nerdio's article. *Unverified* until a live run.
+  fix: >-
+    Ask Nerdio to confirm the tag method is a supported replacement for the UI toggle, and document auth
+    setup end to end.
+  status: candidate

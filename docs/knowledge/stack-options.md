@@ -1,3 +1,11 @@
+---
+title: "Roadmap: turnkey, maximum-automation Nerdio deployment"
+summary: "Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change"
+topic: roadmap
+status: plan
+last_reviewed: 2026-10-16
+---
+
 # Roadmap: turnkey, maximum-automation Nerdio deployment
 
 Which manual steps can be automated, how a user drives the kit, which tools in the HashiCorp,
@@ -326,5 +334,3 @@ Packer (optional only).
 - Ansible: github.com/ansible-collections/azure ; github.com/ansible/terraform-provider-ansible ; github.com/ansible/terraform-provider-aap
 - IBM: ibm.com/products/turbonomic/pricing ; automation-management.ideas.ibm.com/ideas/TURBO-I-899 ; ibm.com/docs/en/SSE1JP5/src/pages/ecosystem/index.html
 - Microsoft: github.com/microsoft/terraform-provider-msgraph ; github.com/deploymenttheory/terraform-provider-microsoft365
-
-_Last reviewed: 2026-10-16_

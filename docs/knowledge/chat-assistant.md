@@ -1,3 +1,11 @@
+---
+title: "Chat assistant: the white-glove guide"
+summary: "What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2"
+topic: roadmap
+status: plan
+last_reviewed: 2026-10-16
+---
+
 # Chat assistant: the white-glove guide
 
 What the kit's chat assistant is meant to do across the whole lifecycle, domain by domain. It
@@ -168,5 +176,3 @@ checks, and where Nerdio ties in.
 - That interview-produced configs pass `terraform validate` and the schema checks.
 - Troubleshooting accuracy on recorded failures from live sandbox runs.
 - Whether Nerdio's Intune policy JSON can be applied as-is through msgraph or the microsoft365 provider.
-
-_Last reviewed: 2026-10-16_
