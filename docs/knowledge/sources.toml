@@ -3,8 +3,10 @@
 #
 # kinds:
 #   github_releases  new releases of a repo
-#   github_commits   new commits on a repo's default branch (for repos that rarely tag releases)
+#   github_commits   new commits on a repo's default branch (for repos that rarely tag releases);
+#                    add path = "..." to watch only one file or folder
 #   github_org_repos new or recently pushed repos in an org
+#   github_issues    issues and PRs opened or updated in a repo
 #   github_search    new repositories matching a search query (prior art)
 #   feed             RSS/Atom feed, optionally filtered by keywords
 #   zendesk          a Zendesk help center's recently updated articles
@@ -22,6 +24,26 @@ name = "Nerdio Terraform provider: releases"
 kind = "github_releases"
 repo = "Get-Nerdio/NME-Terraform-Provider"
 kb_page = "nerdio/terraform-provider.md"
+
+[[source]]
+name = "Nerdio API spec (OpenAPI)"
+kind = "github_commits"
+repo = "Get-Nerdio/NME-Terraform-Provider"
+path = "internal/client/api.json"
+# A change here is where new endpoints (e.g. directory profile create) show up first.
+kb_page = "nerdio/upstream-contributions.md"
+
+[[source]]
+name = "Nerdio Terraform provider: issues and PRs"
+kind = "github_issues"
+repo = "Get-Nerdio/NME-Terraform-Provider"
+kb_page = "nerdio/upstream-contributions.md"
+
+[[source]]
+name = "Nerdio NMW repo (Marketplace template, install and update runbooks)"
+kind = "github_commits"
+repo = "Get-Nerdio/NMW"
+kb_page = "nerdio/platform.md"
 
 [[source]]
 name = "Nerdio GitHub org"

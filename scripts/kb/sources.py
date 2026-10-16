@@ -73,8 +73,10 @@ def github_releases(src: dict, since: datetime) -> list[Item]:
 
 
 def github_commits(src: dict, since: datetime) -> list[Item]:
-    commits = github(f"/repos/{src['repo']}/commits",
-                     {"since": since.strftime("%Y-%m-%dT%H:%M:%SZ"), "per_page": 50})
+    params = {"since": since.strftime("%Y-%m-%dT%H:%M:%SZ"), "per_page": 50}
+    if src.get("path"):
+        params["path"] = src["path"]  # only commits touching this file or folder
+    commits = github(f"/repos/{src['repo']}/commits", params)
     return [
         Item(
             title=first_line(c["commit"]["message"]),
@@ -116,6 +118,23 @@ def github_search(src: dict, since: datetime) -> list[Item]:
         )
         for r in result.get("items", [])
     ]
+
+
+def github_issues(src: dict, since: datetime) -> list[Item]:
+    query = f"repo:{src['repo']} updated:>={since.date().isoformat()}"
+    result = github("/search/issues", {"q": query, "sort": "updated", "per_page": 30})
+    items = []
+    for i in result.get("items", []):
+        created = parse_date(i["created_at"])
+        kind = "PR" if "pull_request" in i else "issue"
+        items.append(Item(
+            title=f"{kind} #{i['number']}: {i['title']}",
+            url=i["html_url"],
+            date=parse_date(i["updated_at"]),
+            text=i.get("body") or "",
+            note=f"new {kind}" if created >= since else f"{i['state']}, updated",
+        ))
+    return items
 
 
 def feed(src: dict, since: datetime) -> list[Item]:
@@ -169,6 +188,7 @@ FETCHERS = {
     "github_commits": github_commits,
     "github_org_repos": github_org_repos,
     "github_search": github_search,
+    "github_issues": github_issues,
     "feed": feed,
     "zendesk": zendesk,
 }

@@ -11,7 +11,8 @@ left out. If nothing is new, no issue is opened.
 
 Watched today:
 
-- Nerdio's Terraform provider (commits and releases), the Get-Nerdio GitHub org and the Nerdio
+- Nerdio's Terraform provider (commits, releases, issues and PRs, and its OpenAPI spec on its own),
+  Nerdio's NMW repo (Marketplace template and runbooks), the Get-Nerdio GitHub org and the Nerdio
   help center
 - azurerm (filtered to resources the kit uses), azuread, Terraform, Packer and the Packer Azure plugin
 - The Virtual Desktop Optimization Tool and Azure updates about AVD, FSLogix and Azure Files
@@ -21,7 +22,8 @@ Working a digest: for each ticked item, add what matters to the page named next 
 (facts, versions, fixes; not a link dump), then close the issue.
 
 To watch something else, add a `[[source]]` table to [sources.toml](sources.toml). Supported
-kinds: `github_releases`, `github_commits`, `github_org_repos`, `github_search`, `feed`
+kinds: `github_releases`, `github_commits` (optionally limited to one `path`), `github_issues`,
+`github_org_repos`, `github_search`, `feed`
 (RSS/Atom, with optional `keywords`) and `zendesk`. Run it locally with:
 
 ```bash
