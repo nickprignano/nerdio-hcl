@@ -20,6 +20,7 @@ belongs to instead of starting a new file.
 | [terraform/restricted-networks.md](terraform/restricted-networks.md) | Running Terraform and Packer where the registry is blocked |
 | [terraform/testing-and-ci.md](terraform/testing-and-ci.md) | `terraform test`, tflint and the CI workflow |
 | [packer/avd-image.md](packer/avd-image.md) | Building a Windows 11 multi-session image for Nerdio |
+| [stack-options.md](stack-options.md) | Which other HashiCorp, IBM and Microsoft tools fit the kit (Vault, HCP Packer, Boundary, Stacks, msgraph, Turbonomic...), with cost and a suggested order |
 | [decisions/](decisions/README.md) | Short decision records: what was decided and why |
 | [curation.md](curation.md) | The weekly source digest and the prior-art check that keep this KB current |
 
