@@ -26,6 +26,8 @@ Watched today:
   help center
 - azurerm (filtered to resources the kit uses), azuread, Terraform, Packer and the Packer Azure plugin
 - The Virtual Desktop Optimization Tool and Azure updates about AVD, FSLogix and Azure Files
+- Community experts: stealthpuppy (Aaron Parker), his Nerdio scripts, Intune remediations, and his
+  new or updated repos about Nerdio, AVD, Intune and images
 - New GitHub repos matching "nerdio terraform", "nerdio packer" and AVD + Packer + Terraform
 
 Working a digest: for each ticked item, add what matters to the page named next to the source
@@ -33,7 +35,7 @@ Working a digest: for each ticked item, add what matters to the page named next 
 
 To watch something else, add a `[[source]]` table to [sources.toml](sources.toml). Supported
 kinds: `github_releases`, `github_commits` (optionally limited to one `path`), `github_issues`,
-`github_org_repos`, `github_search`, `feed`
+`github_org_repos`, `github_user_repos`, `github_search`, `feed`
 (RSS/Atom, with optional `keywords`) and `zendesk`. Run it locally with:
 
 ```bash

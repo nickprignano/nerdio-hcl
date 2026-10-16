@@ -6,6 +6,7 @@
 #   github_commits   new commits on a repo's default branch (for repos that rarely tag releases);
 #                    add path = "..." to watch only one file or folder
 #   github_org_repos new or recently pushed repos in an org
+#   github_user_repos the same for a person's account (user = "..."); add keywords to narrow it
 #   github_issues    issues and PRs opened or updated in a repo
 #   github_search    new repositories matching a search query (prior art)
 #   feed             RSS/Atom feed, optionally filtered by keywords
@@ -56,6 +57,27 @@ name = "Nerdio help center"
 kind = "zendesk"
 url = "https://nmehelp.getnerdio.com"
 kb_page = "nerdio/platform.md"
+
+# --- Community experts ------------------------------------------------------
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): Nerdio Manager scripts"
+kind = "github_commits"
+repo = "aaronparker/nerdio"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): Intune remediations"
+kind = "github_commits"
+repo = "aaronparker/remediations"
+kb_page = "security/README.md"
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): new and updated repos"
+kind = "github_user_repos"
+user = "aaronparker"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Packer", "Terraform"]
+kb_page = "nerdio/community-projects.md"
 
 # --- HashiCorp stack --------------------------------------------------------
 

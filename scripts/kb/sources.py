@@ -89,8 +89,9 @@ def github_commits(src: dict, since: datetime) -> list[Item]:
 
 
 def github_org_repos(src: dict, since: datetime) -> list[Item]:
+    path = f"/users/{src['user']}/repos" if "user" in src else f"/orgs/{src['org']}/repos"
     items = []
-    for repo in github(f"/orgs/{src['org']}/repos", {"sort": "pushed", "per_page": 50}):
+    for repo in github(path, {"sort": "pushed", "per_page": 50}):
         created = parse_date(repo["created_at"])
         pushed = parse_date(repo["pushed_at"]) if repo.get("pushed_at") else created
         if pushed < since:
@@ -187,6 +188,7 @@ FETCHERS = {
     "github_releases": github_releases,
     "github_commits": github_commits,
     "github_org_repos": github_org_repos,
+    "github_user_repos": github_org_repos,
     "github_search": github_search,
     "github_issues": github_issues,
     "feed": feed,
