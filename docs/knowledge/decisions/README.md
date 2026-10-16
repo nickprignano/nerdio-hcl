@@ -17,4 +17,5 @@ marked *Superseded by NNNN*.
 | [0008](0008-chat-front-door.md) | Chat is the guided front door; the engine stays deterministic | Accepted |
 | [0009](0009-prefer-azure-github-hashicorp-oss.md) | Prefer Azure, GitHub, HashiCorp and open-source tooling | Accepted |
 | [0010](0010-roadmap-horizon.md) | Roadmap horizon: 90-day build windows, 12-month direction | Accepted |
+| [0014](0014-self-hosted-setup-chatbot.md) | The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry | Accepted |
 <!-- END GENERATED: decision-index -->

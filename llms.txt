@@ -45,6 +45,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0008. Chat is the guided front door; the engine stays deterministic](docs/knowledge/decisions/0008-chat-front-door.md): accepted
 - [0009. Prefer Azure, GitHub, HashiCorp and open-source tooling](docs/knowledge/decisions/0009-prefer-azure-github-hashicorp-oss.md): accepted
 - [0010. Roadmap horizon: 90-day build windows, 12-month direction](docs/knowledge/decisions/0010-roadmap-horizon.md): accepted
+- [0014. The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry](docs/knowledge/decisions/0014-self-hosted-setup-chatbot.md): accepted
 
 ## Optional
 
