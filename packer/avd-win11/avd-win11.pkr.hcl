@@ -42,7 +42,11 @@ source "azure-arm" "avd" {
     storage_account_type = "Standard_ZRS"
   }
 
-  azure_tags = merge(var.tags, { "built-by" = "packer" })
+  azure_tags = merge(var.tags, {
+    "built-by"     = "packer"
+    "wdot-profile" = var.wdot_profile
+    "wdot-commit"  = local.wdot_enabled ? substr(var.wdot_source.commit, 0, 12) : "none"
+  })
 }
 
 build {
@@ -74,11 +78,45 @@ build {
     restart_timeout = "30m"
   }
 
+  # WDOT: fetched on the build host at a pinned commit, uploaded, then applied with the HCL
+  # profile from wdot.pkr.hcl. With wdot_profile = "none" the fetch writes an empty placeholder.
+  provisioner "shell-local" {
+    environment_vars = [
+      "WDOT_ENABLED=${local.wdot_enabled}",
+      "WDOT_REPOSITORY=${var.wdot_source.repository}",
+      "WDOT_COMMIT=${var.wdot_source.commit}",
+      "WDOT_ZIP=${local.wdot_zip}",
+    ]
+    inline = [
+      "set -eu",
+      "mkdir -p \"$(dirname \"$WDOT_ZIP\")\"",
+      "if [ \"$WDOT_ENABLED\" != true ]; then : > \"$WDOT_ZIP\"; exit 0; fi",
+      "if [ -s \"$WDOT_ZIP\" ]; then exit 0; fi",
+      "tmp=$(mktemp -d)",
+      "git -C \"$tmp\" init -q",
+      "git -C \"$tmp\" fetch -q --depth 1 \"$WDOT_REPOSITORY\" \"$WDOT_COMMIT\"",
+      "test \"$(git -C \"$tmp\" rev-parse FETCH_HEAD)\" = \"$WDOT_COMMIT\"",
+      "git -C \"$tmp\" archive --format=zip --prefix=wdot/ -o \"$WDOT_ZIP.part\" FETCH_HEAD",
+      "mv \"$WDOT_ZIP.part\" \"$WDOT_ZIP\"",
+      "rm -rf \"$tmp\"",
+    ]
+  }
+
+  provisioner "file" {
+    source      = local.wdot_zip
+    destination = "C:/Windows/Temp/wdot.zip"
+    generated   = true
+  }
+
+  provisioner "file" {
+    content     = jsonencode(local.wdot_settings)
+    destination = "C:/Windows/Temp/wdot-settings.json"
+  }
+
   provisioner "powershell" {
-    script = "${path.root}/scripts/03-vdot.ps1"
-    env = {
-      RUN_VDOT = var.run_vdot ? "True" : "False"
-    }
+    script            = "${path.root}/scripts/03-wdot.ps1"
+    elevated_user     = build.User
+    elevated_password = build.Password
   }
 
   provisioner "windows-restart" {
