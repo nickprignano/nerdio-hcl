@@ -1,24 +1,38 @@
+---
+status: superseded by 0011
+date: 2026-10-16
+decision-makers: [maintainers]
+---
+
 # 0003. Deploy Nerdio Manager from the exported Marketplace template
 
-- **Status:** Superseded by [0011](0011-terraform-native-install.md) as the default. Still supported
-  with `nerdio_install = "marketplace"`.
-- **Date:** 2026-10-16
+## Context and Problem Statement
 
-## Context
+Nerdio supports installing Nerdio Manager from the Azure Marketplace, but it does not publish a
+stable template URL. How should Terraform install Nerdio Manager?
 
-Nerdio supports installing Nerdio Manager from the Azure Marketplace. It does not publish a
-stable template URL. Some community projects rebuild the App Service, SQL and Key Vault by hand
-instead, using an app package from Nerdio support.
+## Considered Options
 
-## Decision
+- Export the Marketplace template from the portal and deploy it with Terraform
+- Rebuild the App Service, SQL and Key Vault by hand with an app package from Nerdio support, as
+  some community projects do
+- Deploy Nerdio's `Get-Nerdio/NMW` `templates/mainTemplate.json`, pinned to a commit
 
-Export the Marketplace template from the portal, pin it in `templates/nerdio-manager/`, and
-deploy it with `azurerm_resource_group_template_deployment`, ignoring template changes after
-install. Private endpoints and VNet integration are added as separate resources in a second apply.
+## Decision Outcome
 
-## Consequences
+Chosen option: "Export the Marketplace template", because it stays on Nerdio's supported install
+path. The export is pinned in `templates/nerdio-manager/` and deployed with
+`azurerm_resource_group_template_deployment`, ignoring template changes after install. Private
+endpoints and VNet integration are added as separate resources in a second apply.
 
-- Stays on Nerdio's supported install path.
-- Each new Nerdio version needs a fresh export for new environments; existing ones are updated
-  by Nerdio itself.
-- The install script and setup wizard remain manual steps.
+### Consequences
+
+- Good, because it stays on Nerdio's supported install path.
+- Bad, because each new Nerdio version needs a fresh export for new environments; existing ones
+  are updated by Nerdio itself.
+- Bad, because the install script and setup wizard remain manual steps.
+
+## More Information
+
+[0011](0011-terraform-native-install.md) replaced this as the default install. The Marketplace
+path is still supported as an alternative with `nerdio_install = "marketplace"`.

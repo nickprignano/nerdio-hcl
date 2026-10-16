@@ -6,6 +6,7 @@
 #   github_commits   new commits on a repo's default branch (for repos that rarely tag releases);
 #                    add path = "..." to watch only one file or folder
 #   github_org_repos new or recently pushed repos in an org
+#   github_user_repos the same for a person's account (user = "..."); add keywords to narrow it
 #   github_issues    issues and PRs opened or updated in a repo
 #   github_search    new repositories matching a search query (prior art)
 #   feed             RSS/Atom feed, optionally filtered by keywords
@@ -57,6 +58,92 @@ kind = "zendesk"
 url = "https://nmehelp.getnerdio.com"
 kb_page = "nerdio/platform.md"
 
+# --- Community experts ------------------------------------------------------
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): Nerdio Manager scripts"
+kind = "github_commits"
+repo = "aaronparker/nerdio"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): Intune remediations"
+kind = "github_commits"
+repo = "aaronparker/remediations"
+kb_page = "security/README.md"
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): new and updated repos"
+kind = "github_user_repos"
+user = "aaronparker"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Packer", "Terraform"]
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "stealthpuppy (Aaron Parker): blog"
+kind = "feed"
+url = "https://stealthpuppy.com/feed.xml"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Evergreen"]
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Wayne Bellows: Modern EUC blog"
+kind = "feed"
+url = "https://modern-euc.com/feed/"
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Wayne Bellows: GitHub repos"
+kind = "github_user_repos"
+user = "WayneBellows"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Neil McLoughlin (virtualmanc): blog"
+kind = "feed"
+url = "https://virtualmanc.co.uk/feed/"
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Neil McLoughlin (virtualmanc): GitHub repos"
+kind = "github_user_repos"
+user = "virtualmanc"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Dean Cefola: Azure Academy (YouTube)"
+kind = "feed"
+url = "https://www.youtube.com/feeds/videos.xml?channel_id=UC-MXgaFhsYU8PkqgKBdnusQ"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "FSLogix", "Intune", "image"]
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Dean Cefola: GitHub repos"
+kind = "github_user_repos"
+user = "DeanCefola"
+keywords = ["Nerdio", "AVD", "WVD", "Virtual Desktop", "image"]
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Nerdio (YouTube)"
+kind = "feed"
+url = "https://www.youtube.com/feeds/videos.xml?channel_id=UClzdOrR9o0I05hnnByEKIKA"
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Dane Young: Nerdio posts"
+kind = "feed"
+url = "https://blog.youngtech.com/category/nerdio/feed/"
+# Untested: the blog blocked automated checks. Drop it if the digest keeps listing it as failed.
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Marius Sandbu: blog"
+kind = "feed"
+url = "https://msandbu.org/feed/"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365"]
+kb_page = "nerdio/community-projects.md"
+
 # --- HashiCorp stack --------------------------------------------------------
 
 [[source]]
@@ -96,9 +183,16 @@ kb_page = "packer/avd-image.md"
 # --- AVD --------------------------------------------------------------------
 
 [[source]]
-name = "Virtual Desktop Optimization Tool"
+name = "Windows Desktop Optimization Tool (WDOT): commits"
 kind = "github_commits"
-repo = "The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool"
+repo = "The-Virtual-Desktop-Team/Windows-Desktop-Optimization-Tool"
+# The kit pins main at a commit until a tag includes 0c8d1e6; see packer/avd-image.md.
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Windows Desktop Optimization Tool (WDOT): releases"
+kind = "github_releases"
+repo = "The-Virtual-Desktop-Team/Windows-Desktop-Optimization-Tool"
 kb_page = "packer/avd-image.md"
 
 [[source]]

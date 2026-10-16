@@ -1,3 +1,11 @@
+---
+title: "azurerm 5.x and azuread 3.x"
+summary: "azurerm 5.x and azuread 3.x changes we hit, with fixes"
+topic: terraform
+status: partial
+last_reviewed: 2026-10-16
+---
+
 # azurerm 5.x and azuread 3.x
 
 Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time: azurerm 5.10.0
@@ -31,5 +39,3 @@ terraform providers schema -json | jq '.provider_schemas[].resource_schemas["azu
 ```
 
 Pin modules with a floor (`>= 5.0`) and root modules with a pessimistic constraint (`~> 5.0`).
-
-_Last reviewed: 2026-10-16_

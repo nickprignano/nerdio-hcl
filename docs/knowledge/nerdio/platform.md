@@ -1,3 +1,11 @@
+---
+title: "Nerdio Manager platform"
+summary: "What the Marketplace deployment creates, the install step, setup wizard, roles and hardening"
+topic: nerdio
+status: partial
+last_reviewed: 2026-10-16
+---
+
 # Nerdio Manager platform
 
 How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and can't be automated.
@@ -103,5 +111,3 @@ registration/first-run state. Those two keep the wizard from being fully automat
 
 - Nerdio help center: Entra app article 26124326326669, private endpoints article 26124315691149
   (https://nmehelp.getnerdio.com).
-
-_Last reviewed: 2026-10-16_

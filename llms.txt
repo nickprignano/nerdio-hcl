@@ -1,0 +1,56 @@
+# Nerdio HCL deployment kit
+
+> A HashiCorp-stack (Terraform + Packer) deployment kit for Nerdio Manager for Enterprise on Azure
+> Virtual Desktop, with a living knowledge base of findings, gotchas and decisions.
+
+The knowledge base is in docs/knowledge/. Every page starts with YAML front matter (title, summary,
+topic, status, last_reviewed) validated against docs/knowledge/schema/. Pages with status `plan`
+describe intended work, not facts, and claims marked *unverified* are not yet confirmed. To
+contribute, open a KB feedback or known-error issue; changes land only through reviewed pull requests.
+
+## Knowledge base
+
+- [Knowledge base](docs/knowledge/README.md): What this knowledge base is, how it's organised, and how to add to it safely (status: verified)
+- [Community projects](docs/knowledge/nerdio/community-projects.md): Other Nerdio + Terraform projects worth knowing about (status: partial)
+- [Nerdio Entra app (`nerdio-nmw-app`)](docs/knowledge/nerdio/entra-app.md): The nerdio-nmw-app registration, permissions, app roles and the REST API client (status: partial)
+- [Nerdio Manager platform](docs/knowledge/nerdio/platform.md): What the Marketplace deployment creates, the install step, setup wizard, roles and hardening (status: partial)
+- [Nerdio Terraform provider (`nerdio/nme`)](docs/knowledge/nerdio/terraform-provider.md): Nerdio's own nerdio/nme provider: auth, resources, coverage gaps, how to build it (status: verified)
+- [Upstream contribution candidates (`nerdio/nme`)](docs/knowledge/nerdio/upstream-contributions.md): Gaps, API asks and doc fixes we could raise with Nerdio, with evidence (status: partial)
+- [azurerm 5.x and azuread 3.x](docs/knowledge/terraform/azurerm-5.md): azurerm 5.x and azuread 3.x changes we hit, with fixes (status: partial)
+- [Terraform and Packer behind a restrictive proxy](docs/knowledge/terraform/restricted-networks.md): Running Terraform and Packer where the registry is blocked (status: verified)
+- [Testing and CI](docs/knowledge/terraform/testing-and-ci.md): terraform test, tflint, the CI workflow and planned post-deploy checks (status: verified)
+- [Windows 11 multi-session image with Packer](docs/knowledge/packer/avd-image.md): Building a Windows 11 multi-session image for Nerdio with Packer (status: partial)
+- [Security baselines and hardening](docs/knowledge/security/README.md): Security baselines Nerdio publishes, kit hardening, and how to record accepted risks (status: partial)
+- [Known errors](docs/knowledge/troubleshooting/README.md): Known errors: symptom, cause, fix and source (status: verified)
+- [Chat assistant: the white-glove guide](docs/knowledge/chat-assistant.md): What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 (status: plan)
+- [Roadmap: turnkey, maximum-automation Nerdio deployment](docs/knowledge/stack-options.md): Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change (status: plan)
+- [Keeping the knowledge base current](docs/knowledge/curation.md): How the KB stays current: the weekly source digest, the prior-art check, the feedback loop and the freshness check (status: verified)
+
+## Structured data
+
+- [Known errors](docs/knowledge/troubleshooting/known-errors.yaml): symptom, cause, fix and source for errors hit with the kit
+- [Upstream asks](docs/knowledge/nerdio/upstream.yaml): gaps and asks for Nerdio's provider and API, with evidence and status
+- [Field reports](docs/knowledge/field-reports.yaml): what worked or broke when someone followed the KB
+- [Schemas](docs/knowledge/schema/page.schema.json): JSON Schemas for page front matter and the YAML files above
+
+## Decisions
+
+- [0001. Build the kit on Nerdio's own Terraform provider](docs/knowledge/decisions/0001-build-on-nerdio-provider.md): accepted
+- [0002. Nerdio owns AVD objects](docs/knowledge/decisions/0002-nerdio-owns-avd-objects.md): accepted
+- [0003. Deploy Nerdio Manager from the exported Marketplace template](docs/knowledge/decisions/0003-marketplace-template.md): superseded by 0011
+- [0004. Tenant and subscription are inputs, never hardcoded](docs/knowledge/decisions/0004-tenant-agnostic-inputs.md): accepted
+- [0005. Packer builds the golden image](docs/knowledge/decisions/0005-packer-for-images.md): accepted
+- [0006. No Ansible](docs/knowledge/decisions/0006-no-ansible.md): accepted
+- [0007. GitHub Actions forms are the button experience](docs/knowledge/decisions/0007-button-ux.md): accepted
+- [0008. Chat is the guided front door; the engine stays deterministic](docs/knowledge/decisions/0008-chat-front-door.md): accepted
+- [0009. Prefer Azure, GitHub, HashiCorp and open-source tooling](docs/knowledge/decisions/0009-prefer-azure-github-hashicorp-oss.md): accepted
+- [0010. Roadmap horizon: 90-day build windows, 12-month direction](docs/knowledge/decisions/0010-roadmap-horizon.md): accepted
+- [0011. Install Nerdio Manager in Terraform; HCL first](docs/knowledge/decisions/0011-terraform-native-install.md): accepted
+- [0012. Everything runs from Cloud Shell in a browser](docs/knowledge/decisions/0012-cloud-shell-baseline.md): accepted
+- [0013. Unlicensed code is reference only](docs/knowledge/decisions/0013-unlicensed-code-reference-only.md): accepted
+- [0014. The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry](docs/knowledge/decisions/0014-self-hosted-setup-chatbot.md): accepted
+- [0015. Secrets: Key Vault by default; OpenBao as the optional Vault-style module](docs/knowledge/decisions/0015-secrets-key-vault-default-openbao-optional.md): proposed
+
+## Optional
+
+- [Curator sources](docs/knowledge/sources.toml): the feeds and repos the weekly digest watches

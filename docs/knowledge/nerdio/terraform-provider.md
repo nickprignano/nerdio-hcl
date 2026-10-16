@@ -1,3 +1,11 @@
+---
+title: "Nerdio Terraform provider (`nerdio/nme`)"
+summary: "Nerdio's own nerdio/nme provider: auth, resources, coverage gaps, how to build it"
+topic: nerdio
+status: verified
+last_reviewed: 2026-10-16
+---
+
 # Nerdio Terraform provider (`nerdio/nme`)
 
 Nerdio's own provider configures Nerdio Manager through its REST API: host pools, profiles,
@@ -67,5 +75,3 @@ Two stages with separate state: a platform stage (azurerm/azuread) builds Azure 
 apps, then a Nerdio configuration stage (`nerdio/nme`) configures Nerdio against it. The platform
 stage exports its outputs as JSON (`terraform output -json ... > platform.auto.tfvars.json`) for
 the second stage. See [decision 0001](../decisions/0001-build-on-nerdio-provider.md).
-
-_Last reviewed: 2026-10-16_

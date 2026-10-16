@@ -1,16 +1,27 @@
+---
+status: accepted
+date: 2026-10-16
+decision-makers: [maintainers]
+---
+
 # 0013. Unlicensed code is reference only
 
-- **Status:** Accepted
-- **Date:** 2026-10-16
-
-## Context
+## Context and Problem Statement
 
 Nerdio's `NME-Terraform-Provider` and `NMW` repositories and the community project
 `MB-External/NME-Terraform` have no license (checked 2026-10-16; provider at commit `65e547f`).
 Without one, nobody else has the right to copy, modify or redistribute their code. Terraform's
-own providers (azurerm, azuread, azapi) are MPL-2.0; Terraform and Packer are BSL 1.1.
+own providers (azurerm, azuread, azapi) are MPL-2.0; Terraform and Packer are BSL 1.1. How may
+the kit use these repositories?
 
-## Decision
+## Considered Options
+
+- Copy or adapt their code where useful
+- Use them for facts only and write our own code
+
+## Decision Outcome
+
+Chosen option: "Facts only", because without a license we have no right to copy their code.
 
 - Use unlicensed repositories for facts only: setting names, API endpoints, behavior. Write our
   own code from those facts and note the source in the knowledge base.
@@ -25,8 +36,14 @@ own providers (azurerm, azuread, azapi) are MPL-2.0; Terraform and Packer are BS
 - Track `MB-External/NME-Terraform` as prior art ([community-projects.md](../nerdio/community-projects.md))
   and keep building our own in parallel.
 
-## Consequences
+### Consequences
 
-- No upstream PRs or hosted provider mirrors until Nerdio licenses the provider.
-- Our repo should pick its own license before going public (Apache-2.0 recommended; not chosen yet).
-- Not legal advice; revisit if Nerdio publishes terms.
+- Good, because the kit stays clear of copyright problems when it goes public.
+- Bad, because there can be no upstream PRs or hosted provider mirrors until Nerdio licenses the
+  provider.
+- Neutral, because our repo should pick its own license before going public (Apache-2.0
+  recommended; not chosen yet).
+
+## More Information
+
+Not legal advice; revisit if Nerdio publishes terms.
