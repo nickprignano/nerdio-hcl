@@ -15,9 +15,12 @@ How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and 
 - Deploy into an **empty resource group**.
 - Use the **Nerdio Manager for Enterprise** offer (`nerdio.nerdio_wvd_manager`), not the
   "Billing Subscription" SaaS listing (`nerdio.nmw-billing`).
-- Nerdio does not publish a stable ARM template URL, offer/plan IDs or parameter list. The
-  reliable path is to export the template from the portal (**Review + create > Download a
-  template for automation**) and pin it in the repo.
+- Nerdio's own template is public at `Get-Nerdio/NMW` `templates/mainTemplate.json` (updated
+  2026-10-02). It's a solution template, so there are no Marketplace terms to accept (*inferred*:
+  it has no plan, and licensing is a separate offer). Pin it to a commit. Nerdio hasn't declared it
+  a supported, versioned deploy path.
+- The alternative is to export the template from the portal (**Review + create > Download a
+  template for automation**) and pin it in the repo. Offer/plan IDs and a parameter list aren't published.
 - In Terraform, deploy the export with `azurerm_resource_group_template_deployment`
   (`deployment_mode = "Incremental"`) and `ignore_changes = [template_content]`, because Nerdio
   updates the running app itself after install. Find the generated resource names afterwards
@@ -33,12 +36,23 @@ How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and 
   principal object ID, and uses a downloaded `deploy-az.ps1` script. That script does not run in
   Cloud Shell; run it in local PowerShell. See [entra-app.md](entra-app.md).
 
+- **Automating the install:** [MB-External/NME-Terraform](https://github.com/MB-External/NME-Terraform)
+  does the install script's work in Terraform. It writes the app settings, Key Vault secrets and
+  SQL bootstrap, then deploys the app code from Nerdio's package API (`/api/package`, then
+  `/{ver}/link`) with a Kudu zip deploy. Admin consent is left manual. *Untested:* whether this
+  survives Nerdio's self-update.
+
 ## Setup wizard (manual)
 
 1. Grant admin consent (**Consent on behalf of my organization**).
 2. Pick the directory profile: Entra-joined, AD DS or Entra DS.
 3. Pick the AVD network and the resource group for host pools.
 4. A **second consent link** appears at the end. It is required; clicking OK alone does not grant it.
+
+What has an API: the network and resource group (`nme_linked_network`, `nme_linked_resource_group`),
+and consent can be granted in Terraform (*inferred* to match the wizard's second consent; confirm on
+a live run). What doesn't: the directory profile (only `GET /api/v1/ad/config`) and the
+registration/first-run state. Those two keep the wizard from being fully automated.
 
 ## Roles needed
 

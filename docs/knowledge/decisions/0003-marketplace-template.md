@@ -1,6 +1,7 @@
 # 0003. Deploy Nerdio Manager from the exported Marketplace template
 
-- **Status:** Accepted
+- **Status:** Accepted, under review: the [roadmap](../stack-options.md) proposes deploying Nerdio's
+  pinned `Get-Nerdio/NMW` `mainTemplate.json` instead of a portal export
 - **Date:** 2026-10-16
 
 ## Context

@@ -63,6 +63,8 @@ This REST client is also what the `nerdio/nme` Terraform provider authenticates 
 - `azuread_application_identifier_uri` as a separate resource, because `api://<client_id>` can't
   be set on the application in the same resource that creates it.
 - `azuread_service_principal_delegated_permission_grant` for admin consent.
-- `azuread_application_password` with `rotate_when_changed` driven by `time_rotating`.
+- `azuread_application_password` with `rotate_when_changed` driven by `time_rotating`. It always
+  stores the secret in state, and azuread 3.x has no write-only arguments. Vault, or Key Vault with
+  `value_wo` and ephemeral resources, keeps it out (see [../stack-options.md](../stack-options.md)).
 
 _Last reviewed: 2026-10-16_
