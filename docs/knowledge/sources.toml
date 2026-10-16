@@ -118,9 +118,16 @@ kb_page = "packer/avd-image.md"
 # --- AVD --------------------------------------------------------------------
 
 [[source]]
-name = "Virtual Desktop Optimization Tool"
+name = "Windows Desktop Optimization Tool (WDOT): commits"
 kind = "github_commits"
-repo = "The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool"
+repo = "The-Virtual-Desktop-Team/Windows-Desktop-Optimization-Tool"
+# The kit pins main at a commit until a tag includes 0c8d1e6; see packer/avd-image.md.
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Windows Desktop Optimization Tool (WDOT): releases"
+kind = "github_releases"
+repo = "The-Virtual-Desktop-Team/Windows-Desktop-Optimization-Tool"
 kb_page = "packer/avd-image.md"
 
 [[source]]

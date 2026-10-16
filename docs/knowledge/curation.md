@@ -25,7 +25,7 @@ Watched today:
   Nerdio's NMW repo (Marketplace template and runbooks), the Get-Nerdio GitHub org and the Nerdio
   help center
 - azurerm (filtered to resources the kit uses), azuread, Terraform, Packer and the Packer Azure plugin
-- The Virtual Desktop Optimization Tool and Azure updates about AVD, FSLogix and Azure Files
+- The Windows Desktop Optimization Tool (WDOT, VDOT's successor) and Azure updates about AVD, FSLogix and Azure Files
 - Community experts: stealthpuppy (Aaron Parker), his Nerdio scripts, Intune remediations, and his
   new or updated repos about Nerdio, AVD, Intune and images
 - New GitHub repos matching "nerdio terraform", "nerdio packer" and AVD + Packer + Terraform

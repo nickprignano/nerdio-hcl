@@ -19,7 +19,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [azurerm 5.x and azuread 3.x](docs/knowledge/terraform/azurerm-5.md): azurerm 5.x and azuread 3.x changes we hit, with fixes (status: partial)
 - [Terraform and Packer behind a restrictive proxy](docs/knowledge/terraform/restricted-networks.md): Running Terraform and Packer where the registry is blocked (status: verified)
 - [Testing and CI](docs/knowledge/terraform/testing-and-ci.md): terraform test, tflint, the CI workflow and planned post-deploy checks (status: verified)
-- [Windows 11 multi-session image with Packer](docs/knowledge/packer/avd-image.md): Building a Windows 11 multi-session image for Nerdio with Packer (status: verified)
+- [Windows 11 multi-session image with Packer](docs/knowledge/packer/avd-image.md): Building a Windows 11 multi-session image for Nerdio with Packer (status: partial)
 - [Security baselines and hardening](docs/knowledge/security/README.md): Security baselines Nerdio publishes, kit hardening, and how to record accepted risks (status: partial)
 - [Known errors](docs/knowledge/troubleshooting/README.md): Known errors: symptom, cause, fix and source (status: verified)
 - [Chat assistant: the white-glove guide](docs/knowledge/chat-assistant.md): What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 (status: plan)

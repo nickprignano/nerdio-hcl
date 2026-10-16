@@ -2,7 +2,7 @@
 title: "Windows 11 multi-session image with Packer"
 summary: "Building a Windows 11 multi-session image for Nerdio with Packer"
 topic: packer
-status: verified
+status: partial
 last_reviewed: 2026-10-16
 ---
 
@@ -30,7 +30,37 @@ Packer 1.16.1, `packer-plugin-azure` 2.6.4 (`version = "~> 2.6"`, `source = "git
 - Packer's HCL has no `tostring()` ("Call to unknown function"). For booleans in `env`, use
   `var.flag ? "True" : "False"`.
 - Windows Update steps need `valid_exit_codes = [0, 3010]` and an elevated user.
-- Virtual Desktop Optimization Tool (VDOT): fetched from the Virtual Desktop Team's GitHub repo
-  and run with `Windows_VDOT.ps1 -Optimizations All -AdvancedOptimizations Edge -AcceptEULA`.
-  Pin a release or commit rather than `main` for repeatable builds.
+- The file provisioner needs `generated = true` for a file that a `shell-local` provisioner
+  creates during the build; otherwise Packer looks for it at the start and fails.
+- A file provisioner with `content = jsonencode(...)` is a clean way to hand HCL-rendered settings
+  to a script on the guest.
 - Before sysprep, wait for the RdAgent and Azure guest agent services to be running.
+
+## Windows Desktop Optimization Tool (WDOT)
+
+The kit optimizes the image with [WDOT](https://github.com/The-Virtual-Desktop-Team/Windows-Desktop-Optimization-Tool),
+which its README calls "the next evolution of the Virtual Desktop Optimization Tool" (VDOT). Setup
+and the kit's profile are in `packer/avd-win11/README.md`. Checked against the WDOT repo on 2026-10-16.
+
+- **Changes from VDOT:** the entry script is `Windows_Optimization.ps1` (VDOT's was
+  `Windows_VDOT.ps1`). It needs `-ConfigProfile`, the name of a folder under `Configurations/`,
+  and `-Optimizations` no longer defaults to All.
+- **Profiles:** every setting in `Configurations/Templates` is `Skip`. The sample profile
+  `Configurations/2009` sets every setting to `Apply` in Autologgers, DefaultUserSettings,
+  EdgeSettings, LanManWorkstation and PolicyRegSettings, and leaves AppxPackages, ScheduledTasks
+  and Services all `Skip`. The kit's default `avd-multisession` profile reproduces those states.
+- **Silent failures:** WDOT records runs in the `WDOT` event log and in `HKLM:\SOFTWARE\WDOT`
+  (`Version`, `LastRunTime`). When its config is wrong it returns without an exit code, so a
+  wrapper has to check the event log, not the exit code.
+- **Versions:** tags are `v1.0` (2025-10-30) and `v1.1` (2026-05-01, commit `f20d6b7`).
+  *Unverified, inferred from the code:* `v1.1` passes `-Source` twice to `New-EventLog` (the
+  splat already contains it), which should stop the first run on a VM that has no `WDOT` event
+  log yet. It's fixed on `main` in `0c8d1e6`, which no tag includes yet, so the kit pins `main` at
+  commit `ff2574c` (2026-05-20). Move the pin to a tag once one includes the fix; the weekly
+  digest watches the repo.
+- **License:** mixed. `LICENSE` is MIT, but the README and `EULA.txt` call it Microsoft Sample
+  Code "not intended to be used in a production environment". The kit fetches it at build time
+  and doesn't vendor it.
+- **Pinning:** where GitHub archive downloads are blocked, fetch the commit with git and pin by
+  commit hash rather than a zip checksum (see
+  [../terraform/restricted-networks.md](../terraform/restricted-networks.md#pinning-github-sources-by-commit)).
