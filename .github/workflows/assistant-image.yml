@@ -1,0 +1,42 @@
+name: assistant-image
+
+# Builds the setup chatbot's container. Pull requests only build it; main publishes it to GHCR,
+# where ./nerdio assistant pulls it from by default.
+
+on:
+  pull_request:
+    paths: [assistant/**, scripts/nerdio/**, schema/**, docs/**, environments/example/**, modules/nerdio-config/variables.tf]
+  push:
+    branches: [main]
+    paths: [assistant/**, scripts/nerdio/**, schema/**, docs/**, environments/example/**, modules/nerdio-config/variables.tf]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: image name
+        id: name
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nerdio-hcl-assistant" >> "$GITHUB_OUTPUT"
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: assistant/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ steps.name.outputs.ref }}:main
+            ${{ steps.name.outputs.ref }}:${{ github.sha }}

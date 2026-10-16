@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# The kit's single entry point. Run ./nerdio --help for the commands.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "$root/scripts/nerdio/nerdio.py" "$@"

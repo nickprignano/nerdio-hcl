@@ -13,3 +13,13 @@ Read [docs/guardrails.md](docs/guardrails.md) before changing anything. These ar
   it, never copy or adapt it, and never vendor Nerdio binaries.
 - Run the prior-art check (`python3 scripts/kb/prior_art.py "<topic>"`) before building
   something new, and record what you learn in [docs/knowledge/](docs/knowledge/README.md).
+
+## Layout that matters
+
+- `schema/parameters.json` is the single source of truth for setup questions, defaults and
+  validation. The setup chatbot, `./nerdio init` and the Actions form all read it.
+- `scripts/nerdio/` is the engine behind `./nerdio` (Python standard library only).
+- `assistant/` is the self-hosted setup chatbot (its prompt is `assistant/prompt.md`);
+  `modules/assistant` and `environments/example/00-assistant` deploy it. See [docs/assistant.md](docs/assistant.md).
+- After touching the schema, engine or chatbot, run `./nerdio schema check`,
+  `python3 -m unittest discover -s scripts/nerdio` and `python3 -m unittest discover -s assistant`.

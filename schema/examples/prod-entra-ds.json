@@ -1,0 +1,14 @@
+{
+  "_random4": "cd34",
+  "environment": "prod",
+  "identity_model": "entra_ds",
+  "user_count": 120,
+  "workload": "heavy",
+  "location": "westeurope",
+  "address_space": "10.60.0.0/16",
+  "dns_servers": ["10.60.255.4", "10.60.255.5"],
+  "user_groups": ["11111111-1111-1111-1111-111111111111"],
+  "image_gallery_enabled": false,
+  "grant_admin_consent": false,
+  "timezone_id": "W. Europe Standard Time"
+}

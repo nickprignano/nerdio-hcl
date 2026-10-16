@@ -1,0 +1,7 @@
+.git
+.nerdio
+**/.terraform
+**/*.tfvars
+**/*.tfvars.json
+**/*.tfstate*
+**/__pycache__
