@@ -62,6 +62,31 @@ page, so the next person doesn't search again.
 
 The digest and prior-art scripts use only the Python standard library (3.11+).
 
+## Tracking X accounts (option, not enabled)
+
+Some community voices post mostly on X. The digest doesn't watch X today: blogs, YouTube and GitHub
+cover the same people for free, which fits [decision 0009](decisions/0009-prefer-azure-github-hashicorp-oss.md).
+If X-only posts turn out to matter, there are two paid routes. Both were checked against the
+vendors' own docs on 2026-10-16; prices change often, so re-check before using either.
+
+- **X API:** [pay-per-usage](https://docs.x.com/x-api/getting-started/pricing) with prepaid
+  credits and no subscription. The pricing page doesn't mention the older Free, Basic or Pro
+  tiers. A post read costs $0.005 and a user read $0.010, charged per resource returned. Reading
+  your own account's posts is $0.001. Repeat reads of the same resource within a UTC day aren't
+  charged again, the cap is 3 million post reads a month, and you can set a spending limit.
+- **xAI Grok API:** the [X Search tool](https://docs.x.ai/developers/tools/x-search) (`x_search`,
+  in the Responses API) searches X posts and can be limited to up to 20 handles
+  (`allowed_x_handles`) and a date range (`from_date`, `to_date`). It [costs](https://docs.x.ai/developers/pricing)
+  $5 per 1,000 posts and $10 per 1,000 profiles returned, plus model tokens (about $1.25 per
+  million input tokens for general-purpose models). The model can also summarise the posts in the
+  same call.
+
+**Rough cost** for the roughly ten accounts in the weekly digest, at about five posts each per week:
+around $1 a month either way. That's cheap, but it adds a third-party account and API key. Under
+0009 that needs a decision record saying why blogs, YouTube and GitHub fell short. The X API is
+the simpler fit because it returns raw posts that the deterministic curator can filter. The Grok
+route adds an AI step to a pipeline that otherwise uses no LLM.
+
 ## Feedback loop (`kb-feedback`)
 
 Real results flow back into the KB through two issue forms:
