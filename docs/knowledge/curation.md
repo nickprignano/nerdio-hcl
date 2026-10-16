@@ -22,6 +22,7 @@ left out. If nothing is new, no issue is opened.
 Watched today:
 
 - Nerdio's Terraform provider (commits, releases, issues and PRs, and its OpenAPI spec on its own),
+  MB-External/NME-Terraform (prior art for the install; reference only, no license),
   Nerdio's NMW repo (Marketplace template and runbooks), the Get-Nerdio GitHub org and the Nerdio
   help center
 - azurerm (filtered to resources the kit uses), azuread, Terraform, Packer and the Packer Azure plugin
