@@ -63,11 +63,12 @@ az login --tenant <tenant-id>
 terraform init && terraform apply
 
 # install Nerdio and finish its wizard, enable the REST API, then:
+../../../scripts/install-nme-provider.sh      # nerdio/nme ships as a GitHub release for now
 terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
 export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
 cd ../02-nerdio-config
 cp terraform.tfvars.example terraform.tfvars   # workspace and host pools
-terraform init && terraform apply
+terraform apply                                # no init needed with dev_overrides
 ```
 
 The full order of operations, including the manual Nerdio steps, is in
@@ -75,7 +76,9 @@ The full order of operations, including the manual Nerdio steps, is in
 
 ## Provider versions
 
-Modules require `azurerm >= 5.0`, `azuread >= 3.0` and `nerdio/nme >= 0.1.0`.
+Modules require `azurerm >= 5.0` and `azuread >= 3.0`. `nerdio/nme` is installed from Nerdio's
+GitHub release (`v0.0.1-preview.1`, pinned in `scripts/install-nme-provider.sh`) until it is
+published to the Registry.
 Validated with Terraform 1.16, azurerm 5.10, azuread 3.10 and Packer 1.16 with the Azure plugin 2.6.
 
 ## Keeping it shareable

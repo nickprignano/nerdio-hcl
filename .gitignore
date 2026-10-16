@@ -20,3 +20,4 @@ packer_cache/
 !example.pkrvars.hcl
 manifest.json
 *.auto.tfvars.json
+gitleaks.json

@@ -68,7 +68,11 @@ host) to reach the console.
 1. In Nerdio, open **Settings > Integrations** and enable the REST API. Stage 1 already created
    the REST client app (`<app name>-rest-client`). Grant it admin consent if
    `grant_admin_consent` was false.
-2. Hand stage 1's values to stage 2 and export the secret:
+2. Install the provider. `nerdio/nme` isn't on the Terraform Registry yet, so
+   `scripts/install-nme-provider.sh` downloads Nerdio's pinned GitHub release, verifies it and
+   adds a `dev_overrides` entry to `~/.terraformrc` (needs `gh auth login`). With the override in
+   place, skip `terraform init` in stage 2.
+3. Hand stage 1's values to stage 2 and export the secret:
 
    ```bash
    cd environments/<env>/01-platform
@@ -76,11 +80,10 @@ host) to reach the console.
    export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
    ```
 
-3. Describe the workspace and host pools in `02-nerdio-config/terraform.tfvars` and apply:
+4. Describe the workspace and host pools in `02-nerdio-config/terraform.tfvars` and apply:
 
    ```bash
    cd ../02-nerdio-config
-   terraform init
    terraform apply
    ```
 
