@@ -48,9 +48,11 @@ packer/
 templates/
   nerdio-manager/    exported Marketplace template (marketplace install only)
 docs/
+  guardrails.md
   deployment-runbook.md
   cloud-shell.md
   architecture.md
+  knowledge/         the living knowledge base and decision records
 ```
 
 ## Quick start
@@ -86,6 +88,21 @@ Modules require `azurerm >= 5.0` and `azuread >= 3.0`. `nerdio/nme` is installed
 GitHub release (`v0.0.1-preview.1`, pinned in `scripts/install-nme-provider.sh`) until it is
 published to the Registry.
 Validated with Terraform 1.16, azurerm 5.10, azuread 3.10 and Packer 1.16 with the Azure plugin 2.6.
+
+## Guardrails
+
+Every change follows [docs/guardrails.md](docs/guardrails.md). In short:
+
+1. **Automate, never at the expense of security.** Identities and certificates over secrets,
+   least privilege, and a documented workaround where automation isn't safe.
+2. **HCL first.** Terraform or Packer does it if it can; scripts are thin bootstrap glue.
+3. **Works from a browser.** Every step runs in Azure Cloud Shell, on an iPad included.
+4. **Nothing identifies a real environment.** No real IDs, domains, IPs, emails, secrets or
+   employer names in the repo. CI runs gitleaks and blocks tracked tfvars and state files.
+5. **Secrets never go through chat** or into the repo.
+6. **PRs only, plan first, and nothing applies without the tenant owner's yes.**
+7. **Unlicensed code is reference only.** Nerdio's repos and MB-External have no license: we use
+   facts from them, never their code, and download `nerdio/nme` from Nerdio's release.
 
 ## Keeping it shareable
 

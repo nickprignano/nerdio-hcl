@@ -28,6 +28,7 @@ belongs to instead of starting a new file.
 | [chat-assistant.md](chat-assistant.md) | What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 |
 | [troubleshooting/](troubleshooting/README.md) | Known errors: symptom, cause, fix and source |
 | [security/](security/README.md) | Security baselines Nerdio publishes, kit hardening, and how to record accepted risks |
+| [../guardrails.md](../guardrails.md) | The rules every change follows: security over convenience, HCL first, Cloud Shell baseline, no leaks, no secrets in chat, PR-only, licenses |
 | [decisions/](decisions/README.md) | Short decision records: what was decided and why |
 | [curation.md](curation.md) | The weekly source digest and the prior-art check that keep this KB current |
 

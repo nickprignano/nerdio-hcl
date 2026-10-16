@@ -74,6 +74,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: no tenant files tracked
+        # Guardrail 4 (docs/guardrails.md): real values live only in gitignored files.
+        run: |
+          bad="$(git ls-files | grep -E '(\.tfvars|\.tfvars\.json|\.pkrvars\.hcl|\.tfstate(\..*)?|\.tfplan|\.terraformrc)$' \
+            | grep -vE '(\.tfvars\.example|/example\.pkrvars\.hcl)$' || true)"
+          if [ -n "$bad" ]; then
+            printf '::error file=%s::Tenant-specific file is tracked; remove it and keep it gitignored (docs/guardrails.md)\n' $bad
+            exit 1
+          fi
       - name: gitleaks
         run: |
           docker run --rm -v "$PWD:/repo" \

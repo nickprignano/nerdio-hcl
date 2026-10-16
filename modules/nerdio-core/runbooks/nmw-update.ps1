@@ -6,7 +6,8 @@ updater starts it by name (with sourceUri, a package URL from Nerdio's maintenan
 Reads the subscriptionId, resourceGroupName and webAppName Automation variables. Uses Entra tokens
 for the SCM site, so the web app can keep basic publishing credentials disabled.
 
-Part of github.com/nickprignano/nerdio-hcl (modules/nerdio-core).
+Part of github.com/nickprignano/nerdio-hcl (modules/nerdio-core). Our own code, written from
+documented behavior; it doesn't contain or copy Nerdio's runbook. It prints no secrets or IDs.
 #>
 param
 (

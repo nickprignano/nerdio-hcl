@@ -5,6 +5,9 @@
 # GitHub release assets and documents a dev_overrides install. This script downloads the pinned
 # release, verifies its checksum and writes the override into the Terraform CLI config.
 #
+# Guardrail: the provider has no license, so the kit downloads it from Nerdio's own release and
+# never vendors, mirrors or re-hosts the binary (docs/guardrails.md, decision 0013).
+#
 #   NME_PROVIDER_TAG   release tag (default below)
 #   NME_PROVIDER_DIR   install directory (default ~/.terraform.d/dev-overrides/nme)
 #   TF_CLI_CONFIG_FILE CLI config to write (default ~/.terraformrc)

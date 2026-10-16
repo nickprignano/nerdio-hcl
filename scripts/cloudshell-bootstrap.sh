@@ -10,6 +10,10 @@
 # later runs reuse it, so names stay stable. Every generated file is gitignored, and IDs are
 # never printed. Run `az account set --subscription <name>` first if the default is wrong.
 #
+# Guardrails (docs/guardrails.md): this is bootstrap glue only (HCL first; Terraform does the
+# work). It plans by default, and --apply leaves the yes to you. Nothing here prints or commits
+# tenant values.
+#
 #   NME_INSTALL        terraform (default: Terraform builds Nerdio Manager) or marketplace (deploy an
 #                      exported Marketplace template, then run Nerdio's install script)
 #   NME_LOCATION       Azure region (default eastus2)

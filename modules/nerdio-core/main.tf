@@ -4,6 +4,11 @@
 # - The Nerdio app signs in with Key Vault certificates, not a client secret.
 # - The app code is deployed by an Automation job that runs in Azure, so the machine running
 #   Terraform needs nothing beyond Terraform (it works from Cloud Shell or a pipeline).
+#
+# Guardrails (docs/guardrails.md): setting names and API calls come from reading Nerdio's
+# template and MB-External/NME-Terraform. Both are unlicensed, so this is our own code written
+# from those facts; never paste theirs in. The Nerdio package is fetched at install time and
+# never stored in this repo. See docs/knowledge/decisions/0011 and 0013.
 
 data "azurerm_client_config" "current" {}
 
