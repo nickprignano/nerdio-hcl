@@ -34,12 +34,6 @@ variable "resource_groups" {
   }
 }
 
-variable "register_resource_providers" {
-  description = "Register the resource providers Nerdio Manager needs. Disable if your platform team registers them centrally."
-  type        = bool
-  default     = true
-}
-
 variable "log_analytics_retention_days" {
   description = "Retention for the AVD Log Analytics workspace."
   type        = number
