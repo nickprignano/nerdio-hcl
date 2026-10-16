@@ -1,0 +1,49 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+      - name: fmt
+        run: terraform fmt -recursive -check -diff
+      - name: validate
+        working-directory: environments/example
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+      - name: module tests
+        working-directory: modules/network
+        run: |
+          terraform init -backend=false -input=false
+          terraform test
+      - uses: terraform-linters/setup-tflint@v4
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --recursive --minimum-failure-severity=error
+
+  packer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+        with:
+          version: "1.16.1"
+      - name: init, fmt, validate
+        working-directory: packer/avd-win11
+        run: |
+          packer init .
+          packer fmt -check -diff .
+          packer validate -var-file=example.pkrvars.hcl .

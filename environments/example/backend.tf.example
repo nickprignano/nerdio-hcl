@@ -1,0 +1,15 @@
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "rg-tfstate"
+    storage_account_name = "sttfstate00000"
+    container_name       = "tfstate"
+    key                  = "nerdio/prod.tfstate"
+    use_azuread_auth     = true
+  }
+
+  # Or HCP Terraform:
+  # cloud {
+  #   organization = "your-org"
+  #   workspaces { name = "nerdio-prod" }
+  # }
+}
