@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nerdio setup</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <h1>Nerdio setup</h1>
+    <span id="who"></span>
+    <button id="reset" type="button" title="Start a new conversation">New</button>
+  </header>
+  <main id="log" aria-live="polite"></main>
+  <form id="ask">
+    <textarea id="text" rows="2" placeholder="Say hi to start, or paste Cloud Shell output here" required></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+  <script src="/static/app.js"></script>
+</body>
+</html>

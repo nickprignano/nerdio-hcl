@@ -1,7 +1,7 @@
 """Read-only readiness checks for the prepare phase: tools, sign-in, roles, providers, region, quota.
 
 Every check only reads (az ... show/list). Nothing here changes Azure or Entra. Each result
-carries the exact command or link that fixes it, so a person or the chat skill can act on it.
+carries the exact command or link that fixes it, so a person or the setup chatbot can act on it.
 """
 
 from __future__ import annotations

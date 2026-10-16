@@ -3,11 +3,12 @@
   ./nerdio init                 interview, then write the tfvars (Terraform checks them)
   ./nerdio init --advanced      also ask the advanced questions
   ./nerdio init --set k=v ...   answer without prompts (add --non-interactive to never prompt)
-  ./nerdio questions --phase discover   the questions as JSON, for the chat skill
+  ./nerdio questions --phase discover   the questions as JSON, for the setup chatbot
   ./nerdio show                 the current answers and where each value came from
   ./nerdio preflight            read-only readiness checks (roles, providers, region, quota)
   ./nerdio schema check         check the schema against the Terraform variables (CI)
   ./nerdio form --write|--check generate or check the Actions form from the schema
+  ./nerdio assistant --admin-group "AVD Admins"   deploy the setup chatbot into this tenant
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import textwrap
 
@@ -184,7 +186,7 @@ def cmd_init(args) -> int:
 
 
 def cmd_questions(args) -> int:
-    """Everything the chat skill needs to ask the same questions as the CLI, as JSON."""
+    """Everything the setup chatbot needs to ask the same questions as the CLI, as JSON."""
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
@@ -290,6 +292,40 @@ def cmd_form(args) -> int:
     return 0
 
 
+def cmd_assistant(args) -> int:
+    """Deploy the setup chatbot with Terraform. Run it in Azure Cloud Shell; IDs come from az."""
+    stage = engine.ROOT / "environments" / args.env / "00-assistant"
+    out = stage / "assistant.auto.tfvars.json"
+    tfvars = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
+    sources = engine.read_sources()
+    if not (sources["tenant"] and sources["subscription"]):
+        print("✗ Not signed in: run az login (Cloud Shell already is), then try again.", file=sys.stderr)
+        return 1
+    tfvars.update({"tenant_id": sources["tenant"], "subscription_id": sources["subscription"]})
+    for key, value in (("admin_group", args.admin_group), ("location", args.location), ("image", args.image)):
+        if value:
+            tfvars[key] = value
+    if args.foundry_location:
+        tfvars.setdefault("foundry", {})["location"] = args.foundry_location
+    if not tfvars.get("admin_group"):
+        print('✗ Name the Entra group allowed to use the assistant: --admin-group "AVD Admins"', file=sys.stderr)
+        return 1
+    old = os.umask(0o077)
+    try:
+        out.write_text(json.dumps(tfvars, indent=2) + "\n", encoding="utf-8")
+    finally:
+        os.umask(old)
+    print(f"Wrote {out.relative_to(engine.ROOT)} (gitignored). Only members of \"{tfvars['admin_group']}\" will be able to sign in.")
+    if subprocess.run(["terraform", f"-chdir={stage}", "init", "-input=false"], check=False).returncode:
+        return 1
+    action = ["plan", "-input=false"] if args.plan else ["apply"]
+    code = subprocess.run(["terraform", f"-chdir={stage}", *action], check=False).returncode
+    if code == 0 and not args.plan:
+        subprocess.run(["terraform", f"-chdir={stage}", "output", "url"], check=False)
+        print("Open that URL and sign in. The first visit may take a few seconds while the app wakes up.")
+    return code
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="nerdio", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -305,7 +341,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--show-ids", action="store_true", help="print IDs in full in the summary")
     p.set_defaults(func=cmd_init)
 
-    p = sub.add_parser("questions", help="print the questions as JSON for the chat skill")
+    p = sub.add_parser("questions", help="print the questions as JSON for the setup chatbot")
     p.add_argument("--phase", choices=ASKED_PHASES)
     p.add_argument("--advanced", action="store_true")
     p.set_defaults(func=cmd_questions)
@@ -327,6 +363,15 @@ def main(argv: list[str]) -> int:
     g.add_argument("--write", action="store_true")
     g.add_argument("--check", action="store_true")
     p.set_defaults(func=cmd_form)
+
+    p = sub.add_parser("assistant", help="deploy the setup chatbot into this tenant with Terraform")
+    p.add_argument("--admin-group", help="display name of the Entra group allowed to use it")
+    p.add_argument("--location", help="region for the app (default eastus2)")
+    p.add_argument("--foundry-location", help="region for Claude on Foundry, if different")
+    p.add_argument("--image", help="container image (default: the kit's published image)")
+    p.add_argument("--env", default="example", help="environment folder under environments/")
+    p.add_argument("--plan", action="store_true", help="show the plan only")
+    p.set_defaults(func=cmd_assistant)
 
     args = parser.parse_args(argv)
     try:

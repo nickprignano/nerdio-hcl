@@ -176,6 +176,22 @@
       ]
     },
     {
+      "id": "location",
+      "phase": "discover",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]{2,30}$",
+      "question": "Which Azure region? Pick one close to most users.",
+      "help": "Use the short name, like eastus2 or westeurope (`az account list-locations -o table`). Preflight checks that AVD's services and your VM size are available there.",
+      "default": "eastus2",
+      "form": true,
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "location"
+        }
+      ]
+    },
+    {
       "id": "tenant_id",
       "phase": "configure",
       "type": "uuid",
@@ -202,22 +218,6 @@
         {
           "stage": "platform",
           "path": "subscription_id"
-        }
-      ]
-    },
-    {
-      "id": "location",
-      "phase": "configure",
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9]{2,30}$",
-      "question": "Which Azure region? Pick one close to most users.",
-      "help": "Use the short name, like eastus2 or westeurope (`az account list-locations -o table`). Preflight checks that AVD's services and your VM size are available there.",
-      "default": "eastus2",
-      "form": true,
-      "tfvars": [
-        {
-          "stage": "platform",
-          "path": "location"
         }
       ]
     },

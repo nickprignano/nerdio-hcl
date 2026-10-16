@@ -1,6 +1,6 @@
 # Parameter schema
 
-`parameters.json` is the single list of deployment parameters. The chat `setup` skill,
+`parameters.json` is the single list of deployment parameters. The setup chatbot (`assistant/`),
 `./nerdio init` and the GitHub Actions form all read it, and each parameter maps onto a Terraform
 variable in a stage. Change a question, default or rule here, never in one front door.
 
@@ -34,10 +34,10 @@ variable in a stage. Change a question, default or rule here, never in one front
 | `source` | `tenant` or `subscription`: read from `ARM_*` or `az account show`, never asked or saved |
 | `tfvars` | Where the value lands: `stage` (`platform`, `config`), a dotted `path` (may use `{id}`), and optional `value` template, `render` (`list`, `resource_groups`) or `omit_empty` |
 | `form` | Show it on the Actions form. Keep the form to 10 inputs |
-| `kb`, `sources` | What the chat skill cites: pages under `docs/knowledge/`, and external docs |
+| `kb`, `sources` | What the chatbot cites: pages under `docs/knowledge/`, and external docs |
 | `checks` | Cross-field checks, e.g. `subnets_in_address_space` |
 
-Top level: `phases` (all eight, for the skills), `stages` (folder per stage), `output_file`,
+Top level: `phases` (all eight, for the chatbot), `stages` (folder per stage), `output_file`,
 `roots` (objects rendered as `null` when a feature is off) and `constants` (fixed tfvars such as tags).
 
 ## Checks

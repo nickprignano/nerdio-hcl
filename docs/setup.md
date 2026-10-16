@@ -6,9 +6,9 @@ and every front door asks the same questions, applies the same defaults and runs
 
 | Phase | What happens | Chat | Command line | Button |
 |---|---|---|---|---|
-| Discover | Environment, identity model, users, workload | `setup` skill | `./nerdio init --phase discover` | configure workflow |
-| Prepare | Read-only readiness checks | `setup` skill runs or explains them | `./nerdio preflight` | not yet |
-| Configure | Names, network, storage, identity, first host pool | `setup` skill | `./nerdio init` | configure workflow (dry run) |
+| Discover | Environment, identity model, users, workload | setup chatbot | `./nerdio init --phase discover` | configure workflow |
+| Prepare | Read-only readiness checks | bot gives the command and reads the result | `./nerdio preflight` | not yet |
+| Configure | Names, network, storage, identity, first host pool | setup chatbot | `./nerdio init` | configure workflow (dry run) |
 
 Bootstrap, deploy, the Nerdio wizard steps, verify and handover come next on the roadmap. Until
 then, continue with [deployment-runbook.md](deployment-runbook.md).
@@ -53,14 +53,15 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 - The region, the VM size in that region, and vCPU quota for the host pool at full scale.
 - Things no command can check: the Nerdio license and AVD user licenses.
 
-`./nerdio preflight --json` gives the same results for the chat skill.
+`./nerdio preflight --json` gives the same results for the setup chatbot.
 
 ## Chat
 
-Open the repo in Claude Code (terminal, desktop or web) and ask to set up Nerdio. The `setup`
-skill in `.claude/skills/setup/` asks the schema's questions in conversation, cites the knowledge
-base for its recommendations, runs `./nerdio` to record and check every answer, and shows the
-result for review. It never asks for secrets and never applies anything.
+The setup chatbot runs in your own tenant and asks the schema's questions in conversation. It
+cites the knowledge base for its recommendations, records and checks every answer with the same
+engine, and shows the result for review. For anything that has to run in your tenant, it gives you
+one command to paste into Cloud Shell. It never asks for secrets and never applies anything. How to
+deploy it: [assistant.md](assistant.md).
 
 ## Button
 
