@@ -94,6 +94,13 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(resolved.values["fslogix_identity_source"], "AADDS")
         self.assertFalse(resolved.values["fslogix_entra_kerberos"])
 
+    def test_terraform_install_needs_the_entra_app(self):
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "create_entra_app": False}, SOURCES)
+        self.assertIn("create_entra_app", resolved.errors)
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "create_entra_app": False,
+                                                "nerdio_install": "marketplace"}, SOURCES)
+        self.assertEqual(resolved.errors, {})
+
     def test_missing_sign_in_is_an_error_not_a_crash(self):
         resolved = engine.resolve(self.schema, {"_random4": "ab12"}, {"tenant": None, "subscription": None})
         self.assertIn("tenant_id", resolved.errors)

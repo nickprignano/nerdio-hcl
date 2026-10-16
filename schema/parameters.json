@@ -575,12 +575,40 @@
       ]
     },
     {
+      "id": "nerdio_install",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "advanced",
+      "question": "How should Nerdio Manager be installed?",
+      "help": "Terraform builds Nerdio Manager in the same apply, with no install script to run. Marketplace deploys an exported Marketplace template, then you run Nerdio's install script; it's the fallback if the Terraform install breaks.",
+      "choices": [
+        {
+          "value": "terraform",
+          "label": "Terraform (recommended, one apply)"
+        },
+        {
+          "value": "marketplace",
+          "label": "Marketplace template plus Nerdio's install script"
+        }
+      ],
+      "default": "terraform",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "nerdio_install"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/decisions/0011-terraform-native-install.md"
+      ]
+    },
+    {
       "id": "create_entra_app",
       "phase": "configure",
       "type": "bool",
       "ask": "advanced",
       "question": "Create Nerdio's Entra app in Terraform?",
-      "help": "Yes builds nerdio-nmw-app and the REST API client in Terraform. No leaves it to Nerdio's install script.",
+      "help": "Yes builds nerdio-nmw-app and the REST API client in Terraform. No leaves it to Nerdio's install script, which only the Marketplace install runs, so the Terraform install needs yes.",
       "default": true,
       "tfvars": [
         {
@@ -590,6 +618,9 @@
       ],
       "kb": [
         "docs/knowledge/nerdio/entra-app.md"
+      ],
+      "checks": [
+        "entra_app_for_terraform_install"
       ]
     },
     {

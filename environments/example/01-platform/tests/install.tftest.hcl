@@ -1,0 +1,119 @@
+# Plan-only test with mocked providers: both install paths wire up without a tenant.
+
+mock_provider "azurerm" {
+  mock_data "azurerm_subscription" {
+    defaults = {
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000"
+      display_name = "Example subscription"
+    }
+  }
+  mock_data "azurerm_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "11111111-1111-1111-1111-111111111111"
+      object_id       = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+}
+
+mock_provider "azuread" {
+  mock_data "azuread_client_config" {
+    defaults = {
+      object_id = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+  mock_data "azuread_application_published_app_ids" {
+    defaults = {
+      result = {
+        MicrosoftGraph         = "00000003-0000-0000-c000-000000000000"
+        AzureServiceManagement = "797f4846-ba00-4fd7-ba43-dac1f8f63013"
+      }
+    }
+  }
+  # Every Graph scope and role the kit looks up, on whichever service principal is read.
+  mock_data "azuread_service_principal" {
+    defaults = {
+      object_id = "66666666-6666-6666-6666-666666666666"
+      oauth2_permission_scope_ids = {
+        "User.Read"                       = "aaaaaaaa-0000-0000-0000-000000000000"
+        "User.ReadBasic.All"              = "aaaaaaaa-0000-0000-0000-000000000001"
+        "User.Read.All"                   = "aaaaaaaa-0000-0000-0000-000000000002"
+        "Group.Read.All"                  = "aaaaaaaa-0000-0000-0000-000000000003"
+        "GroupMember.Read.All"            = "aaaaaaaa-0000-0000-0000-000000000004"
+        "Application.Read.All"            = "aaaaaaaa-0000-0000-0000-000000000005"
+        "Application.ReadWrite.All"       = "aaaaaaaa-0000-0000-0000-000000000006"
+        "Organization.Read.All"           = "aaaaaaaa-0000-0000-0000-000000000007"
+        "AppRoleAssignment.ReadWrite.All" = "aaaaaaaa-0000-0000-0000-000000000008"
+        "Directory.Read.All"              = "aaaaaaaa-0000-0000-0000-000000000009"
+        "offline_access"                  = "aaaaaaaa-0000-0000-0000-000000000010"
+        "openid"                          = "aaaaaaaa-0000-0000-0000-000000000011"
+        "profile"                         = "aaaaaaaa-0000-0000-0000-000000000012"
+        "Mail.Send"                       = "aaaaaaaa-0000-0000-0000-000000000013"
+        "user_impersonation"              = "aaaaaaaa-0000-0000-0000-000000000014"
+      }
+      app_role_ids = {
+        "Group.Read.All"        = "bbbbbbbb-0000-0000-0000-000000000000"
+        "GroupMember.Read.All"  = "bbbbbbbb-0000-0000-0000-000000000001"
+        "Organization.Read.All" = "bbbbbbbb-0000-0000-0000-000000000002"
+        "User.Read.All"         = "bbbbbbbb-0000-0000-0000-000000000003"
+        "Application.Read.All"  = "bbbbbbbb-0000-0000-0000-000000000004"
+      }
+    }
+  }
+}
+
+mock_provider "azapi" {}
+mock_provider "time" {}
+
+mock_provider "http" {
+  mock_data "http" {
+    defaults = {
+      status_code = 200
+    }
+  }
+}
+
+variables {
+  tenant_id       = "11111111-1111-1111-1111-111111111111"
+  subscription_id = "00000000-0000-0000-0000-000000000000"
+  prefix          = "example-nme"
+  resource_groups = {
+    nerdio     = "rg-example-nerdio"
+    network    = "rg-example-network"
+    hostpools  = "rg-example-hostpools"
+    storage    = "rg-example-storage"
+    monitoring = "rg-example-monitoring"
+  }
+  network = {
+    address_space = ["10.50.0.0/20"]
+    subnets = {
+      session_hosts     = "10.50.0.0/22"
+      private_endpoints = "10.50.4.0/27"
+      app_integration   = "10.50.4.32/27"
+    }
+  }
+}
+
+run "terraform_install" {
+  command = plan
+
+  assert {
+    condition     = length(module.nerdio_core) == 1 && length(module.nerdio_manager) == 0
+    error_message = "The default install should be the Terraform one."
+  }
+
+  assert {
+    condition     = startswith(output.nerdio_url, "https://nmw-app-")
+    error_message = "nerdio_url should point at the Terraform-built web app."
+  }
+}
+
+run "terraform_install_needs_entra_app" {
+  command = plan
+
+  variables {
+    create_entra_app = false
+  }
+
+  expect_failures = [var.nerdio_install]
+}

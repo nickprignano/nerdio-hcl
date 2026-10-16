@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream.schema.json",
+  "title": "Upstream contribution candidates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["feature_gaps", "api_asks", "docs_packaging"],
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "evidence", "status"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "title": {"type": "string"},
+        "evidence": {"type": "string"},
+        "why": {"type": "string"},
+        "fix": {"type": "string"},
+        "status": {"enum": ["candidate", "raised", "merged", "dropped"]},
+        "link": {"type": "string", "pattern": "^https://", "description": "Issue or PR once raised."},
+        "note": {"type": "string", "description": "Why it was dropped, or other status detail."}
+      }
+    },
+    "list": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+  },
+  "properties": {
+    "feature_gaps": {"$ref": "#/$defs/list"},
+    "api_asks": {"$ref": "#/$defs/list"},
+    "docs_packaging": {"$ref": "#/$defs/list"}
+  }
+}

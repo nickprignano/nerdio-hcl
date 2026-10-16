@@ -253,6 +253,10 @@ def cross_checks(schema: dict, values: dict) -> dict:
         for check in p.get("checks", []):
             if check == "subnets_in_address_space":
                 errors.update(_check_subnets(values))
+            elif check == "entra_app_for_terraform_install":
+                if values.get("nerdio_install") == "terraform" and values.get("create_entra_app") is False:
+                    errors["create_entra_app"] = ("the Terraform install builds Nerdio's Entra app itself, so this must be yes "
+                                                  "(or pick the Marketplace install)")
             else:
                 raise SchemaError(f"unknown check {check}")
     return errors

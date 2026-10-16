@@ -1,3 +1,11 @@
+---
+title: "Nerdio Manager platform"
+summary: "What the Marketplace deployment creates, the install step, setup wizard, roles and hardening"
+topic: nerdio
+status: partial
+last_reviewed: 2026-10-16
+---
+
 # Nerdio Manager platform
 
 How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and can't be automated.
@@ -27,7 +35,27 @@ How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and 
   with `data "azurerm_resources"`.
 - Marketplace parameter names change between Nerdio releases. Always take them from your export.
 
-## Install step (manual)
+## Terraform install (the kit's default)
+
+`modules/nerdio-core` does the template's and install script's work in Terraform; see
+[decision 0011](../decisions/0011-terraform-native-install.md). Facts it relies on (*unverified*
+until the first live run unless noted):
+
+- Nerdio's updater finds the web app from the Key Vault name, so keep the template's names:
+  `nmw-app-<suffix>`, `nmw-app-kv-<suffix>`, `-sql-`, `-automation-`, `-scripted-actions-`,
+  `-law-`, `-insights-`, `-plan-`.
+- App setting `Deployment:UpdaterRunbookRunAs` names the Automation runbook the in-app updater
+  starts (`nmwUpdateRunAs`), passing `sourceUri`, `azureEnv` and `authType`.
+- Package service: `GET https://nwp-web-app.azurewebsites.net/api/package` lists versions
+  (status 2 is GA); `POST /api/package/{version}/link?standalone=false` returns `packageUri`. The
+  zip holds `app.zip`, `nwm-scripts.psm1` (`NWM-Before-Publish`, `NWM-After-Publish`) and
+  `version.txt`. Undocumented.
+- Kudu zip deploy accepts an Entra bearer token, so basic publishing auth can stay off.
+- SQL can be Entra-only with an Entra group as admin (web app identity plus the Nerdio app). The
+  SQL server's identity needs Graph `User.Read.All`, `GroupMember.Read.All` and
+  `Application.Read.All` to resolve group members.
+
+## Install step (manual, marketplace path)
 
 - After the Marketplace deployment, the app's home page shows a one-line script for Cloud Shell
   (needs a storage-backed Cloud Shell). It creates the Entra app and service principal, prepares
@@ -83,5 +111,3 @@ registration/first-run state. Those two keep the wizard from being fully automat
 
 - Nerdio help center: Entra app article 26124326326669, private endpoints article 26124315691149
   (https://nmehelp.getnerdio.com).
-
-_Last reviewed: 2026-10-16_

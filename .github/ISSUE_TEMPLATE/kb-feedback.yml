@@ -1,0 +1,54 @@
+name: Knowledge base feedback
+description: Tell us what worked, broke, went out of date or is missing in docs/knowledge/.
+title: "KB feedback: "
+labels: [kb-feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repo is public. Don't paste tenant or subscription IDs, resource or user names, domains,
+        emails, IP addresses or secrets. A maintainer reviews every report before it reaches the KB.
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - Worked as described
+        - Broke or gave the wrong result
+        - Outdated (something changed upstream)
+        - Missing (the KB should cover this)
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: Path under docs/knowledge/, for example terraform/azurerm-5.md
+      placeholder: terraform/azurerm-5.md
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: One or two sentences.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Tool and provider versions involved, if relevant.
+      placeholder: Terraform 1.16.6, azurerm 5.10.0
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Error text, a log excerpt or a link, with names and IDs removed.
+  - type: checkboxes
+    id: public-safe
+    attributes:
+      label: Public-safe
+      options:
+        - label: I removed tenant and subscription IDs, names, domains, emails, IP addresses and secrets.
+          required: true

@@ -1,5 +1,8 @@
 # Nerdio Manager Marketplace template
 
+Only for `nerdio_install = "marketplace"`. The default terraform install (`modules/nerdio-core`)
+doesn't use a template.
+
 Nerdio doesn't publish a stable ARM template URL for Nerdio Manager for Enterprise, so the kit
 deploys whatever template you export from the Azure Marketplace and pins it here.
 

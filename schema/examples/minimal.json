@@ -4,5 +4,6 @@
   "workload": "light",
   "user_count": 3,
   "fslogix_enabled": false,
+  "nerdio_install": "marketplace",
   "create_entra_app": false
 }

@@ -1,3 +1,8 @@
+output "application_id" {
+  description = "Application object path (/applications/<object id>), for credentials added outside this module."
+  value       = azuread_application.nerdio.id
+}
+
 output "client_id" {
   description = "Application (client) ID. Enter as App ID under \"Use existing AD app\" on the Nerdio install page."
   value       = azuread_application.nerdio.client_id
@@ -10,7 +15,7 @@ output "service_principal_object_id" {
 
 output "client_secret" {
   description = "Client secret value. Enter as App Secret on the Nerdio install page."
-  value       = azuread_application_password.nerdio.value
+  value       = try(azuread_application_password.nerdio[0].value, null)
   sensitive   = true
 }
 

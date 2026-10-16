@@ -1,3 +1,11 @@
+---
+title: "Nerdio Entra app (`nerdio-nmw-app`)"
+summary: "The nerdio-nmw-app registration, permissions, app roles and the REST API client"
+topic: nerdio
+status: partial
+last_reviewed: 2026-10-16
+---
+
 # Nerdio Entra app (`nerdio-nmw-app`)
 
 Nerdio's install script normally creates this app. Creating it yourself (in Terraform with the
@@ -66,5 +74,3 @@ This REST client is also what the `nerdio/nme` Terraform provider authenticates 
 - `azuread_application_password` with `rotate_when_changed` driven by `time_rotating`. It always
   stores the secret in state, and azuread 3.x has no write-only arguments. Vault, or Key Vault with
   `value_wo` and ephemeral resources, keeps it out (see [../stack-options.md](../stack-options.md)).
-
-_Last reviewed: 2026-10-16_

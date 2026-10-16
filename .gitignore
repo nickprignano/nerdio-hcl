@@ -24,4 +24,6 @@ gitleaks.json
 
 # ./nerdio answers (local only)
 .nerdio/
+
+# Python
 __pycache__/
