@@ -17,7 +17,7 @@ built around Nerdio's official Terraform provider, [`nerdio/nme`](https://github
 | Nerdio Manager | Terraform | The Marketplace ARM template (App Service, SQL, Key Vault, Automation, App Insights, storage) |
 | Identity | Terraform (azuread) | The `nerdio-nmw-app` registration, app roles, Graph permissions, optional admin consent and REST API client |
 | Hardening | Terraform | Private endpoints for SQL and Key Vault, App Service VNet integration, optional private console |
-| Images | Terraform + Packer | Compute Gallery and a Windows 11 multi-session + M365 image (Trusted Launch, VDOT, updates) |
+| Images | Terraform + Packer | Compute Gallery and a Windows 11 multi-session + M365 image (Trusted Launch, updates, WDOT optimizations) |
 | Nerdio config | Terraform (`nerdio/nme`) | Linked subscription, resource groups and network, workspace, FSLogix profile, auto-scale profile, dynamic host pools |
 
 Nerdio's install script and setup wizard are the only manual steps; they sit between the two stages.
