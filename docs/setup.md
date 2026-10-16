@@ -20,7 +20,7 @@ Works anywhere with Python 3, `az` and Terraform, including Azure Cloud Shell (B
 ```bash
 az account show                 # the tenant and subscription the kit will use
 ./nerdio init                   # answer the questions; Enter keeps the suggestion
-./nerdio preflight              # check roles, providers, region, VM size, vCPU and App Service quota
+./nerdio preflight              # check roles, network, policy, providers, region and quota
 ./nerdio show                   # what you answered, and what came from defaults
 ```
 
@@ -46,7 +46,8 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 (couldn't check) or confirm-yourself:
 
 - Tools: Terraform 1.11 or later, `az`, `jq`, `git`.
-- Sign-in, and **Owner** on the subscription.
+- Sign-in, and **Owner** on the subscription (or Contributor plus User Access Administrator or
+  Role Based Access Control Administrator).
 - **Global Administrator**, or **Privileged Role Administrator + Cloud Application Administrator**,
   when Terraform grants admin consent. Roles eligible through PIM must be activated first.
 - That you can create app registrations, when the kit creates the Nerdio Entra app. Many tenants
@@ -56,6 +57,14 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 - With the terraform install, the App Service plan for Nerdio Manager (B3 by default): that the SKU
   is offered in the region and the subscription has quota for one. Sandbox and trial subscriptions
   often have a limit of 0, and the apply would otherwise fail late with "without additional quota".
+- Networking: whether the AVD address range overlaps the subscription's other VNets (a warning) or
+  the hub (a failure), whether you can read the hub and create the peering on it (Network
+  Contributor), and whether privatelink DNS zones already exist elsewhere, such as a central DNS
+  subscription the AVD VNet should link to instead.
+- With the terraform install, whether the region takes new Azure SQL servers and offers the S1 tier.
+- Enforced Azure Policy assignments on the subscription, listed for you to review. A deny (allowed
+  regions or SKUs, no public endpoints, required tags) otherwise only shows up during the apply.
+- In Cloud Shell, that storage is persistent, so Terraform state survives the session.
 - Things no command can check: the Nerdio license and AVD user licenses.
 
 `./nerdio preflight --json` gives the same results for the setup chatbot.

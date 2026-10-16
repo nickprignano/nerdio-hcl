@@ -1,5 +1,6 @@
 """Read-only readiness checks for the prepare phase: tools, sign-in, roles, providers, region, quota
-(VM vCPUs and the App Service plan Nerdio Manager runs on).
+(VM vCPUs and the App Service plan Nerdio Manager runs on), RBAC, networking, Azure SQL region
+access, Azure Policy and Cloud Shell storage.
 
 Every check only reads (az ... show/list). Nothing here changes Azure or Entra. Each result
 carries the exact command or link that fixes it, so a person or the setup chatbot can act on it.
@@ -7,8 +8,10 @@ carries the exact command or link that fixes it, so a person or the setup chatbo
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import math
+import os
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
@@ -36,6 +39,13 @@ GLOBAL_ADMIN = "Global Administrator"
 APP_CREATORS = {GLOBAL_ADMIN, "Application Administrator", "Cloud Application Administrator", "Application Developer"}
 # App Service REST API version for Get Usages in Location.
 WEB_API = "2024-11-01"
+SQL_API = "2021-11-01"
+# Owner, or these pairs, can create the resources and the role assignments the kit makes.
+RBAC_WRITERS = {"User Access Administrator", "Role Based Access Control Administrator"}
+HUB_ROLES = {"Owner", "Contributor", "Network Contributor"}
+PRIVATE_DNS_ZONES = ["privatelink.blob.core.windows.net", "privatelink.file.core.windows.net",
+                     "privatelink.database.windows.net", "privatelink.vaultcore.azure.net",
+                     "privatelink.azurewebsites.net"]
 CONSENT_PAIR = {"Privileged Role Administrator", "Cloud Application Administrator"}
 
 
@@ -102,6 +112,9 @@ def check_subscription_owner(acct: dict) -> Result:
         return Result(WARN, "Subscription Owner", "couldn't list role assignments", "az role assignment list --assignee <you> --all")
     if "Owner" in roles:
         return Result(PASS, "Subscription Owner", "Owner on the subscription",
+                      kb="docs/knowledge/nerdio/platform.md#roles-needed")
+    if "Contributor" in roles and RBAC_WRITERS & set(roles):
+        return Result(PASS, "Subscription Owner", "Contributor plus a role that can assign roles, which covers what the kit needs",
                       kb="docs/knowledge/nerdio/platform.md#roles-needed")
     return Result(FAIL, "Subscription Owner", "Owner is needed on the subscription (found: " + (", ".join(sorted(set(roles))) or "none") + ")",
                   "Ask a subscription Owner to assign you Owner, or activate it in Privileged Identity Management if it's eligible",
@@ -191,6 +204,115 @@ def check_app_service_quota(subscription_id: str, location: str, sku: str) -> li
     return out
 
 
+def _my_roles_at(scope: str) -> list[str] | None:
+    me = az_json(["ad", "signed-in-user", "show", "--query", "id"])
+    if not me:
+        return None
+    return az_json(["role", "assignment", "list", "--assignee", me, "--scope", scope,
+                    "--include-inherited", "--include-groups", "--query", "[].roleDefinitionName"])
+
+
+def check_network(values: dict, acct: dict) -> list[Result]:
+    """The AVD address range against what's already in the subscription, and the hub when peering."""
+    out = []
+    try:
+        space = ipaddress.IPv4Network(values["address_space"])
+    except (KeyError, ValueError):
+        return [Result(WARN, "Address range", "no valid address_space to check")]
+    own_vnet = f"vnet-{values.get('prefix', '')}-avd".lower()
+    vnets = az_json(["network", "vnet", "list", "--query", "[].{name:name, id:id, prefixes:addressSpace.addressPrefixes}"])
+    hub_id = (values.get("hub_vnet_id") or "").strip()
+    if vnets is None:
+        out.append(Result(WARN, "Address range", "couldn't list the subscription's virtual networks to check for overlaps",
+                          "az network vnet list -o table"))
+    else:
+        clashes = []
+        for v in vnets:
+            if (v.get("name") or "").lower() == own_vnet or (hub_id and (v.get("id") or "").lower() == hub_id.lower()):
+                continue
+            for pfx in v.get("prefixes") or []:
+                try:
+                    if space.overlaps(ipaddress.IPv4Network(pfx, strict=False)):
+                        clashes.append(f"{v['name']} ({pfx})")
+                except ValueError:
+                    pass
+        if clashes:
+            out.append(Result(WARN, "Address range", f"{space} overlaps existing networks: " + ", ".join(clashes),
+                              "Pick a free range if these networks are, or will be, peered or connected to the AVD network"))
+        else:
+            out.append(Result(PASS, "Address range", f"{space} doesn't overlap the subscription's other virtual networks"))
+    if hub_id:
+        hub = az_json(["network", "vnet", "show", "--ids", hub_id, "--query", "{prefixes:addressSpace.addressPrefixes}"])
+        if hub is None:
+            out.append(Result(FAIL, "Hub network", "can't read the hub VNet (wrong ID, another subscription you can't see, or no access)",
+                              "Check hub_vnet_id, and ask for Network Contributor on the hub VNet"))
+        else:
+            bad = [p for p in hub.get("prefixes") or [] if space.overlaps(ipaddress.IPv4Network(p, strict=False))]
+            if bad:
+                out.append(Result(FAIL, "Hub network", f"{space} overlaps the hub ({', '.join(bad)}); peering would be refused",
+                                  "Pick an address range outside the hub's"))
+            else:
+                out.append(Result(PASS, "Hub network", "the hub VNet is readable and doesn't overlap the AVD range"))
+            roles = _my_roles_at(hub_id)
+            if roles is None:
+                out.append(Result(WARN, "Hub peering rights", "couldn't read your roles on the hub VNet"))
+            elif HUB_ROLES & set(roles):
+                out.append(Result(PASS, "Hub peering rights", "you can create the hub side of the peering"))
+            else:
+                out.append(Result(FAIL, "Hub peering rights", "peering needs Network Contributor (or Contributor) on the hub VNet",
+                                  "Ask the hub's owner for Network Contributor on that VNet, or leave hub_vnet_id empty and peer later"))
+    zones = az_json(["network", "private-dns", "zone", "list", "--query", "[].{name:name, rg:resourceGroup}"])
+    if zones is not None:
+        found = sorted({f"{z['name']} ({z['rg']})" for z in zones if z.get("name") in PRIVATE_DNS_ZONES
+                        and not (z.get("rg") or "").lower().startswith(f"rg-{values.get('prefix', '')}".lower())})
+        if found:
+            out.append(Result(WARN, "Private DNS", "privatelink zones already exist elsewhere: " + ", ".join(found),
+                              "If those are your central DNS zones, link the AVD VNet to them instead of using the kit's own zones"))
+    return out
+
+
+def check_sql_region(subscription_id: str, location: str) -> Result:
+    """Some regions stop new SQL servers for some subscriptions; the apply fails with RegionDoesNotAllowProvisioning."""
+    caps = az_json(["rest", "--method", "get", "--url",
+                    f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Sql"
+                    f"/locations/{location}/capabilities?api-version={SQL_API}"])
+    if caps is None:
+        return Result(WARN, "Azure SQL region", f"couldn't read Azure SQL capabilities in {location}")
+    if caps.get("reason") or caps.get("status") == "Disabled":
+        return Result(FAIL, "Azure SQL region", f"Azure SQL isn't open to new servers in {location} for this subscription"
+                      + (f": {caps['reason']}" if caps.get("reason") else ""),
+                      "Pick another region, or open a support request (Service and subscription limits > SQL Database) for region access")
+    objectives = {o.get("name") for v in caps.get("supportedServerVersions", [])
+                  for e in v.get("supportedEditions", []) for o in e.get("supportedServiceLevelObjectives", [])}
+    if objectives and "S1" not in objectives:
+        return Result(FAIL, "Azure SQL region", f"the S1 database tier isn't offered in {location}", "Pick another region")
+    return Result(PASS, "Azure SQL region", f"new SQL servers and the S1 tier are available in {location}")
+
+
+def check_policies(subscription_id: str) -> Result:
+    """Deny policies (allowed locations, allowed SKUs, no public access, required tags) fail an apply late."""
+    rows = az_json(["policy", "assignment", "list", "--scope", f"/subscriptions/{subscription_id}",
+                    "--disable-scope-strict-match", "--query", "[?enforcementMode=='Default'].displayName"])
+    if rows is None:
+        return Result(WARN, "Azure Policy", "couldn't list the policy assignments that apply to this subscription")
+    rows = sorted({r for r in rows if r})
+    if not rows:
+        return Result(PASS, "Azure Policy", "no enforced policy assignments on this subscription")
+    shown = ", ".join(rows[:8]) + (f" and {len(rows) - 8} more" if len(rows) > 8 else "")
+    return Result(MANUAL, "Azure Policy", f"{len(rows)} enforced assignments apply: {shown}",
+                  "Check none of them deny the kit's regions, SKUs, public endpoints or missing tags "
+                  "(Policy > Compliance in the portal); a deny shows up only at apply time")
+
+
+def check_cloud_shell() -> list[Result]:
+    if not os.environ.get("AZUREPS_HOST_ENVIRONMENT", "").startswith("cloud-shell") and not os.environ.get("ACC_CLOUD"):
+        return []
+    if os.path.isdir(os.path.expanduser("~/clouddrive")):
+        return [Result(PASS, "Cloud Shell storage", "persistent, so Terraform state survives the session")]
+    return [Result(FAIL, "Cloud Shell storage", "this Cloud Shell is ephemeral; Terraform state would be lost when it closes",
+                   "Settings > Reset user settings, then reopen Bash and choose Mount storage account")]
+
+
 def check_providers() -> Result:
     rows = az_json(["provider", "list", "--query", "[].{ns:namespace, state:registrationState}"])
     if rows is None:
@@ -264,7 +386,7 @@ def manual_items(values: dict) -> list[Result]:
 
 
 def run(values: dict) -> list[Result]:
-    results = check_tools()
+    results = check_tools() + check_cloud_shell()
     signin, acct = check_signin()
     results += signin
     if acct:
@@ -273,10 +395,13 @@ def run(values: dict) -> list[Result]:
         results.append(check_app_registration(acct, bool(values.get("create_entra_app"))))
         results.append(check_providers())
         results.append(check_region(values["location"]))
+        results += check_network(values, acct)
+        results.append(check_policies(acct["id"]))
         hosts = values.get("host_pool_capacity") or math.ceil(values["user_count"] / values["max_sessions_per_host"])
         results += check_vm_size_and_quota(values["location"], values["vm_size"], hosts)
         if values.get("nerdio_install", "terraform") == "terraform":
             results += check_app_service_quota(acct["id"], values["location"], values.get("app_service_plan_sku") or "B3")
+            results.append(check_sql_region(acct["id"], values["location"]))
     results += manual_items(values)
     return results
 

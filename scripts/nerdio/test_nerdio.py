@@ -239,6 +239,11 @@ class PreflightTests(unittest.TestCase):
             ("rest", "Microsoft.Web"): {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3 VMs"},
                                                     "limit": 10, "currentValue": 0}]},
             ("appservice", "list-locations"): ["East US 2", "West Europe"],
+            ("rest", "Microsoft.Sql"): {"status": "Default", "supportedServerVersions": [
+                {"supportedEditions": [{"supportedServiceLevelObjectives": [{"name": "S1"}]}]}]},
+            ("network", "vnet", "list"): [],
+            ("network", "private-dns"): [],
+            ("policy", "assignment"): [],
             ("provider", "list"): [{"ns": ns, "state": "Registered"} for ns in preflight.PROVIDERS],
             ("account", "list-locations"): ["eastus2", "westeurope"],
             ("vm", "list-skus"): [{"name": "Standard_D8s_v5", "family": "standardDSv5Family", "restrictions": [],
@@ -251,7 +256,7 @@ class PreflightTests(unittest.TestCase):
             if args[0] == "rest":
                 url = args[args.index("--url") + 1]
                 return next((v for (k, frag), v in data.items() if k == "rest" and frag in url), None)
-            return data.get(tuple(args[:2]))
+            return data[tuple(args[:3])] if tuple(args[:3]) in data else data.get(tuple(args[:2]))
         return fake
 
     def values(self):
@@ -310,6 +315,49 @@ class PreflightTests(unittest.TestCase):
              mock.patch.object(preflight, "check_tools", return_value=[]):
             results = preflight.run(self.values())
         self.assertIn("App registration", {r.check for r in results if r.status == "fail"})
+
+    def run_with(self, overrides=None, **values):
+        vals = self.values()
+        vals.update(values)
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]), \
+             mock.patch.object(preflight, "check_cloud_shell", return_value=[]):
+            return {r.check: r for r in preflight.run(vals)}
+
+    def test_contributor_plus_access_admin_counts_as_owner(self):
+        results = self.run_with({("role", "assignment"): ["Contributor", "User Access Administrator"]})
+        self.assertEqual(results["Subscription Owner"].status, "pass")
+
+    def test_overlapping_vnet_warns(self):
+        results = self.run_with({("network", "vnet", "list"): [
+            {"name": "vnet-other", "id": "/x/vnet-other", "prefixes": ["10.50.8.0/24"]}]})
+        self.assertEqual(results["Address range"].status, "warn")
+
+    def test_hub_overlap_and_missing_rights_fail(self):
+        hub = "/subscriptions/x/resourceGroups/hub/providers/Microsoft.Network/virtualNetworks/hub"
+        results = self.run_with({("network", "vnet", "show"): {"prefixes": ["10.50.0.0/16"]},
+                                 ("role", "assignment"): ["Reader"]}, hub_vnet_id=hub)
+        self.assertEqual(results["Hub network"].status, "fail")
+        self.assertEqual(results["Hub peering rights"].status, "fail")
+
+    def test_unreadable_hub_fails(self):
+        results = self.run_with({("network", "vnet", "show"): None}, hub_vnet_id="/subscriptions/x/hub")
+        self.assertEqual(results["Hub network"].status, "fail")
+
+    def test_sql_region_closed_fails(self):
+        results = self.run_with({("rest", "Microsoft.Sql"): {"status": "Disabled", "reason": "RegionDoesNotAllowProvisioning"}})
+        self.assertEqual(results["Azure SQL region"].status, "fail")
+
+    def test_enforced_policies_are_listed_for_review(self):
+        results = self.run_with({("policy", "assignment"): ["Allowed locations", "Require a tag"]})
+        self.assertEqual(results["Azure Policy"].status, "manual")
+        self.assertIn("Allowed locations", results["Azure Policy"].detail)
+
+    def test_ephemeral_cloud_shell_fails(self):
+        with mock.patch.dict(os.environ, {"AZUREPS_HOST_ENVIRONMENT": "cloud-shell/1.0"}), \
+             mock.patch.object(os.path, "isdir", return_value=False):
+            results = preflight.check_cloud_shell()
+        self.assertEqual(results[0].status, "fail")
 
     def test_not_signed_in_stops_early(self):
         with mock.patch.object(preflight, "az_json", return_value=None), \
