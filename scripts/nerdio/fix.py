@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
+import shutil
 import subprocess
 import uuid
 
@@ -209,23 +211,49 @@ def entra_plan(active: set[str], eligible: dict[str, str], needs_consent: bool) 
     return [(r, eligible[r]) for r in missing if r in eligible]
 
 
+def _entra_via_pwsh(roles: list[str], hours: int) -> bool:
+    """Graph PowerShell asks for the PIM scopes the az CLI token lacks. True when every activation worked."""
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pim-activate.ps1")
+    if not shutil.which("pwsh"):
+        print("  PowerShell isn't installed here (Azure Cloud Shell has it), so Entra roles weren't activated.")
+        return False
+    print("  Signing in to Microsoft Graph for PIM: open the link it shows and enter the code.")
+    res = subprocess.run(["pwsh", "-NoLogo", "-NoProfile", "-File", script, "-Roles", *roles,
+                          "-Hours", str(hours)], check=False)
+    return res.returncode == 0
+
+
 def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes: bool) -> int:
     me = az(["ad", "signed-in-user", "show", "--query", "id"])
     roles = rest("get", f"{GRAPH}/me/transitiveMemberOf/microsoft.graph.directoryRole?$select=displayName") or {}
     active = {r.get("displayName") for r in roles.get("value", [])}
-    elig = rest("get", f"{GRAPH}/roleManagement/directory/roleEligibilityScheduleInstances"
-                       f"?$filter=principalId eq '{me}'&$expand=roleDefinition") or {}
-    eligible = {e["roleDefinition"]["displayName"]: e["roleDefinitionId"] for e in elig.get("value", [])
-                if e.get("roleDefinition") and e.get("directoryScopeId") == "/"}
-    entra = entra_plan(active, eligible, needs_consent)
+    needed = ENTRA_NEEDED if needs_consent else ENTRA_NEEDED[:1]
+    missing = [] if GLOBAL_ADMIN in active else [r for r in needed if r not in active]
+    entra, entra_pwsh = [], []
+    if missing:
+        try:
+            elig = rest("get", f"{GRAPH}/roleManagement/directory/roleEligibilityScheduleInstances"
+                               f"?$filter=principalId eq '{me}'&$expand=roleDefinition") or {}
+            eligible = {e["roleDefinition"]["displayName"]: e["roleDefinitionId"] for e in elig.get("value", [])
+                        if e.get("roleDefinition") and e.get("directoryScopeId") == "/"}
+            entra = entra_plan(active, eligible, needs_consent)
+        except FixError as exc:
+            # The az CLI's Graph token isn't granted the RoleManagement scopes in most tenants.
+            if "PermissionScopeNotGranted" not in str(exc) and "Forbidden" not in str(exc):
+                raise
+            entra_pwsh = missing
 
     scope = f"/subscriptions/{subscription_id}"
     owner_active = "Owner" in (az(["role", "assignment", "list", "--assignee", me, "--scope", scope,
                                    "--include-inherited", "--include-groups", "--query", "[].roleDefinitionName"]) or [])
     azure = []
     if not owner_active:
-        rows = rest("get", f"{ARM}{scope}/providers/Microsoft.Authorization/roleEligibilityScheduleInstances"
-                           f"?api-version={PIM_ARM_API}&$filter=asTarget()") or {}
+        try:
+            rows = rest("get", f"{ARM}{scope}/providers/Microsoft.Authorization/roleEligibilityScheduleInstances"
+                               f"?api-version={PIM_ARM_API}&$filter=asTarget()") or {}
+        except FixError as exc:
+            print(f"  couldn't read Azure PIM eligibility: {exc}")
+            rows = {}
         for r in rows.get("value", []):
             props = r.get("properties", {})
             name = props.get("expandedProperties", {}).get("roleDefinition", {}).get("displayName")
@@ -233,13 +261,16 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
                 azure.append((props["scope"], props["roleDefinitionId"], props.get("roleEligibilityScheduleId")))
                 break
 
-    if not entra and not azure:
+    if not entra and not entra_pwsh and not azure:
         print("Nothing to activate: you already have the roles the kit needs, or none are eligible in PIM.")
         print("Run ./nerdio preflight to see which role is still missing.")
         return 0
     print(f"Activate for {hours} hours through Privileged Identity Management:")
     for name, _ in entra:
         print(f"  Entra: {name}")
+    for name in entra_pwsh:
+        print(f"  Entra: {name}, if you're eligible (checked after a Microsoft Graph sign-in;"
+              f" {GLOBAL_ADMIN} is used only if these aren't eligible)")
     for sc, _, _ in azure:
         print(f"  Azure: Owner on {'this subscription' if sc == scope else sc}")
     if not confirm("Activate these roles?", assume_yes):
@@ -256,6 +287,8 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
             print(f"  activated {name}")
         except FixError as exc:
             failed.append(f"{name}: {exc}")
+    if entra_pwsh and not _entra_via_pwsh(entra_pwsh, hours):
+        failed.append("Entra roles: see the lines above")
     for sc, role_id, sched in azure:
         try:
             rest("put", f"{ARM}{sc}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{uuid.uuid4()}"

@@ -124,5 +124,24 @@ class RoleTests(unittest.TestCase):
         self.assertNotIn("put", calls)
 
 
+class RolePwshFallbackTests(unittest.TestCase):
+    def test_scope_error_hands_entra_roles_to_graph_powershell(self):
+        def fake_az(args):
+            return ZERO if args[:2] == ["ad", "signed-in-user"] else ["Owner"]
+
+        def fake_rest(method, url, body=None):
+            if "transitiveMemberOf" in url:
+                return {"value": []}
+            if "roleEligibilityScheduleInstances" in url:
+                raise fix.FixError("Forbidden: PermissionScopeNotGranted")
+            raise AssertionError(f"unexpected {method} {url}")
+
+        with mock.patch.object(fix, "az", side_effect=fake_az), mock.patch.object(fix, "rest", side_effect=fake_rest), \
+             mock.patch.object(fix, "_entra_via_pwsh", return_value=True) as pwsh, \
+             mock.patch("builtins.input", return_value="yes"):
+            self.assertEqual(fix.fix_roles(ZERO, True, 4, False), 0)
+        pwsh.assert_called_once_with(["Cloud Application Administrator", "Privileged Role Administrator"], 4)
+
+
 if __name__ == "__main__":
     unittest.main()
