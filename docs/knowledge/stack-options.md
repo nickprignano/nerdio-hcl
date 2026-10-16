@@ -15,16 +15,44 @@ The test for every item is whether it removes a manual step. Nothing here is bui
 | Install script (Cloud Shell, or `deploy-az.ps1` run locally) | **Partly** | Do its work in Terraform. The kit already builds the Entra app. Still needed: the App Service settings, Key Vault secrets and SQL user the script writes, plus deploying the app code from Nerdio's package API (`/api/package` then `/{ver}/link`, which Nerdio's own update runbook uses). MB-External/NME-Terraform shows this works end to end. | Publish the script at a versioned URL, or document what it writes. Support running it as a service principal. Make the package API a supported path. |
 | Admin consent (both prompts) | **Yes, already in the kit** | `grant_admin_consent = true` uses delegated grants and app role assignments (`modules/nerdio-identity`). *Inferred:* the wizard's second consent covers the same permission list; the first live run needs to confirm it. | None. |
 | Wizard: network and host pool resource group | **Yes, already in the kit** | `nme_linked_network` and `nme_linked_resource_group` in stage 2. | None. |
-| Wizard: directory profile (Entra-joined, AD DS or Entra DS) | **No** | The API only has `GET /api/v1/ad/config`, with no create. | Add an API (and a provider resource) to create directory profiles. |
-| Wizard: registration and first-run state | **No** | It's UI only, with no API. | Add an API or setting to finish first-run setup. |
+| Wizard: directory profile (Entra-joined, AD DS or Entra DS) | **No API; optional Playwright bridge** | The API only has `GET /api/v1/ad/config`, with no create. Until that changes, an optional Playwright script can click through this step (see below). | Add an API (and a provider resource) to create directory profiles. |
+| Wizard: registration and first-run state | **No API; optional Playwright bridge** | It's UI only, with no API. The same Playwright script covers it. | Add an API or setting to finish first-run setup. |
 | Enable the REST API | **Yes, already in the kit** | The documented manual method: the client app tag `NMW_REST_API_CLIENT:<app id>`, the RestClient role and token version 2. `modules/nerdio-identity/rest_api.tf` does this. Nerdio says to wait a few minutes before using it. | Confirm the tag method is a supported replacement for the UI toggle. |
 | Hand the secret from stage 1 to stage 2 | **Yes** | See Vault below. | None. |
 | Install the `nme` provider (dev_overrides script) | **Partly** | Host it in an HCP Terraform private registry, or keep the install script. The repo has no LICENSE, so redistributing the binary is unclear. | Publish to the public Registry and add a license. |
 | Import the Packer image into Nerdio | **Likely yes, untested** | Correction: the API *can* see gallery images. `GET /api/v1/image?imageType=ComputeGalleryImage` lists them, and `create-from-library` takes any `sourceImageId` from that list. The host pool `image` format for a gallery image isn't documented, and the provider example only shows Marketplace format. | Add an `nme_image` data source and a desktop image resource to the provider; desktop images aren't in its coverage matrix at all. |
 
-**Result:** about 7 of the 10 steps can be removed by building on our side. Two need Nerdio to change:
-the directory profile, and registration/first-run state. Everything else is a supported-path ask
-rather than a hard blocker.
+**Result:** about 7 of the 10 steps can be removed by building on our side. The other two, the
+directory profile and registration/first-run state, need Nerdio to add APIs. Until then, an
+optional Playwright script can bridge them. Everything else is a supported-path ask rather than a
+hard blocker.
+
+## Optional bridge: Playwright for the two wizard steps
+
+This is a stopgap, not the fix. The real fix is still the API request to Nerdio (upstream asks 1 and 2).
+
+- **What it does:** a Playwright script in the repo signs in to the Nerdio console and completes
+  the directory profile and first-run registration steps. It runs once per install, after
+  stage 1 and before stage 2. Clicking through is unattended, but the run is still started by hand.
+- **Why Playwright, not a computer-use agent:** it does the same thing every run, the community can
+  review it in the repo, and it runs in CI with no model tokens.
+- **Off by default:** it's opt-in (for example `enable_wizard_automation = false`). Without it, the
+  runbook keeps the two manual steps.
+- **It breaks when Nerdio changes the wizard.** Use role- and label-based locators, not CSS paths.
+  Pin the script to the Nerdio versions it was tested against. Fail loudly with a screenshot, so a
+  broken run falls back to the manual steps instead of leaving a half-finished install.
+- **Sign-in is the hard part, and it can't touch the repo (no-leak rule).** The wizard needs an
+  interactive Entra admin sign-in; a service principal can't use the UI. The options:
+  - A saved Playwright session (`storageState`) captured by hand on a trusted machine and passed
+    in at run time. It lives in Key Vault or a CI secret, never in the repo or logs, and expires quickly.
+  - A dedicated break-glass admin account, scoped by Conditional Access to the runner.
+    Most tenants require MFA, and nobody should weaken it for this.
+  - Never: credentials in tfvars, plain env files, or committed traces.
+  CI artifacts (screenshots, traces) can show tenant names and emails. Keep them private, or turn them off.
+- **Where it runs:** a local one-shot command, or a manual (`workflow_dispatch`) GitHub Actions job
+  using a protected environment that holds the session secret. It doesn't run on every push.
+- **Must test live:** the selectors against the current wizard, and whether Nerdio's terms allow
+  scripted UI use. If there's doubt, ask Nerdio along with the API request.
 
 ## Corrections from the red team
 
@@ -86,6 +114,8 @@ rather than a hard blocker.
    in a live sandbox run.
 4. **Pipeline.** Run the stages in order in GitHub Actions with OIDC. Move to Stacks later if the
    provider gets a license.
+5. **Optional Playwright bridge** for the directory profile and first-run steps, opt-in and
+   removed once Nerdio ships APIs for them.
 
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.
@@ -102,6 +132,7 @@ Packer (optional only).
 - Whether the Terraform grants match the wizard's second consent.
 - Whether tag-based REST API enablement works without ever opening the UI.
 - Whether the package API and settings approach (MB-External style) survives Nerdio's self-update.
+- Whether the Playwright selectors work on the current wizard, and how long a saved session stays valid.
 
 ## Sources
 - Nerdio OpenAPI spec: `internal/client/api.json` in Get-Nerdio/NME-Terraform-Provider (commit 65e547f, 2026-09-21)

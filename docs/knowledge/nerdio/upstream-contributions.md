@@ -41,6 +41,7 @@ These are what stand between the kit and a zero-touch install; see
 | Directory profile create API and provider resource | The API only has `GET /api/v1/ad/config` (OpenAPI spec, commit `65e547f`); the profile is chosen in the setup wizard. | The only hard blocker to zero-touch: every install needs a human in the wizard for this. | candidate |
 | First-run / registration completion API | Registration and first-run state are UI only. | Second wizard step with no API. | candidate |
 | Supported non-interactive install path | `Get-Nerdio/NMW` `templates/mainTemplate.json` exists but isn't declared a supported, versioned deploy path. The install script has no public versioned URL and doesn't support service-principal auth. The package API (`/api/package`, `/{ver}/link`) is used by Nerdio's own update runbook but isn't documented. | Would let Terraform replace the portal export and install script on a supported path. | candidate |
+| Are scripted UI sessions allowed? | The roadmap has an optional Playwright bridge for the two wizard-only steps ([stack-options.md](../stack-options.md#optional-bridge-playwright-for-the-two-wizard-steps)). Nerdio's terms on automating the console UI weren't checked. | Ask before publishing the bridge in a public kit; the API asks above remain the real fix. | candidate |
 
 ## Docs and packaging
 
