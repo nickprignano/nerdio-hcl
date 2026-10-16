@@ -5,8 +5,9 @@ scripted actions and linked Azure resources. It does **not** deploy Nerdio Manag
 that still comes from the Marketplace (see [platform.md](platform.md)).
 
 - Source: https://github.com/Get-Nerdio/NME-Terraform-Provider
-- Status at last review: README says "under heavy development". Examples pin `0.1.0`
-  (one older example uses `0.0.1`).
+- Status at last review: README says "under heavy development". The only published release is
+  the GitHub pre-release `v0.0.1-preview.1`, although the README's snippets use `0.1.0` and the
+  examples use `0.0.1`. Pin the release you actually installed.
 - Not on the public Terraform Registry at last review. Releases are zips (Linux and Windows amd64
   only) on the repo's GitHub Releases page, installed with a `dev_overrides` CLI config. With
   `dev_overrides`, `terraform init` may fail; a `filesystem_mirror` avoids that

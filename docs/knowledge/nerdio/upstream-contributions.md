@@ -35,7 +35,7 @@ an issue or PR without re-research. Checked against commit `65e547f` (2026-09-21
 | Item | Evidence | Suggested fix | Status |
 |---|---|---|---|
 | Not on the Terraform Registry | README installs from GitHub release zips via `dev_overrides`, and notes `terraform init` "can therefore fail". | Publish to the public registry. Until then, document a `filesystem_mirror` install, which keeps `terraform init` and lock files working (see [restricted-networks.md](../terraform/restricted-networks.md#workaround-filesystem-mirror)). | candidate |
-| Examples pin an old version | `examples/main/main.tf` and `examples/provider/provider.tf` use `version = "0.0.1"`; README says `0.1.0`. | Bump the examples to the current release. | candidate |
+| Version numbers disagree | The only GitHub release is `v0.0.1-preview.1`, but the README's snippets use `0.1.0` and `examples/main/main.tf` and `examples/provider/provider.tf` use `0.0.1`. | Make the README and examples match the published release. | candidate |
 | README references missing CI | README's layout table lists `.github/workflows`, but the public repo has no `.github` folder. | Publish the workflows, or drop the row. | candidate |
 | Linux and Windows amd64 builds only | README: "packages the provider for Linux amd64 and Windows amd64". | Add darwin/arm64 and linux/arm64 to the release matrix. | candidate |
 | REST API client tag is ambiguous | Nerdio's REST API article doesn't make clear which app ID goes in `NMW_REST_API_CLIENT:<app-id>`. *Unverified* until tested. | Once confirmed, suggest a provider docs page that walks through auth setup end to end. | candidate |
