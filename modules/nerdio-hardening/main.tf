@@ -70,7 +70,7 @@ resource "azurerm_private_endpoint" "web" {
 }
 
 locals {
-  lockdown_ids = var.disable_public_access ? merge(
+  lockdown_ids = var.disable_public_access && var.lockdown_with_cli ? merge(
     { for k, id in var.sql_server_ids : "sql-${k}" => { id = id, kind = "sql" } },
     { for k, id in var.key_vault_ids : "kv-${k}" => { id = id, kind = "kv" } },
     var.private_app_service ? { "web" = { id = var.app_service_id, kind = "web" } } : {},

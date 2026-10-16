@@ -44,3 +44,9 @@ variable "create_rest_api_client" {
   type        = bool
   default     = false
 }
+
+variable "create_client_secret" {
+  description = "Create a client secret on the Nerdio app. Needed for Nerdio's \"Use existing AD app\" install path; modules/nerdio-core signs in with Key Vault certificates instead."
+  type        = bool
+  default     = true
+}
