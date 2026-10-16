@@ -62,6 +62,13 @@
       "null_unless": {
         "image_gallery_enabled": true
       }
+    },
+    {
+      "stage": "platform",
+      "path": "openbao",
+      "null_unless": {
+        "nme_secret_store": "openbao"
+      }
     }
   ],
   "constants": [
@@ -686,6 +693,87 @@
       "kb": [
         "docs/knowledge/nerdio/platform.md#hardening-private-endpoints",
         "docs/knowledge/security/README.md"
+      ]
+    },
+    {
+      "id": "nme_secret_store",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "advanced",
+      "question": "How should stage 2 get Nerdio's REST API secret?",
+      "help": "Key Vault keeps it out of your shell and files, with nothing extra to run. OpenBao goes further: a short-lived secret per run, so no long-lived one exists, but it adds a small VM. The old export is only for troubleshooting.",
+      "choices": [
+        {
+          "value": "key_vault",
+          "label": "Key Vault, read on the fly (recommended)"
+        },
+        {
+          "value": "openbao",
+          "label": "OpenBao, a short-lived secret per run (adds a VM)"
+        },
+        {
+          "value": "output",
+          "label": "Export it from terraform output (old way)"
+        }
+      ],
+      "default": "key_vault",
+      "when": {
+        "create_entra_app": [
+          true
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "nme_secret_store"
+        }
+      ],
+      "kb": [
+        "docs/knowledge/decisions/0015-secrets-key-vault-default-openbao-optional.md"
+      ]
+    },
+    {
+      "id": "openbao_subnet",
+      "phase": "configure",
+      "type": "cidr",
+      "ask": "advanced",
+      "question": "Subnet for the OpenBao VM?",
+      "help": "A /28 is plenty. Defaults to the /28 after the app integration subnet.",
+      "default": {
+        "derive": "subnet_openbao"
+      },
+      "when": {
+        "nme_secret_store": [
+          "openbao"
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "openbao.subnet_cidr"
+        }
+      ]
+    },
+    {
+      "id": "openbao_allowed_source",
+      "phase": "configure",
+      "type": "string",
+      "ask": "advanced",
+      "question": "Who may reach OpenBao (a CIDR, or Internet)?",
+      "help": "Cloud Shell and GitHub-hosted runners have changing addresses, so they need Internet. Login still needs your Entra or GitHub token, and only HTTPS is open.",
+      "default": "Internet",
+      "pattern": "^(Internet|(\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2})$",
+      "when": {
+        "nme_secret_store": [
+          "openbao"
+        ]
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "openbao.allowed_source_addresses",
+          "render": "list"
+        }
       ]
     },
     {

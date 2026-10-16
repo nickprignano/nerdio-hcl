@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-16
 decision-makers: [maintainers]
 ---
@@ -58,12 +58,34 @@ and fits [0009](0009-prefer-azure-github-hashicorp-oss.md) (Azure first) and the
   open-source software.
 - Bad, because the default still keeps one long-lived secret, in Key Vault, until Nerdio's
   provider supports federated sign-in.
-- Bad, because the optional module needs Graph `Application.ReadWrite.All` for its identity.
+- Bad, because the optional module needs a Graph application permission for its identity. The
+  build narrows it to `Application.ReadWrite.OwnedBy` by making that identity an owner of the
+  REST client app; if that proves not enough live, the fallback is `Application.ReadWrite.All`.
 
 ## More Information
 
-*Unverified:* whether the Terraform `vault` provider's ephemeral resources work against OpenBao.
-OpenBao is API-compatible with Vault by design.
+Accepted by the maintainer on 2026-10-16 and built as `modules/nerdio-secrets` (default) and
+`modules/openbao` (optional), selected with `nme_secret_store` in stage 1. How it works and what
+to check on the first live run: [docs/secrets.md](../../secrets.md). Choices made while building:
+
+- The Key Vault copy is written with the write-only `value_wo`, and stage 2 reads it with the
+  ephemeral `azurerm_key_vault_secret`, so only stage 1's state still holds the value. Readers get
+  Key Vault Secrets User on the one secret, plus Reader on the vault, because the azurerm provider
+  looks up the vault's URI through Azure Resource Manager.
+- OpenBao runs on one VM with Key Vault auto-unseal and self-initialization, so no unseal key or
+  root token is ever handed out. Its Azure plugin is pulled by digest from OpenBao's registry.
+  Cloud Shell users log in with an Entra token for a dedicated login app (with Azure CLI
+  pre-authorized), not an Azure management token, which OpenBao could otherwise replay.
+- Adding the `azurerm` and `vault` providers to stage 2 meant replacing Nerdio's documented
+  `dev_overrides` install, which breaks `terraform init` for other providers, with a local plugin
+  directory. It's still the user's own download from Nerdio's release (decision 0013).
+- The kit's minimum Terraform is now 1.11, for write-only attributes.
+
+*Unverified until a live run:* that OpenBao's Azure plugin can manage passwords with
+`Application.ReadWrite.OwnedBy` (its docs list `Application.ReadWrite.All` for existing apps), and
+that the `vault` provider's `vault_azure_access_credentials` works against OpenBao. The OpenBao
+config was checked locally against the real 2.7.1 binary: it self-initializes and accepts the
+Entra login settings.
 
 Sources: the `hashicorp/vault` LICENSE file; [Vault Azure secrets engine](https://developer.hashicorp.com/vault/docs/secrets/azure);
 the `openbao/openbao-plugins` `secrets/azure` docs; Nerdio's `NME-Terraform-Provider` source.

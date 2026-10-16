@@ -106,6 +106,76 @@ module "nerdio_identity" {
   create_rest_api_client = var.entra_app.create_rest_api_client
   # The terraform install signs the app in with Key Vault certificates.
   create_client_secret = var.nerdio_install == "marketplace"
+  # With OpenBao, short-lived secrets replace the long-lived one, and OpenBao's identity owns
+  # the app so it needs only Application.ReadWrite.OwnedBy.
+  create_rest_api_client_secret          = local.nme_secret_store != "openbao"
+  rest_api_client_extra_owner_object_ids = azurerm_user_assigned_identity.openbao[*].principal_id
+}
+
+# Hand-off of the Nerdio REST API client secret to stage 2 (decision 0015). Names are short and
+# stable per subscription and prefix, because Key Vault names are global.
+locals {
+  compact_prefix   = substr(replace(lower(var.prefix), "/[^a-z0-9]/", ""), 0, 12)
+  secret_suffix    = substr(sha1("${var.subscription_id}/${var.prefix}"), 0, 6)
+  has_rest_client  = var.create_entra_app && var.entra_app.create_rest_api_client
+  nme_secret_store = local.has_rest_client ? var.nme_secret_store : "output"
+}
+
+module "nerdio_secrets" {
+  source = "../../../modules/nerdio-secrets"
+  count  = local.nme_secret_store == "key_vault" ? 1 : 0
+
+  key_vault_name         = coalesce(var.nme_secret.key_vault_name, "kvnme${local.compact_prefix}${local.secret_suffix}")
+  location               = var.location
+  resource_group_name    = module.foundation.resource_group_names["nerdio"]
+  tags                   = var.tags
+  secret_value           = module.nerdio_identity[0].rest_api_client_secret
+  secret_version         = module.nerdio_identity[0].rest_api_client_secret_version
+  secret_expiration_date = module.nerdio_identity[0].rest_api_client_secret_end_date
+  reader_object_ids      = var.nme_secret.reader_object_ids
+  github_oidc            = var.nme_secret.github_oidc
+}
+
+# Created here rather than in the module, because it must own the REST API client app before the
+# module configures OpenBao to manage that app.
+resource "azurerm_user_assigned_identity" "openbao" {
+  count               = local.nme_secret_store == "openbao" ? 1 : 0
+  name                = "id-${local.openbao_name}"
+  location            = var.location
+  resource_group_name = module.foundation.resource_group_names["nerdio"]
+  tags                = var.tags
+}
+
+locals {
+  openbao_name = try(coalesce(var.openbao.name, "${substr(replace(lower(var.prefix), "/[^a-z0-9-]/", ""), 0, 28)}-bao-${local.secret_suffix}"), null)
+}
+
+module "openbao" {
+  source = "../../../modules/openbao"
+  count  = local.nme_secret_store == "openbao" ? 1 : 0
+
+  name                = local.openbao_name
+  key_vault_name      = coalesce(var.openbao.key_vault_name, "kvbao${local.compact_prefix}${local.secret_suffix}")
+  location            = var.location
+  resource_group_name = module.foundation.resource_group_names["nerdio"]
+  tags                = var.tags
+  subscription_id     = var.subscription_id
+  virtual_network = {
+    name                = module.network.vnet_name
+    resource_group_name = module.foundation.resource_group_names["network"]
+  }
+  subnet_cidr                       = var.openbao.subnet_cidr
+  allowed_source_addresses          = var.openbao.allowed_source_addresses
+  rest_client_application_object_id = module.nerdio_identity[0].rest_api_client_object_id
+  identity = {
+    id           = azurerm_user_assigned_identity.openbao[0].id
+    principal_id = azurerm_user_assigned_identity.openbao[0].principal_id
+    client_id    = azurerm_user_assigned_identity.openbao[0].client_id
+  }
+  login_object_ids = var.openbao.login_object_ids
+  github_oidc      = var.nme_secret.github_oidc
+  credential_ttl   = var.openbao.credential_ttl
+  vm_size          = var.openbao.vm_size
 }
 
 module "nerdio_hardening" {

@@ -52,6 +52,8 @@ modules/
   nerdio-core/       Nerdio Manager built in Terraform, plus the app code deploy job (default)
   nerdio-manager/    Marketplace template deployment + resource discovery (alternative)
   nerdio-identity/   Nerdio's Entra app, app roles, consent and REST API client
+  nerdio-secrets/    Key Vault hand-off of the REST API secret to stage 2 (default)
+  openbao/           optional OpenBao server that mints a short-lived REST API secret per run
   nerdio-hardening/  private endpoints and VNet integration for Nerdio's core resources
   image-gallery/     Compute Gallery and image definitions for Packer
   nerdio-config/     Nerdio objects through the nerdio/nme provider
@@ -67,13 +69,14 @@ docs/
   guardrails.md
   deployment-runbook.md
   cloud-shell.md
+  secrets.md         how stage 2 gets the REST API secret without anyone handling it
   architecture.md
   knowledge/         the living knowledge base and decision records
 ```
 
 ## Quick start
 
-Requirements: Terraform >= 1.9, Packer >= 1.11, Azure CLI, subscription **Owner**, and Global
+Requirements: Terraform >= 1.11, Packer >= 1.11, Azure CLI, subscription **Owner**, and Global
 Administrator (or Privileged Role Administrator + Cloud Application Administrator) in Entra ID.
 
 ```bash
@@ -86,10 +89,9 @@ terraform init && terraform apply
 # Terraform installs Nerdio Manager too; finish its setup wizard, enable the REST API, then:
 ../../../scripts/install-nme-provider.sh      # nerdio/nme ships as a GitHub release for now
 terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
-export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
 cd ../02-nerdio-config
 cp terraform.tfvars.example terraform.tfvars   # workspace and host pools
-terraform get && terraform apply               # get, not init, with dev_overrides
+terraform init && terraform apply              # reads the REST secret from Key Vault itself
 ```
 
 From Azure Cloud Shell (any browser, tablets included) `scripts/cloudshell-bootstrap.sh` reads

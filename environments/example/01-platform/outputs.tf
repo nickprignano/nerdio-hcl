@@ -63,11 +63,32 @@ output "nerdio_config_inputs" {
       subnet_name         = module.network.session_host_subnet_name
     }
     fslogix_profile_share_unc = try(module.fslogix[0].profile_share_unc, null)
+    # How stage 2 gets the REST client secret (decision 0015). None of these are secrets.
+    nme_secret_source = local.nme_secret_store
+    nme_key_vault = try({
+      id          = module.nerdio_secrets[0].key_vault_id
+      secret_name = module.nerdio_secrets[0].secret_name
+    }, null)
+    openbao = try({
+      address = module.openbao[0].address
+      role    = module.openbao[0].secret_role
+      scope   = module.openbao[0].login_scope
+    }, null)
   }
 }
 
 output "nme_client_secret" {
-  description = "REST API client secret for 02-nerdio-config. Export as NME_CLIENT_SECRET; never write it to a file."
-  value       = try(module.nerdio_identity[0].rest_api_client_secret, null)
+  description = "Only with nme_secret_store = \"output\": the REST API client secret for 02-nerdio-config. Export as NME_CLIENT_SECRET; never write it to a file."
+  value       = local.nme_secret_store == "output" ? try(module.nerdio_identity[0].rest_api_client_secret, null) : null
   sensitive   = true
+}
+
+output "openbao_ca_cert" {
+  description = "OpenBao's TLS certificate, which stage 2 trusts. Public. Write it to 02-nerdio-config/openbao-ca.pem."
+  value       = try(module.openbao[0].ca_cert_pem, null)
+}
+
+output "github_oidc_client_id" {
+  description = "Client ID for a GitHub Actions job to sign in with OIDC (azure/login), when nme_secret.github_oidc is set. Not a secret."
+  value       = try(module.nerdio_secrets[0].github_client_id, null)
 }

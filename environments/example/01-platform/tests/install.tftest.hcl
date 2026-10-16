@@ -52,11 +52,12 @@ mock_provider "azuread" {
         "user_impersonation"              = "aaaaaaaa-0000-0000-0000-000000000014"
       }
       app_role_ids = {
-        "Group.Read.All"        = "bbbbbbbb-0000-0000-0000-000000000000"
-        "GroupMember.Read.All"  = "bbbbbbbb-0000-0000-0000-000000000001"
-        "Organization.Read.All" = "bbbbbbbb-0000-0000-0000-000000000002"
-        "User.Read.All"         = "bbbbbbbb-0000-0000-0000-000000000003"
-        "Application.Read.All"  = "bbbbbbbb-0000-0000-0000-000000000004"
+        "Group.Read.All"                = "bbbbbbbb-0000-0000-0000-000000000000"
+        "GroupMember.Read.All"          = "bbbbbbbb-0000-0000-0000-000000000001"
+        "Organization.Read.All"         = "bbbbbbbb-0000-0000-0000-000000000002"
+        "User.Read.All"                 = "bbbbbbbb-0000-0000-0000-000000000003"
+        "Application.Read.All"          = "bbbbbbbb-0000-0000-0000-000000000004"
+        "Application.ReadWrite.OwnedBy" = "bbbbbbbb-0000-0000-0000-000000000005"
       }
     }
   }
@@ -64,6 +65,8 @@ mock_provider "azuread" {
 
 mock_provider "azapi" {}
 mock_provider "time" {}
+mock_provider "random" {}
+mock_provider "tls" {}
 
 mock_provider "http" {
   mock_data "http" {
@@ -116,4 +119,49 @@ run "terraform_install_needs_entra_app" {
   }
 
   expect_failures = [var.nerdio_install]
+}
+
+# Decision 0015: the REST client secret goes to Key Vault by default, never to an output.
+run "secret_hand_off_defaults_to_key_vault" {
+  command = plan
+
+  assert {
+    condition     = length(module.nerdio_secrets) == 1 && length(module.openbao) == 0
+    error_message = "The default hand-off should be the Key Vault one, with no OpenBao."
+  }
+  assert {
+    condition     = output.nme_client_secret == null
+    error_message = "The secret should only be an output with nme_secret_store = \"output\"."
+  }
+}
+
+run "openbao_needs_its_settings" {
+  command = plan
+
+  variables {
+    nme_secret_store = "openbao"
+  }
+
+  expect_failures = [var.nme_secret_store]
+}
+
+run "openbao_replaces_the_long_lived_secret" {
+  command = plan
+
+  variables {
+    nme_secret_store = "openbao"
+    openbao = {
+      subnet_cidr              = "10.50.4.64/28"
+      allowed_source_addresses = ["Internet"]
+    }
+  }
+
+  assert {
+    condition     = length(module.openbao) == 1 && length(module.nerdio_secrets) == 0
+    error_message = "The openbao hand-off should build OpenBao and skip the Key Vault hand-off."
+  }
+  assert {
+    condition     = length(azurerm_user_assigned_identity.openbao) == 1 && output.nme_client_secret == null
+    error_message = "OpenBao should get its own identity, and no long-lived secret should be output."
+  }
 }

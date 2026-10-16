@@ -77,6 +77,25 @@ class SchemaTests(unittest.TestCase):
         resolved = engine.resolve(self.schema, {"_random4": "ab12", "app_integration_subnet": "10.99.0.0/27"}, SOURCES)
         self.assertIn("app_integration_subnet", resolved.errors)
 
+    def test_secret_hand_off_defaults_to_key_vault(self):
+        resolved = engine.resolve(self.schema, {"_random4": "ab12"}, SOURCES)
+        rendered, _ = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(rendered["platform"]["nme_secret_store"], "key_vault")
+        self.assertIsNone(rendered["platform"]["openbao"])
+
+    def test_openbao_gets_its_own_subnet(self):
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "address_space": "172.20.0.0/22",
+                                                "nme_secret_store": "openbao"}, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        rendered, _ = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(rendered["platform"]["openbao"],
+                         {"subnet_cidr": "172.20.1.64/28", "allowed_source_addresses": ["Internet"]})
+
+    def test_openbao_subnet_overlap_is_rejected(self):
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "nme_secret_store": "openbao",
+                                                "openbao_subnet": "10.50.4.32/28"}, SOURCES)
+        self.assertIn("openbao_subnet", resolved.errors)
+
     def test_public_or_wrong_size_ranges_are_rejected(self):
         p = self.params["address_space"]
         for bad in ("8.8.0.0/20", "10.0.0.0/8", "10.50.0.0/24", "10.50.0.1/20", "nope"):

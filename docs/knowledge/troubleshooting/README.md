@@ -25,6 +25,7 @@ resource or user names from pasted errors before adding them (see
 | `public_network_access_enabled` deprecation warning on `azurerm_storage_account` | Renamed in azurerm 5.x, removed in 6.0 | Use `public_network_access = "Disabled"` | [azurerm-5.md](../terraform/azurerm-5.md#breaking-changes-and-fixes) |
 | `terraform init` can't download providers or Packer plugins | Registry blocked by the network | Use a `filesystem_mirror` or a local plugin path | [restricted-networks.md](../terraform/restricted-networks.md) |
 | Nerdio Azure runbook scripted actions fail after hardening | The scripted-actions storage account was made private | Use a Hybrid Runbook Worker, or leave that account public | [platform.md](../nerdio/platform.md#hardening-private-endpoints) |
+| `terraform init` in 02-nerdio-config fails with "Could not retrieve the list of available versions for provider nerdio/nme", or plan says "Inconsistent dependency lock file" | `~/.terraformrc` still has the old `dev_overrides` entry for nerdio/nme; stage 2 now also needs Registry providers, so it uses `terraform init` | Run `scripts/install-nme-provider.sh` again; it replaces the old block with a local plugin directory (a backup is kept as `.terraformrc.bak`) | [link](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers) |
 <!-- END GENERATED: known-errors -->
 
 ## Adding an entry

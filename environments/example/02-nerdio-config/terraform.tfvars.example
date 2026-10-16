@@ -1,4 +1,4 @@
-# Connection details, subscription, network and FSLogix share come from
+# Connection details, the secret hand-off, subscription, network and FSLogix share come from
 # platform.auto.tfvars.json, written by 01-platform (see docs/deployment-runbook.md).
 
 workspace = {

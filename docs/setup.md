@@ -45,7 +45,7 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 `./nerdio preflight` only reads. It reports each check as pass, fail (with the fix), warn
 (couldn't check) or confirm-yourself:
 
-- Tools: Terraform 1.9 or later, `az`, `jq`, `git`.
+- Tools: Terraform 1.11 or later, `az`, `jq`, `git`.
 - Sign-in, and **Owner** on the subscription.
 - **Global Administrator**, or **Privileged Role Administrator + Cloud Application Administrator**,
   when Terraform grants admin consent. Roles eligible through PIM must be activated first.
