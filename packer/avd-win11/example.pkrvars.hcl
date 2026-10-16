@@ -9,3 +9,7 @@ gallery = {
   image_definition = "win11-avd-m365"
   replica_regions  = ["eastus2"]
 }
+
+# Optional: Windows Desktop Optimization Tool profile and per-setting changes (see README.md).
+# wdot_profile   = "avd-multisession"
+# wdot_overrides = { Services = { SysMain = "Apply" } }
