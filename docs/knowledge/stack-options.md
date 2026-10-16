@@ -63,14 +63,18 @@ three layers, and each layer uses the cheapest tool that can prove its point.
    workspace, host pools, FSLogix and auto-scale profiles, and linked network exist and match the
    tfvars. `terraform test` or a short script can do this with the same REST client app, so no admin
    browser session is needed. This is most of the coverage.
-2. **Admin console smoke test (Playwright, admin session).** Sign in to the Nerdio console and
-   confirm it loads. Check that the host pools show the expected image, auto-scale state and session
-   host count once auto-scale has had time to act. Read-only: it never clicks Save.
+2. **Host and job health via API (no browser).** Use Nerdio's `GET .../hostpool/{...}/host`,
+   `/session`, `/auto-scale` and `/job/{id}` endpoints, and `/deployment/current` for the installed
+   version. Use Azure's AVD session host status and built-in health checks (domain join, FSLogix,
+   agent, stack) through ARM. Together they prove hosts were built and are healthy. An optional
+   Playwright console screenshot is the only part left in the browser, and only as visual evidence.
 3. **End-user launch test (Playwright, test user).** Sign in to the Windows App web client
    (`windows.cloud.microsoft`) as a dedicated test user and check that the workspace shows the
    desktop. Optionally, launch a session and wait for the desktop to render. This is the only check
    that proves an end user can connect: Conditional Access, assignment, FSLogix sign-in and the
-   session host image together.
+   session host image together. Nothing in the Nerdio or Azure APIs starts a user session, so
+   this is the one check that needs a browser. Once a test sign-in has happened, Azure Monitor's
+   `WVDConnections` and `WVDErrors` logs can confirm it with a query instead of a screenshot.
 
 **Settings with no API.** If some post-deploy setting turns out to be UI-only, it gets its own small
 Playwright step under the same rules as the wizard bridge: opt-in, pinned to the Nerdio versions it
@@ -154,8 +158,8 @@ scripting any UI.
    provider gets a license.
 5. **Optional Playwright bridge** for the directory profile and first-run steps, opt-in and
    removed once Nerdio ships APIs for them.
-6. **Post-deploy checks:** REST API assertions first, then an optional Playwright console smoke
-   test and an end-user launch test through the Windows App web client.
+6. **Post-deploy checks:** Nerdio REST and Azure API assertions for config and host health, plus
+   one Playwright end-user launch test through the Windows App web client.
 
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.

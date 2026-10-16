@@ -39,9 +39,11 @@ Tips:
 
 ## Post-deployment checks (planned)
 
-Not built yet. The plan has three layers: REST API and Azure assertions with no browser (most of
-the coverage), a read-only Nerdio console smoke test, and an end-user launch test through the
-Windows App web client. Details and rules are in
+Not built yet. Most checks can run through APIs with no browser: Azure resource assertions,
+Nerdio's `/host`, `/session`, `/auto-scale`, `/job/{id}` and `/deployment/current` endpoints, and
+AVD session host status and health checks through ARM. Only the end-user launch test needs
+Playwright (Windows App web client), because no API starts a user session; `WVDConnections` and
+`WVDErrors` queries confirm it afterwards. Details and rules are in
 [../stack-options.md](../stack-options.md#post-deployment-checks-with-playwright).
 
 _Last reviewed: 2026-10-16_
