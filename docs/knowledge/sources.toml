@@ -79,6 +79,71 @@ user = "aaronparker"
 keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Packer", "Terraform"]
 kb_page = "nerdio/community-projects.md"
 
+[[source]]
+name = "stealthpuppy (Aaron Parker): blog"
+kind = "feed"
+url = "https://stealthpuppy.com/feed.xml"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Evergreen"]
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Wayne Bellows: Modern EUC blog"
+kind = "feed"
+url = "https://modern-euc.com/feed/"
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Wayne Bellows: GitHub repos"
+kind = "github_user_repos"
+user = "WayneBellows"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Neil McLoughlin (virtualmanc): blog"
+kind = "feed"
+url = "https://virtualmanc.co.uk/feed/"
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Neil McLoughlin (virtualmanc): GitHub repos"
+kind = "github_user_repos"
+user = "virtualmanc"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Dean Cefola: Azure Academy (YouTube)"
+kind = "feed"
+url = "https://www.youtube.com/feeds/videos.xml?channel_id=UC-MXgaFhsYU8PkqgKBdnusQ"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "FSLogix", "Intune", "image"]
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Dean Cefola: GitHub repos"
+kind = "github_user_repos"
+user = "DeanCefola"
+keywords = ["Nerdio", "AVD", "WVD", "Virtual Desktop", "image"]
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Nerdio (YouTube)"
+kind = "feed"
+url = "https://www.youtube.com/feeds/videos.xml?channel_id=UClzdOrR9o0I05hnnByEKIKA"
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Dane Young: Nerdio posts"
+kind = "feed"
+url = "https://blog.youngtech.com/category/nerdio/feed/"
+# Untested: the blog blocked automated checks. Drop it if the digest keeps listing it as failed.
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Marius Sandbu: blog"
+kind = "feed"
+url = "https://msandbu.org/feed/"
+keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365"]
+kb_page = "nerdio/community-projects.md"
+
 # --- HashiCorp stack --------------------------------------------------------
 
 [[source]]

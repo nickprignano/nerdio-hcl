@@ -26,8 +26,10 @@ Watched today:
   help center
 - azurerm (filtered to resources the kit uses), azuread, Terraform, Packer and the Packer Azure plugin
 - The Windows Desktop Optimization Tool (WDOT, VDOT's successor) and Azure updates about AVD, FSLogix and Azure Files
-- Community experts: stealthpuppy (Aaron Parker), his Nerdio scripts, Intune remediations, and his
-  new or updated repos about Nerdio, AVD, Intune and images
+- Community experts, through their blogs, YouTube channels and GitHub accounts (X isn't watched,
+  because it has no free feed): stealthpuppy (Aaron Parker), Wayne Bellows, Neil McLoughlin, Dean
+  Cefola (Azure Academy), Dane Young and Marius Sandbu, plus Nerdio's YouTube channel. Busy sources
+  are filtered to Nerdio, AVD, Intune and image topics
 - New GitHub repos matching "nerdio terraform", "nerdio packer" and AVD + Packer + Terraform
 
 Working a digest: for each ticked item, add what matters to the page named next to the source
