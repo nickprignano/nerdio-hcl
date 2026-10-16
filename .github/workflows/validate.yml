@@ -35,8 +35,10 @@ jobs:
           ./scripts/install-nme-provider.sh 2>&1 | tee install.log || { tail -n 10 install.log | sed 's/^/::error::/'; exit 1; }
       - name: validate Nerdio config stage (nerdio/nme provider)
         working-directory: environments/example/02-nerdio-config
-        # dev_overrides providers skip terraform init; validate loads the override directly.
+        # init would try to fetch nerdio/nme from the Registry; get installs only the modules and
+        # validate loads the provider from dev_overrides.
         run: |
+          terraform get -no-color >/dev/null
           terraform validate -no-color 2>&1 | tee validate.log || { grep -v '^$' validate.log | tail -n 8 | sed 's/^/::error::/'; exit 1; }
       - name: module tests
         working-directory: modules/network

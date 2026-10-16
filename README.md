@@ -68,7 +68,7 @@ terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.
 export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
 cd ../02-nerdio-config
 cp terraform.tfvars.example terraform.tfvars   # workspace and host pools
-terraform apply                                # no init needed with dev_overrides
+terraform get && terraform apply               # get, not init, with dev_overrides
 ```
 
 The full order of operations, including the manual Nerdio steps, is in

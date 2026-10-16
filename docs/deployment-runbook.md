@@ -71,7 +71,7 @@ host) to reach the console.
 2. Install the provider. `nerdio/nme` isn't on the Terraform Registry yet, so
    `scripts/install-nme-provider.sh` downloads Nerdio's pinned GitHub release, verifies it and
    adds a `dev_overrides` entry to `~/.terraformrc` (needs `gh auth login`). With the override in
-   place, skip `terraform init` in stage 2.
+   place, run `terraform get` instead of `terraform init` in stage 2.
 3. Hand stage 1's values to stage 2 and export the secret:
 
    ```bash
@@ -84,6 +84,7 @@ host) to reach the console.
 
    ```bash
    cd ../02-nerdio-config
+   terraform get
    terraform apply
    ```
 
