@@ -54,6 +54,44 @@ This is a stopgap, not the fix. The real fix is still the API request to Nerdio 
 - **Must test live:** the selectors against the current wizard, and whether Nerdio's terms allow
   scripted UI use. If there's doubt, ask Nerdio along with the API request.
 
+## Post-deployment checks with Playwright
+
+These run after stage 2 and prove the deployment works the way a person would see it. They come in
+three layers, and each layer uses the cheapest tool that can prove its point.
+
+1. **API checks first (no browser).** Use Nerdio's REST API and Azure to confirm that the
+   workspace, host pools, FSLogix and auto-scale profiles, and linked network exist and match the
+   tfvars. `terraform test` or a short script can do this with the same REST client app, so no admin
+   browser session is needed. This is most of the coverage.
+2. **Admin console smoke test (Playwright, admin session).** Sign in to the Nerdio console and
+   confirm it loads. Check that the host pools show the expected image, auto-scale state and session
+   host count once auto-scale has had time to act. Read-only: it never clicks Save.
+3. **End-user launch test (Playwright, test user).** Sign in to the Windows App web client
+   (`windows.cloud.microsoft`) as a dedicated test user and check that the workspace shows the
+   desktop. Optionally, launch a session and wait for the desktop to render. This is the only check
+   that proves an end user can connect: Conditional Access, assignment, FSLogix sign-in and the
+   session host image together.
+
+**Settings with no API.** If some post-deploy setting turns out to be UI-only, it gets its own small
+Playwright step under the same rules as the wizard bridge: opt-in, pinned to the Nerdio versions it
+was tested on, and listed as an upstream API ask. *Inferred:* most of these already have APIs
+(notifications, RBAC assignments, portal branding are all in the spec), so check `api.json` before
+scripting any UI.
+
+**Trade-offs and rules:**
+- **The test user** has an AVD assignment and nothing else. Its sign-in comes from a saved session
+  or a Conditional Access-scoped account, kept in Key Vault or a CI secret, never in the repo.
+  MFA stays on; the session is captured by hand.
+- **Cost:** launching a session starts a session host. Run it on demand or nightly in a sandbox,
+  not on every push, and let auto-scale shut the host down afterwards.
+- **No leaks:** screenshots and traces show tenant names, UPNs and host names. Keep CI artifacts
+  private and short-lived, or turn on traces only when a run fails.
+- **Brittleness:** the Microsoft web client and the Nerdio console both change without notice. Use
+  role- and label-based locators, report failures as "UI check failed" separately from "deployment
+  failed", and never block a deploy on layer 2 or layer 3 alone.
+- **Where it runs:** the same manual or scheduled GitHub Actions job as the wizard bridge, in a
+  protected environment. No model tokens.
+
 ## Corrections from the red team
 
 1. **Nerdio post-processor:** an earlier claim was wrong. The API does see Compute Gallery images.
@@ -116,6 +154,8 @@ This is a stopgap, not the fix. The real fix is still the API request to Nerdio 
    provider gets a license.
 5. **Optional Playwright bridge** for the directory profile and first-run steps, opt-in and
    removed once Nerdio ships APIs for them.
+6. **Post-deploy checks:** REST API assertions first, then an optional Playwright console smoke
+   test and an end-user launch test through the Windows App web client.
 
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.
@@ -133,6 +173,7 @@ Packer (optional only).
 - Whether tag-based REST API enablement works without ever opening the UI.
 - Whether the package API and settings approach (MB-External style) survives Nerdio's self-update.
 - Whether the Playwright selectors work on the current wizard, and how long a saved session stays valid.
+- Whether the Windows App web client can be driven headless to a rendered desktop, and how long that takes.
 
 ## Sources
 - Nerdio OpenAPI spec: `internal/client/api.json` in Get-Nerdio/NME-Terraform-Provider (commit 65e547f, 2026-09-21)

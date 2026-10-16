@@ -37,4 +37,11 @@ Tips:
 - If a local environment can't reach the registry, CI is a fine place to validate against
   providers you can't download locally.
 
+## Post-deployment checks (planned)
+
+Not built yet. The plan has three layers: REST API and Azure assertions with no browser (most of
+the coverage), a read-only Nerdio console smoke test, and an end-user launch test through the
+Windows App web client. Details and rules are in
+[../stack-options.md](../stack-options.md#post-deployment-checks-with-playwright).
+
 _Last reviewed: 2026-10-16_
