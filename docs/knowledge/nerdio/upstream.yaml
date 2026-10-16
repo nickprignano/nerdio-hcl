@@ -73,6 +73,16 @@ feature_gaps:
     Replacing a linked network under live pools is disruptive. Needs a Nerdio API change first, so it's
     a request, not a PR.
   status: candidate
+- id: workload-identity-federation-in-nme-provider
+  title: Workload identity federation (client assertion) in the provider
+  evidence: >-
+    The provider only accepts `client_secret` (`internal/provider/provider.go`, commit `65e547f`). azurerm
+    and azuread already accept OIDC tokens from GitHub Actions and other federated sources.
+  why: >-
+    It would remove the last secret in the kit: the pipeline could sign in to the Nerdio API with GitHub
+    OIDC or a managed identity, and no Key Vault or Vault hand-off would be needed
+    ([decision 0015](../decisions/0015-secrets-key-vault-default-openbao-optional.md)).
+  status: candidate
 api_asks:
 - id: directory-profile-create-api-and-provider-resource
   title: Directory profile create API and provider resource

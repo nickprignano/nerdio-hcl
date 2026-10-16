@@ -283,8 +283,13 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 1. **Single-apply install.** Swap the portal export for the pinned `mainTemplate.json`, add the
    App Service settings, Key Vault secrets and SQL bootstrap the script writes, and deploy the code
    from the package API. This is the biggest win: it removes the export and the install script.
-2. **Secret hand-off without a manual export.** Vault mints a short-lived REST client secret per run,
-   or Community Vault/Key Vault stores it with write-only and ephemeral resources.
+2. **Secret hand-off without a manual export (decision 0015).** The default is no Vault: stage 1
+   stores the Nerdio REST secret in Azure Key Vault, and stage 2 reads it with an ephemeral resource
+   over GitHub OIDC. Nothing extra to run, nothing in tfvars or the shell. The optional advanced module
+   is OpenBao, or Vault Community for people who already run it, hosted in Azure with a managed
+   identity. It mints a short-lived secret per run, so no long-lived Nerdio secret exists anywhere.
+   The real fix is upstream: the `nme` provider accepting federated credentials, which would remove
+   the secret entirely.
 3. **Image link.** Look up gallery images through the API and confirm the host pool `image` format
    in a live sandbox run.
 4. **Pipeline.** Run the stages in order in GitHub Actions with OIDC. Move to Stacks later if the
@@ -309,6 +314,8 @@ harden it, and the MCP server comes last.
 3. A supported install path: versioned template and artifacts, a non-interactive install, and a documented package API.
 4. Registry publishing plus a LICENSE.
 5. Desktop image and image catalog resources in the provider.
+6. Workload identity federation (client assertion) in the `nme` provider. Today it only accepts a
+   client secret (`internal/provider/provider.go`), and this change would remove the last secret in the kit.
 
 **Dropped or documented only:** Boundary, Turbonomic, Cloudability, Instana, Vault Radar and HCP
 Packer (optional only).

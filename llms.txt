@@ -49,6 +49,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0012. Everything runs from Cloud Shell in a browser](docs/knowledge/decisions/0012-cloud-shell-baseline.md): accepted
 - [0013. Unlicensed code is reference only](docs/knowledge/decisions/0013-unlicensed-code-reference-only.md): accepted
 - [0014. The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry](docs/knowledge/decisions/0014-self-hosted-setup-chatbot.md): accepted
+- [0015. Secrets: Key Vault by default; OpenBao as the optional Vault-style module](docs/knowledge/decisions/0015-secrets-key-vault-default-openbao-optional.md): proposed
 
 ## Optional
 
