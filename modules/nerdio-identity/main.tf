@@ -131,6 +131,7 @@ resource "time_rotating" "secret" {
 }
 
 resource "azuread_application_password" "nerdio" {
+  count          = var.create_client_secret ? 1 : 0
   application_id = azuread_application.nerdio.id
   display_name   = "terraform"
   end_date       = timeadd(time_rotating.secret.id, "${var.secret_rotation_days * 24 + 720}h")

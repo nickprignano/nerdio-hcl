@@ -1,8 +1,7 @@
 ---
-status: accepted
+status: superseded by 0011
 date: 2026-10-16
 decision-makers: [maintainers]
-review: The roadmap proposes deploying Nerdio's pinned Get-Nerdio/NMW mainTemplate.json instead of a portal export.
 ---
 
 # 0003. Deploy Nerdio Manager from the exported Marketplace template
@@ -35,4 +34,5 @@ endpoints and VNet integration are added as separate resources in a second apply
 
 ## More Information
 
-Under review: the [roadmap](../stack-options.md) proposes the pinned `Get-Nerdio/NMW` template instead.
+[0011](0011-terraform-native-install.md) replaced this as the default install. The Marketplace
+path is still supported as an alternative with `nerdio_install = "marketplace"`.

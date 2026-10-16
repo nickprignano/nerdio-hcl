@@ -94,6 +94,22 @@ api_asks:
     package API (`/api/package`, `/{ver}/link`) is used by Nerdio's own update runbook but isn't documented.
   why: Would let Terraform replace the portal export and install script on a supported path.
   status: candidate
+- id: documented-package-api-and-flat-app-zip
+  title: Documented package API and a flat `app.zip` at a stable URL
+  evidence: >-
+    The kit's install job uses the undocumented `/api/package` and `/{ver}/link` calls and unpacks a zip inside
+    a zip ([platform.md](platform.md#terraform-install-the-kits-default)).
+  why: >-
+    With a stable, documented URL, `azurerm_windows_web_app` could deploy the code directly and the Automation
+    job could go.
+  status: candidate
+- id: managed-identity-for-data-protection-storage
+  title: Managed identity for data protection storage
+  evidence: >-
+    The app reads container SAS URLs from Key Vault (`DataProtection--Storage--Path`,
+    `Deployment--LocksContainerSasUrl`); the kit has to mint 10-year SAS tokens.
+  why: Identity-based storage access would remove the only long-lived credential left in the install.
+  status: candidate
 - id: are-scripted-ui-sessions-allowed
   title: Are scripted UI sessions allowed?
   evidence: >-
@@ -113,6 +129,7 @@ docs_packaging:
     Until then, document a `filesystem_mirror` install, which keeps `terraform init` and lock files working
     (see [restricted-networks.md](../terraform/restricted-networks.md#workaround-filesystem-mirror)).
   status: candidate
+  note: draft ask with evidence prepared 2026-10-16, to raise at Nerdio's partner advisory board; not sent
 - id: version-numbers-disagree
   title: Version numbers disagree
   evidence: >-

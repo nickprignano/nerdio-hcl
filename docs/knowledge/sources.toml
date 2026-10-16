@@ -204,6 +204,14 @@ kb_page = "nerdio/platform.md"
 
 # --- Prior art (community work) ---------------------------------------------
 
+# Closest prior art to modules/nerdio-core. No license, so it's a reference only: compare its
+# settings and package steps, never copy its code.
+[[source]]
+name = "MB-External/NME-Terraform: commits"
+kind = "github_commits"
+repo = "MB-External/NME-Terraform"
+kb_page = "nerdio/community-projects.md"
+
 [[source]]
 name = "Repos: nerdio terraform"
 kind = "github_search"

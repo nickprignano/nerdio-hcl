@@ -60,3 +60,9 @@ variable "disable_public_access" {
   type        = bool
   default     = false
 }
+
+variable "lockdown_with_cli" {
+  description = "Turn off public access with az CLI calls. Needed only for resources Terraform doesn't own (the Marketplace install); modules/nerdio-core sets public access itself."
+  type        = bool
+  default     = true
+}

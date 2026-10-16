@@ -37,7 +37,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 
 - [0001. Build the kit on Nerdio's own Terraform provider](docs/knowledge/decisions/0001-build-on-nerdio-provider.md): accepted
 - [0002. Nerdio owns AVD objects](docs/knowledge/decisions/0002-nerdio-owns-avd-objects.md): accepted
-- [0003. Deploy Nerdio Manager from the exported Marketplace template](docs/knowledge/decisions/0003-marketplace-template.md): accepted
+- [0003. Deploy Nerdio Manager from the exported Marketplace template](docs/knowledge/decisions/0003-marketplace-template.md): superseded by 0011
 - [0004. Tenant and subscription are inputs, never hardcoded](docs/knowledge/decisions/0004-tenant-agnostic-inputs.md): accepted
 - [0005. Packer builds the golden image](docs/knowledge/decisions/0005-packer-for-images.md): accepted
 - [0006. No Ansible](docs/knowledge/decisions/0006-no-ansible.md): accepted
@@ -45,6 +45,9 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0008. Chat is the guided front door; the engine stays deterministic](docs/knowledge/decisions/0008-chat-front-door.md): accepted
 - [0009. Prefer Azure, GitHub, HashiCorp and open-source tooling](docs/knowledge/decisions/0009-prefer-azure-github-hashicorp-oss.md): accepted
 - [0010. Roadmap horizon: 90-day build windows, 12-month direction](docs/knowledge/decisions/0010-roadmap-horizon.md): accepted
+- [0011. Install Nerdio Manager in Terraform; HCL first](docs/knowledge/decisions/0011-terraform-native-install.md): accepted
+- [0012. Everything runs from Cloud Shell in a browser](docs/knowledge/decisions/0012-cloud-shell-baseline.md): accepted
+- [0013. Unlicensed code is reference only](docs/knowledge/decisions/0013-unlicensed-code-reference-only.md): accepted
 - [0014. The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry](docs/knowledge/decisions/0014-self-hosted-setup-chatbot.md): accepted
 
 ## Optional

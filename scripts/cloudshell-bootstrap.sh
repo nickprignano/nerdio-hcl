@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# Run the kit from Azure Cloud Shell (Bash) without typing tenant or subscription IDs.
+#
+#   ./scripts/cloudshell-bootstrap.sh platform           plan 01-platform
+#   ./scripts/cloudshell-bootstrap.sh platform --apply   apply 01-platform (Terraform asks for yes)
+#   ./scripts/cloudshell-bootstrap.sh config             plan 02-nerdio-config
+#   ./scripts/cloudshell-bootstrap.sh config --apply     apply 02-nerdio-config (asks for yes)
+#
+# The first run reads the signed-in account with az and writes 01-platform/sandbox.auto.tfvars;
+# later runs reuse it, so names stay stable. Every generated file is gitignored, and IDs are
+# never printed. Run `az account set --subscription <name>` first if the default is wrong.
+#
+# Guardrails (docs/guardrails.md): this is bootstrap glue only (HCL first; Terraform does the
+# work). It plans by default, and --apply leaves the yes to you. Nothing here prints or commits
+# tenant values.
+#
+#   NME_INSTALL        terraform (default: Terraform builds Nerdio Manager) or marketplace (deploy an
+#                      exported Marketplace template, then run Nerdio's install script)
+#   NME_LOCATION       Azure region (default eastus2)
+#   NME_GRANT_CONSENT  grant admin consent from Terraform (default true; needs Global Admin or
+#                      Privileged Role Administrator)
+#   NME_TF_VERSION     Terraform to install when Cloud Shell's is older than 1.9 (default 1.16.6)
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+env_dir="$root/environments/example"
+platform="$env_dir/01-platform"
+config="$env_dir/02-nerdio-config"
+template_dir="$root/templates/nerdio-manager"
+
+stage="${1:-platform}"
+mode="${2:-plan}"
+case "$stage" in platform | config) ;; *) echo "usage: $0 platform|config [--apply]" >&2; exit 64 ;; esac
+case "$mode" in plan | --apply) ;; *) echo "usage: $0 platform|config [--apply]" >&2; exit 64 ;; esac
+
+say() { printf '\n== %s\n' "$*"; }
+
+ensure_terraform() {
+  local have=""
+  command -v terraform >/dev/null 2>&1 && have="$(terraform version -json | jq -r .terraform_version)"
+  if [ -n "$have" ] && [ "$(printf '%s\n' 1.9.0 "$have" | sort -V | head -n1)" = 1.9.0 ]; then
+    echo "Terraform $have (kit needs >= 1.9)"
+    return
+  fi
+  local want="${NME_TF_VERSION:-1.16.6}"
+  echo "Terraform ${have:-not found}; installing $want to ~/bin"
+  local tmp; tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/tf.zip" "https://releases.hashicorp.com/terraform/$want/terraform_${want}_linux_amd64.zip"
+  curl -fsSL -o "$tmp/sums" "https://releases.hashicorp.com/terraform/$want/terraform_${want}_SHA256SUMS"
+  (cd "$tmp" && grep "linux_amd64.zip" sums | sed "s/terraform_${want}_linux_amd64.zip/tf.zip/" | sha256sum --check -)
+  mkdir -p "$HOME/bin"
+  unzip -o -q "$tmp/tf.zip" -d "$HOME/bin"
+  rm -rf "$tmp"
+  export PATH="$HOME/bin:$PATH"
+  terraform version | head -n1
+}
+
+ensure_template() {
+  [ -f "$template_dir/template.json" ] && { echo "Using templates/nerdio-manager/template.json"; return; }
+  # The portal's "Download a template for automation" gives a zip; upload it to Cloud Shell's home.
+  local zip="" z
+  while IFS= read -r z; do
+    if unzip -Z1 "$z" 2>/dev/null | grep -qx 'template.json'; then zip="$z"; break; fi
+  done < <(find "$HOME" "$HOME/clouddrive" -maxdepth 1 -type f -iname '*.zip' 2>/dev/null)
+  if [ -z "$zip" ]; then
+    cat >&2 <<'MSG'
+No Nerdio Manager template yet. In the Azure portal:
+  1. Marketplace > Nerdio Manager for Enterprise > Create. Pick this subscription, any new
+     resource group and your region, then go to Review + create.
+  2. Choose "Download a template for automation", then Download. Don't click Create.
+  3. In Cloud Shell: Manage files > Upload, and pick the zip.
+Then run this script again.
+MSG
+    exit 2
+  fi
+  echo "Unpacking $(basename "$zip")"
+  local tmp; tmp="$(mktemp -d)"
+  unzip -o -q "$zip" -d "$tmp"
+  cp "$tmp/template.json" "$template_dir/template.json"
+  if [ -f "$tmp/parameters.json" ]; then
+    jq --arg loc "$location" \
+      '{nerdio_template_parameters: (.parameters | map_values(.value)
+        | if has("location") then .location = $loc else . end)}' \
+      "$tmp/parameters.json" > "$platform/nerdio.auto.tfvars.json"
+    echo "Wrote 01-platform/nerdio.auto.tfvars.json from parameters.json"
+  fi
+  rm -rf "$tmp"
+}
+
+write_platform_tfvars() {
+  local out="$platform/sandbox.auto.tfvars"
+  if [ -f "$out" ]; then
+    echo "Reusing 01-platform/sandbox.auto.tfvars"
+    return
+  fi
+  local tenant sub me suffix prefix compact consent
+  tenant="$(az account show --query tenantId -o tsv)"
+  sub="$(az account show --query id -o tsv)"
+  me="$(az ad signed-in-user show --query id -o tsv)"
+  suffix="$(head -c 64 /dev/urandom | tr -dc 'a-z0-9' | head -c 4)"
+  prefix="nme-sbx-$suffix"
+  compact="nmesbx$suffix"
+  consent="${NME_GRANT_CONSENT:-true}"
+
+  umask 077
+  cat > "$out" <<TFVARS
+# Generated by scripts/cloudshell-bootstrap.sh from az account show. Gitignored; don't commit.
+tenant_id       = "$tenant"
+subscription_id = "$sub"
+prefix          = "$prefix"
+location        = "$location"
+
+tags = {
+  workload    = "avd"
+  managed-by  = "terraform"
+  environment = "sandbox"
+}
+
+resource_groups = {
+  nerdio     = "rg-$prefix-nerdio"
+  network    = "rg-$prefix-network"
+  hostpools  = "rg-$prefix-hostpools"
+  storage    = "rg-$prefix-storage"
+  monitoring = "rg-$prefix-monitoring"
+}
+
+network = {
+  address_space = ["10.50.0.0/20"]
+  subnets = {
+    session_hosts     = "10.50.0.0/22"
+    private_endpoints = "10.50.4.0/27"
+    app_integration   = "10.50.4.32/27"
+  }
+}
+
+fslogix = {
+  storage_account_name = "st${compact}fslogix"
+  identity_source      = "AADKERB"
+}
+
+image_gallery = {
+  name                      = "gal_${compact}"
+  build_resource_group_name = "rg-$prefix-images-build"
+}
+
+entra_app = {
+  wvd_admin_object_ids = ["$me"]
+  grant_admin_consent  = $consent
+}
+
+nerdio_install   = "$install"
+enable_hardening = false
+TFVARS
+  echo "Wrote 01-platform/sandbox.auto.tfvars (prefix $prefix, region $location, $install install, admin consent $consent)"
+}
+
+run_tf() {
+  if [ "$mode" = --apply ]; then
+    terraform apply
+  else
+    terraform plan -input=false
+  fi
+}
+
+say "Account"
+az account show --query '{subscription:name, signedInAs:user.name}' -o table
+location="${NME_LOCATION:-eastus2}"
+install="${NME_INSTALL:-terraform}"
+case "$install" in terraform | marketplace) ;; *) echo "NME_INSTALL must be terraform or marketplace" >&2; exit 64 ;; esac
+[ -d "$HOME/clouddrive" ] || echo "warning: no ~/clouddrive; this looks like an ephemeral Cloud Shell, so state is lost when it closes." >&2
+
+say "Terraform"
+ensure_terraform
+
+if [ "$stage" = platform ]; then
+  if [ "$install" = marketplace ]; then
+    say "Nerdio Manager template"
+    ensure_template
+  fi
+  say "Variables"
+  write_platform_tfvars
+  say "01-platform: terraform ${mode#--}"
+  cd "$platform"
+  terraform init -input=false -upgrade >/dev/null
+  run_tf
+  if [ "$mode" = plan ]; then
+    echo
+    echo "Review the plan, then: ./scripts/cloudshell-bootstrap.sh platform --apply"
+  fi
+  exit 0
+fi
+
+say "nerdio/nme provider"
+if [ -x "$HOME/.terraform.d/dev-overrides/nme/terraform-provider-nme" ] && grep -q 'nerdio/nme' "$HOME/.terraformrc" 2>/dev/null; then
+  echo "Already installed"
+else
+  "$root/scripts/install-nme-provider.sh"
+fi
+
+say "Inputs from 01-platform"
+terraform -chdir="$platform" output -json nerdio_config_inputs > "$config/platform.auto.tfvars.json"
+echo "Wrote 02-nerdio-config/platform.auto.tfvars.json"
+NME_CLIENT_SECRET="$(terraform -chdir="$platform" output -raw nme_client_secret)"
+export NME_CLIENT_SECRET
+[ -f "$config/terraform.tfvars" ] || { cp "$config/terraform.tfvars.example" "$config/terraform.tfvars"; echo "Wrote 02-nerdio-config/terraform.tfvars from the example"; }
+
+say "02-nerdio-config: terraform ${mode#--}"
+cd "$config"
+terraform get >/dev/null
+run_tf
+if [ "$mode" = plan ]; then
+  echo
+  echo "Review the plan, then: ./scripts/cloudshell-bootstrap.sh config --apply"
+fi

@@ -43,6 +43,9 @@ belongs to instead of starting a new file.
 
 ## Before you build something
 
+Every change follows the project's [guardrails](../guardrails.md): security over convenience, HCL
+first, the Cloud Shell baseline, no leaks, no secrets in chat, pull requests only, and license rules.
+
 Run the prior-art check first (`python3 scripts/kb/prior_art.py "<topic>"`, see
 [curation.md](curation.md#prior-art-check-kb-prior-art)). It searches this KB and GitHub, so
 you don't spend time on problems someone has already solved.
