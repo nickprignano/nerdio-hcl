@@ -6,6 +6,9 @@
   ./nerdio questions --phase discover   the questions as JSON, for the setup chatbot
   ./nerdio show                 the current answers and where each value came from
   ./nerdio preflight            read-only readiness checks (roles, providers, region, quota)
+  ./nerdio fix quota            ask Azure Support for App Service quota (shows it, then asks yes)
+  ./nerdio fix vcpu --family F --limit N   raise a VM family's vCPU quota (shows it, then asks yes)
+  ./nerdio fix roles            activate eligible PIM roles the kit needs (shows them, then asks yes)
   ./nerdio schema check         check the schema against the Terraform variables (CI)
   ./nerdio form --write|--check generate or check the Actions form from the schema
   ./nerdio assistant --admin-group "AVD Admins"   deploy the setup chatbot into this tenant
@@ -22,6 +25,7 @@ import sys
 import textwrap
 
 import engine
+import fix
 import form
 import preflight
 import tfcheck
@@ -247,6 +251,30 @@ def cmd_preflight(args) -> int:
     return 1 if any(r.status == "fail" for r in results) else 0
 
 
+def cmd_fix(args) -> int:
+    schema = engine.load_schema()
+    answers = engine.load_answers()
+    engine.ensure_seed(answers)
+    values = engine.resolve(schema, answers, {"tenant": "", "subscription": ""}).values
+    try:
+        sub = fix.az(["account", "show", "--query", "id"])
+        if args.what == "quota":
+            if args.status:
+                return fix.quota_status(sub)
+            return fix.fix_quota(sub, args.location or values["location"], args.sku, args.limit,
+                                 args.country, args.email, args.timezone or values.get("timezone_id") or "UTC", args.yes)
+        if args.what == "vcpu":
+            if not args.family:
+                print("stopped: --family is needed, e.g. --family standardDSv5Family (preflight's vCPU line names it)", file=sys.stderr)
+                return 1
+            return fix.fix_vcpu(sub, args.location or values["location"], args.family, args.limit, args.yes)
+        return fix.fix_roles(sub, bool(values.get("create_entra_app")) and bool(values.get("grant_admin_consent")),
+                             args.hours, args.yes)
+    except fix.FixError as exc:
+        print(f"stopped: {exc}", file=sys.stderr)
+        return 1
+
+
 def cmd_schema(args) -> int:
     schema = engine.load_schema()
     problems = engine.check_schema(schema)
@@ -353,6 +381,20 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("preflight", help="read-only readiness checks")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_preflight)
+
+    p = sub.add_parser("fix", help="request quota or activate PIM roles that preflight found missing")
+    p.add_argument("what", choices=["quota", "vcpu", "roles"])
+    p.add_argument("--family", help="vcpu: VM family quota name, e.g. standardDSv5Family")
+    p.add_argument("--sku", default="B3", help="quota: App Service SKU (default B3, what Nerdio uses)")
+    p.add_argument("--limit", type=int, default=2, help="quota/vcpu: new limit to ask for (default 2; give vcpu its own)")
+    p.add_argument("--location", help="quota: region (default: your answers, else eastus2)")
+    p.add_argument("--country", help="quota: 3-letter country for the support contact, if Entra doesn't have it")
+    p.add_argument("--email", help="quota: where Azure Support replies (default: your account's mail)")
+    p.add_argument("--timezone", help="quota: your time zone for the support contact")
+    p.add_argument("--status", action="store_true", help="quota: list the kit's quota requests and their status")
+    p.add_argument("--hours", type=int, default=4, help="roles: activation length in hours (default 4)")
+    p.add_argument("--yes", action="store_true", help="don't ask before sending (for pipelines)")
+    p.set_defaults(func=cmd_fix)
 
     p = sub.add_parser("schema", help="check the schema against the Terraform variables")
     p.add_argument("action", choices=["check"])

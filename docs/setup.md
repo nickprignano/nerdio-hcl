@@ -69,6 +69,27 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 
 `./nerdio preflight --json` gives the same results for the setup chatbot.
 
+## Fixing what preflight finds
+
+Preflight's fix lines point at commands, not portal clicks. Each one shows exactly what it will
+send and does nothing until you type `yes` (`--yes` skips the question, for pipelines):
+
+```bash
+./nerdio fix quota                                     # App Service quota (B3), as an Azure Support request
+./nerdio fix quota --status                            # the kit's quota requests and their status
+./nerdio fix vcpu --family standardDSv5Family --limit 48   # VM vCPU quota through the Azure Quota API
+./nerdio fix roles                                     # activate eligible PIM roles (Entra and subscription Owner)
+```
+
+- App Service quota has no self-service API, so `fix quota` opens the request with Azure Support
+  through its REST API (no paid support plan needed for quota). Replies go to your account's email.
+- vCPU quota uses the Azure Quota API; most increases apply within minutes.
+- `fix roles` only activates roles you're already eligible for. Run `az login` afterwards so your
+  token carries them. PIM settings that need approval or a ticket number still need the portal.
+
+The portal is the last resort: a command prints the portal path only if Azure refuses the request.
+Cloud Shell's storage choice is the one thing with no command; Cloud Shell asks it on first start.
+
 ## Chat
 
 The setup chatbot runs in your own tenant and asks the schema's questions in conversation. It

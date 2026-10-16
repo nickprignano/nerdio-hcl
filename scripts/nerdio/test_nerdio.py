@@ -292,7 +292,7 @@ class PreflightTests(unittest.TestCase):
             results = preflight.run(self.values())
         self.assertIn("Entra admin role", {r.check for r in results if r.status == "fail"})
 
-    def test_app_service_quota_of_zero_fails_with_the_request_steps(self):
+    def test_app_service_quota_of_zero_fails_with_the_fix_command(self):
         overrides = {("rest", "Microsoft.Web"): {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3 VMs"},
                                                              "limit": 0, "currentValue": 0}]}}
         with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
@@ -300,7 +300,7 @@ class PreflightTests(unittest.TestCase):
             results = preflight.run(self.values())
         quota = [r for r in results if r.check == "App Service quota"]
         self.assertEqual([r.status for r in quota], ["fail"])
-        self.assertIn("support request", quota[0].fix)
+        self.assertIn("./nerdio fix quota", quota[0].fix)
 
     def test_app_service_quota_unreadable_warns(self):
         overrides = {("rest", "Microsoft.Web"): None}

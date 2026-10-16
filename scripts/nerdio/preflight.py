@@ -117,7 +117,7 @@ def check_subscription_owner(acct: dict) -> Result:
         return Result(PASS, "Subscription Owner", "Contributor plus a role that can assign roles, which covers what the kit needs",
                       kb="docs/knowledge/nerdio/platform.md#roles-needed")
     return Result(FAIL, "Subscription Owner", "Owner is needed on the subscription (found: " + (", ".join(sorted(set(roles))) or "none") + ")",
-                  "Ask a subscription Owner to assign you Owner, or activate it in Privileged Identity Management if it's eligible",
+                  "./nerdio fix roles if Owner is eligible in PIM; otherwise ask a subscription Owner to assign it",
                   kb="docs/knowledge/nerdio/platform.md#roles-needed")
 
 
@@ -138,7 +138,7 @@ def check_entra_roles(acct: dict, needs_consent: bool) -> Result:
     return Result(FAIL, "Entra admin role",
                   "admin consent needs Global Administrator, or Privileged Role Administrator plus Cloud Application Administrator "
                   "(active roles only; PIM-eligible roles must be activated first)",
-                  "Activate the role in PIM, or answer no to admin consent and let a Global Admin click it in the wizard",
+                  "./nerdio fix roles (activates eligible PIM roles), or answer no to admin consent and let a Global Admin grant it in the wizard",
                   kb="docs/knowledge/nerdio/platform.md#roles-needed")
 
 
@@ -161,7 +161,7 @@ def check_app_registration(acct: dict, creates_app: bool) -> Result:
         return Result(PASS, "App registration", "the tenant lets users register applications")
     return Result(FAIL, "App registration",
                   "this tenant doesn't let users register applications, and you have no active role that can",
-                  "Activate Cloud Application Administrator (or Application Developer) in PIM, then az login again",
+                  "./nerdio fix roles (activates eligible PIM roles), then az login again",
                   kb="docs/knowledge/nerdio/platform.md#roles-needed")
 
 
@@ -182,8 +182,7 @@ def check_app_service_quota(subscription_id: str, location: str, sku: str) -> li
     rows = az_json(["rest", "--method", "get", "--url",
                     f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Web"
                     f"/locations/{location}/usages?api-version={WEB_API}"])
-    request = (f"Portal: Help + support > Create a support request > Service and subscription limits (quotas) > "
-               f"App Service; ask for {sku} (Windows) in {location}, new limit 2")
+    request = f"./nerdio fix quota --sku {sku} --location {location}"
     if rows is None:
         out.append(Result(WARN, "App Service quota", f"couldn't read App Service quota in {location}",
                           "If the apply fails with 'without additional quota': " + request))
@@ -367,7 +366,7 @@ def check_vm_size_and_quota(location: str, vm_size: str, hosts: int) -> list[Res
             out.append(Result(PASS, "vCPU quota", f"{label}: {free} free, {need} needed for {hosts} hosts at full scale"))
         else:
             out.append(Result(FAIL, "vCPU quota", f"{label}: {free} free, {need} needed for {hosts} hosts at full scale",
-                              "Request more in the portal: Quotas > Compute, or lower host_pool_capacity",
+                              f"./nerdio fix vcpu --family {key} --limit {int(row['currentValue']) + need}, or lower host_pool_capacity",
                               kb=""))
     return out
 
