@@ -234,7 +234,11 @@ class PreflightTests(unittest.TestCase):
             ("account", "show"): {"id": ZERO, "name": "sandbox", "user": {"type": "user", "name": "admin"}},
             ("ad", "signed-in-user"): "66666666-7777-8888-9999-000000000000",
             ("role", "assignment"): ["Owner"],
-            ("rest", "--method"): {"value": [{"displayName": "Global Administrator"}]},
+            ("rest", "directoryRole"): {"value": [{"displayName": "Global Administrator"}]},
+            ("rest", "authorizationPolicy"): {"defaultUserRolePermissions": {"allowedToCreateApps": False}},
+            ("rest", "Microsoft.Web"): {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3 VMs"},
+                                                    "limit": 10, "currentValue": 0}]},
+            ("appservice", "list-locations"): ["East US 2", "West Europe"],
             ("provider", "list"): [{"ns": ns, "state": "Registered"} for ns in preflight.PROVIDERS],
             ("account", "list-locations"): ["eastus2", "westeurope"],
             ("vm", "list-skus"): [{"name": "Standard_D8s_v5", "family": "standardDSv5Family", "restrictions": [],
@@ -243,7 +247,12 @@ class PreflightTests(unittest.TestCase):
                                    {"name": {"value": "cores"}, "limit": 100, "currentValue": 10}],
         }
         data.update(overrides or {})
-        return lambda args: data.get(tuple(args[:2]))
+        def fake(args):
+            if args[0] == "rest":
+                url = args[args.index("--url") + 1]
+                return next((v for (k, frag), v in data.items() if k == "rest" and frag in url), None)
+            return data.get(tuple(args[:2]))
+        return fake
 
     def values(self):
         schema = engine.load_schema()
@@ -272,11 +281,35 @@ class PreflightTests(unittest.TestCase):
                 self.assertTrue(r.fix, r.check)
 
     def test_consent_needs_the_role_pair_or_global_admin(self):
-        overrides = {("rest", "--method"): {"value": [{"displayName": "Cloud Application Administrator"}]}}
+        overrides = {("rest", "directoryRole"): {"value": [{"displayName": "Cloud Application Administrator"}]}}
         with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
              mock.patch.object(preflight, "check_tools", return_value=[]):
             results = preflight.run(self.values())
         self.assertIn("Entra admin role", {r.check for r in results if r.status == "fail"})
+
+    def test_app_service_quota_of_zero_fails_with_the_request_steps(self):
+        overrides = {("rest", "Microsoft.Web"): {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3 VMs"},
+                                                             "limit": 0, "currentValue": 0}]}}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]):
+            results = preflight.run(self.values())
+        quota = [r for r in results if r.check == "App Service quota"]
+        self.assertEqual([r.status for r in quota], ["fail"])
+        self.assertIn("support request", quota[0].fix)
+
+    def test_app_service_quota_unreadable_warns(self):
+        overrides = {("rest", "Microsoft.Web"): None}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]):
+            results = preflight.run(self.values())
+        self.assertEqual([r.status for r in results if r.check == "App Service quota"], ["warn"])
+
+    def test_app_registration_blocked_without_a_role_fails(self):
+        overrides = {("rest", "directoryRole"): {"value": []}}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]):
+            results = preflight.run(self.values())
+        self.assertIn("App registration", {r.check for r in results if r.status == "fail"})
 
     def test_not_signed_in_stops_early(self):
         with mock.patch.object(preflight, "az_json", return_value=None), \

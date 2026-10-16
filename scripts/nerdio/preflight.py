@@ -1,4 +1,5 @@
-"""Read-only readiness checks for the prepare phase: tools, sign-in, roles, providers, region, quota.
+"""Read-only readiness checks for the prepare phase: tools, sign-in, roles, providers, region, quota
+(VM vCPUs and the App Service plan Nerdio Manager runs on).
 
 Every check only reads (az ... show/list). Nothing here changes Azure or Entra. Each result
 carries the exact command or link that fixes it, so a person or the setup chatbot can act on it.
@@ -31,6 +32,10 @@ PROVIDERS = [
 ]
 
 GLOBAL_ADMIN = "Global Administrator"
+# Roles that can create app registrations even when the tenant blocks users from doing so.
+APP_CREATORS = {GLOBAL_ADMIN, "Application Administrator", "Cloud Application Administrator", "Application Developer"}
+# App Service REST API version for Get Usages in Location.
+WEB_API = "2024-11-01"
 CONSENT_PAIR = {"Privileged Role Administrator", "Cloud Application Administrator"}
 
 
@@ -124,6 +129,68 @@ def check_entra_roles(acct: dict, needs_consent: bool) -> Result:
                   kb="docs/knowledge/nerdio/platform.md#roles-needed")
 
 
+def check_app_registration(acct: dict, creates_app: bool) -> Result:
+    """The kit creates the nerdio-nmw-app registration; many tenants stop ordinary users doing that."""
+    if not creates_app:
+        return Result(PASS, "App registration", "not needed (the kit isn't creating the Entra app)")
+    if acct.get("user", {}).get("type") != "user":
+        return Result(MANUAL, "App registration", "signed in as a service principal; it needs Application.ReadWrite.OwnedBy or an admin role")
+    roles = az_json(["rest", "--method", "get", "--url",
+                     "https://graph.microsoft.com/v1.0/me/transitiveMemberOf/microsoft.graph.directoryRole?$select=displayName"])
+    if roles is not None and APP_CREATORS & {r.get("displayName") for r in roles.get("value", [])}:
+        return Result(PASS, "App registration", "your directory role can create app registrations")
+    policy = az_json(["rest", "--method", "get", "--url",
+                      "https://graph.microsoft.com/v1.0/policies/authorizationPolicy?$select=defaultUserRolePermissions"])
+    if policy is None:
+        return Result(WARN, "App registration", "couldn't read the tenant's app registration policy",
+                      "Check Entra ID > User settings > 'Users can register applications'")
+    if policy.get("defaultUserRolePermissions", {}).get("allowedToCreateApps"):
+        return Result(PASS, "App registration", "the tenant lets users register applications")
+    return Result(FAIL, "App registration",
+                  "this tenant doesn't let users register applications, and you have no active role that can",
+                  "Activate Cloud Application Administrator (or Application Developer) in PIM, then az login again",
+                  kb="docs/knowledge/nerdio/platform.md#roles-needed")
+
+
+def check_app_service_quota(subscription_id: str, location: str, sku: str) -> list[Result]:
+    """Nerdio Manager runs on a Windows App Service plan (B3 by default). Sandbox and trial
+    subscriptions often have a limit of 0 for some tiers, and the apply then fails late with
+    "Operation cannot be completed without additional quota"."""
+    out = []
+    regions = az_json(["appservice", "list-locations", "--sku", sku, "--query", "[].name"])
+    wanted = location.replace(" ", "").lower()
+    if regions is None:
+        out.append(Result(WARN, "App Service SKU", f"couldn't check whether {sku} is offered in {location}"))
+    elif wanted in {r.replace(" ", "").lower() for r in regions}:
+        out.append(Result(PASS, "App Service SKU", f"{sku} is offered in {location}"))
+    else:
+        out.append(Result(FAIL, "App Service SKU", f"{sku} isn't offered in {location}",
+                          f"az appservice list-locations --sku {sku} -o table, then pick another region or SKU"))
+    rows = az_json(["rest", "--method", "get", "--url",
+                    f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Web"
+                    f"/locations/{location}/usages?api-version={WEB_API}"])
+    request = (f"Portal: Help + support > Create a support request > Service and subscription limits (quotas) > "
+               f"App Service; ask for {sku} (Windows) in {location}, new limit 2")
+    if rows is None:
+        out.append(Result(WARN, "App Service quota", f"couldn't read App Service quota in {location}",
+                          "If the apply fails with 'without additional quota': " + request))
+        return out
+    sku_l = sku.lower()
+    row = next((u for u in rows.get("value", [])
+                if sku_l in (u.get("name", {}).get("value", "") + " " + u.get("name", {}).get("localizedValue", "")).lower()), None)
+    if not row:
+        out.append(Result(WARN, "App Service quota", f"no quota row for {sku} in {location}; it may be fine",
+                          "If the apply fails with 'without additional quota': " + request))
+        return out
+    free = int(row.get("limit", 0)) - int(row.get("currentValue", 0))
+    if free >= 1:
+        out.append(Result(PASS, "App Service quota", f"{sku}: {free} free in {location}, 1 needed"))
+    else:
+        out.append(Result(FAIL, "App Service quota", f"{sku}: limit {row.get('limit')}, {row.get('currentValue')} used in {location}; 1 needed",
+                          request))
+    return out
+
+
 def check_providers() -> Result:
     rows = az_json(["provider", "list", "--query", "[].{ns:namespace, state:registrationState}"])
     if rows is None:
@@ -203,10 +270,13 @@ def run(values: dict) -> list[Result]:
     if acct:
         results.append(check_subscription_owner(acct))
         results.append(check_entra_roles(acct, bool(values.get("create_entra_app")) and bool(values.get("grant_admin_consent"))))
+        results.append(check_app_registration(acct, bool(values.get("create_entra_app"))))
         results.append(check_providers())
         results.append(check_region(values["location"]))
         hosts = values.get("host_pool_capacity") or math.ceil(values["user_count"] / values["max_sessions_per_host"])
         results += check_vm_size_and_quota(values["location"], values["vm_size"], hosts)
+        if values.get("nerdio_install", "terraform") == "terraform":
+            results += check_app_service_quota(acct["id"], values["location"], values.get("app_service_plan_sku") or "B3")
     results += manual_items(values)
     return results
 

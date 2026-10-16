@@ -20,7 +20,7 @@ Works anywhere with Python 3, `az` and Terraform, including Azure Cloud Shell (B
 ```bash
 az account show                 # the tenant and subscription the kit will use
 ./nerdio init                   # answer the questions; Enter keeps the suggestion
-./nerdio preflight              # check roles, providers, region, VM size and quota
+./nerdio preflight              # check roles, providers, region, VM size, vCPU and App Service quota
 ./nerdio show                   # what you answered, and what came from defaults
 ```
 
@@ -49,8 +49,13 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 - Sign-in, and **Owner** on the subscription.
 - **Global Administrator**, or **Privileged Role Administrator + Cloud Application Administrator**,
   when Terraform grants admin consent. Roles eligible through PIM must be activated first.
+- That you can create app registrations, when the kit creates the Nerdio Entra app. Many tenants
+  turn this off for ordinary users; Cloud Application Administrator or Application Developer covers it.
 - Resource providers for AVD and for what Nerdio deploys.
 - The region, the VM size in that region, and vCPU quota for the host pool at full scale.
+- With the terraform install, the App Service plan for Nerdio Manager (B3 by default): that the SKU
+  is offered in the region and the subscription has quota for one. Sandbox and trial subscriptions
+  often have a limit of 0, and the apply would otherwise fail late with "without additional quota".
 - Things no command can check: the Nerdio license and AVD user licenses.
 
 `./nerdio preflight --json` gives the same results for the setup chatbot.
