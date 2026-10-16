@@ -15,4 +15,4 @@ marked *Superseded by NNNN*.
 | [0007](0007-button-ux.md) | GitHub Actions `workflow_dispatch` forms are the button experience; HCP no-code optional | Accepted |
 | [0008](0008-chat-front-door.md) | Chat is the guided front door; the engine stays deterministic and usable without AI | Accepted |
 | [0009](0009-prefer-azure-github-hashicorp-oss.md) | Prefer Azure, GitHub, HashiCorp and open-source tooling; third-party services only when truly needed | Accepted |
-| [0010](0010-roadmap-horizon.md) | Roadmap horizon: principles locked 12 months, build order this quarter, Nerdio-dependent items open | Accepted |
+| [0010](0010-roadmap-horizon.md) | Roadmap horizon: build order locked in 90-day windows; 12-month roadmap is directional | Accepted |
