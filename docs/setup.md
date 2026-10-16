@@ -69,6 +69,20 @@ signing in or downloading providers. If you also use `scripts/cloudshell-bootstr
 
 `./nerdio preflight --json` gives the same results for the setup chatbot.
 
+Resources an earlier run of the kit created (resource groups tagged `nerdio-kit-role`) don't count as
+overlaps or as someone else's DNS zones, so a rerun after a partial apply stays clean.
+
+When a region is the problem (a restricted VM size, no quota, or Azure SQL closed to new servers),
+`./nerdio preflight --regions` runs the region checks across every region in the same geography and
+prints one line per region. `--regions centralus,westus3` checks just those, and `--set` tries a
+different answer for one run without saving it:
+
+```bash
+./nerdio preflight --regions
+./nerdio preflight --regions --set vm_size=Standard_D8as_v5
+./nerdio init --set location=centralus        # then keep the region that passes
+```
+
 ## Fixing what preflight finds
 
 Preflight's fix lines point at commands, not portal clicks. Each one shows exactly what it will

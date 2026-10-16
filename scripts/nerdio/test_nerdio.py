@@ -242,6 +242,7 @@ class PreflightTests(unittest.TestCase):
             ("rest", "Microsoft.Sql"): {"status": "Default", "supportedServerVersions": [
                 {"supportedEditions": [{"supportedServiceLevelObjectives": [{"name": "S1"}]}]}]},
             ("network", "vnet", "list"): [],
+            ("group", "list"): [],
             ("network", "private-dns"): [],
             ("policy", "assignment"): [],
             ("provider", "list"): [{"ns": ns, "state": "Registered"} for ns in preflight.PROVIDERS],
@@ -332,6 +333,29 @@ class PreflightTests(unittest.TestCase):
         results = self.run_with({("network", "vnet", "list"): [
             {"name": "vnet-other", "id": "/x/vnet-other", "prefixes": ["10.50.8.0/24"]}]})
         self.assertEqual(results["Address range"].status, "warn")
+
+    def test_the_kits_own_earlier_resources_are_not_flagged(self):
+        results = self.run_with({
+            ("group", "list"): ["rg-nme-sbx-ab12-network"],
+            ("network", "vnet", "list"): [{"name": "vnet-nme-sbx-ab12-avd", "id": "/x/v", "rg": "rg-nme-sbx-ab12-network",
+                                           "prefixes": ["10.50.0.0/20"]}],
+            ("network", "private-dns"): [{"name": "privatelink.blob.core.windows.net", "rg": "rg-nme-sbx-ab12-network"}]})
+        self.assertEqual(results["Address range"].status, "pass")
+        self.assertNotIn("Private DNS", results)
+
+    def test_policy_names_hide_ids(self):
+        results = self.run_with({("policy", "assignment"): ["ASC Default (subscription: 11111111-2222-3333-4444-555555555555)"]})
+        self.assertNotIn("11111111", results["Azure Policy"].detail)
+
+    def test_region_scan_reports_each_region(self):
+        overrides = {("account", "list-locations"): [{"name": "eastus2", "group": "US"}, {"name": "centralus", "group": "US"},
+                                                     {"name": "westeurope", "group": "Europe"}]}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)):
+            regions = preflight.nearby_regions("eastus2")
+            found = preflight.scan_regions(self.values(), ZERO, regions)
+        self.assertEqual(regions, ["centralus", "eastus2"])
+        self.assertEqual(set(found), {"centralus", "eastus2"})
+        self.assertIn("Azure SQL region", {r.check for r in found["centralus"]})
 
     def test_hub_overlap_and_missing_rights_fail(self):
         hub = "/subscriptions/x/resourceGroups/hub/providers/Microsoft.Network/virtualNetworks/hub"

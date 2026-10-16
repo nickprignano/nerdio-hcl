@@ -6,6 +6,7 @@
   ./nerdio questions --phase discover   the questions as JSON, for the setup chatbot
   ./nerdio show                 the current answers and where each value came from
   ./nerdio preflight            read-only readiness checks (roles, providers, region, quota)
+  ./nerdio preflight --regions  find regions where the VM size, quota, App Service and SQL all pass
   ./nerdio fix quota            ask Azure Support for App Service quota (shows it, then asks yes)
   ./nerdio fix vcpu --family F --limit N   raise a VM family's vCPU quota (shows it, then asks yes)
   ./nerdio fix roles            activate eligible PIM roles the kit needs (shows them, then asks yes)
@@ -23,6 +24,7 @@ import re
 import subprocess
 import sys
 import textwrap
+from dataclasses import asdict
 
 import engine
 import fix
@@ -231,11 +233,43 @@ def cmd_show(args) -> int:
     return 1 if resolved.errors else 0
 
 
+def scan_regions(values: dict, regions: str, as_json: bool) -> int:
+    sub = engine.az_json(["account", "show", "--query", "id"])
+    if not sub:
+        print("stopped: sign in with az login first", file=sys.stderr)
+        return 1
+    names = [r.strip() for r in regions.split(",") if r.strip()] or preflight.nearby_regions(values["location"])
+    found = preflight.scan_regions(values, sub, names, None if as_json else
+                                   lambda r: print(f"checking {r} ...", file=sys.stderr))
+    if as_json:
+        print(json.dumps({r: [asdict(x) for x in res] for r, res in found.items()}, indent=2))
+    else:
+        print(f"\n{values['vm_size']}, {values.get('app_service_plan_sku') or 'B3'} App Service, Azure SQL:\n")
+        for region, res in found.items():
+            bad = [x for x in res if x.status == "fail"]
+            unsure = [x for x in res if x.status == "warn"]
+            mark = "✗" if bad else "!" if unsure else "✓"
+            why = "; ".join(f"{x.check}: " + re.sub(r" for this subscription: .*", "", x.detail)
+                            for x in bad + unsure) or "everything checked passes"
+            print(f"{mark} {region:<20} {why}")
+        good = [r for r, res in found.items() if not any(x.status == "fail" for x in res)]
+        print("\nUse one with ./nerdio init --set location=<region>" if good else
+              "\nNo region passes as is. Quota fixes (./nerdio fix ...) apply per region; "
+              "try another size with --set vm_size=<size>.")
+    return 0
+
+
 def cmd_preflight(args) -> int:
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
+    problems = apply_sets(schema, answers, args.set or [])  # tried for this run only, not saved
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
     resolved = engine.resolve(schema, answers, {"tenant": "", "subscription": ""})
+    if args.regions is not None:
+        return scan_regions(resolved.values, args.regions, args.json)
     results = preflight.run(resolved.values)
     if args.json:
         print(preflight.as_json(results))
@@ -380,6 +414,9 @@ def main(argv: list[str]) -> int:
 
     p = sub.add_parser("preflight", help="read-only readiness checks")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--set", action="append", metavar="NAME=VALUE", help="try a different answer for this run (not saved)")
+    p.add_argument("--regions", nargs="?", const="", metavar="A,B,...",
+                   help="check the region-specific items across regions (default: the configured region's geography)")
     p.set_defaults(func=cmd_preflight)
 
     p = sub.add_parser("fix", help="request quota or activate PIM roles that preflight found missing")

@@ -12,11 +12,14 @@ import ipaddress
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 
 from engine import az_json
+
+UUID_IN_TEXT = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 
 PASS, WARN, FAIL, MANUAL = "pass", "warn", "fail", "manual"
 
@@ -211,6 +214,12 @@ def _my_roles_at(scope: str) -> list[str] | None:
                     "--include-inherited", "--include-groups", "--query", "[].roleDefinitionName"])
 
 
+def _kit_groups() -> set[str]:
+    """Resource groups an earlier run of the kit made (tagged nerdio-kit-role), so their VNet and DNS zones aren't flagged."""
+    rows = az_json(["group", "list", "--query", "[?tags.\"nerdio-kit-role\"].name"])
+    return {r.lower() for r in rows or [] if r}
+
+
 def check_network(values: dict, acct: dict) -> list[Result]:
     """The AVD address range against what's already in the subscription, and the hub when peering."""
     out = []
@@ -219,7 +228,9 @@ def check_network(values: dict, acct: dict) -> list[Result]:
     except (KeyError, ValueError):
         return [Result(WARN, "Address range", "no valid address_space to check")]
     own_vnet = f"vnet-{values.get('prefix', '')}-avd".lower()
-    vnets = az_json(["network", "vnet", "list", "--query", "[].{name:name, id:id, prefixes:addressSpace.addressPrefixes}"])
+    kit = _kit_groups()
+    vnets = az_json(["network", "vnet", "list", "--query",
+                     "[].{name:name, id:id, rg:resourceGroup, prefixes:addressSpace.addressPrefixes}"])
     hub_id = (values.get("hub_vnet_id") or "").strip()
     if vnets is None:
         out.append(Result(WARN, "Address range", "couldn't list the subscription's virtual networks to check for overlaps",
@@ -227,7 +238,8 @@ def check_network(values: dict, acct: dict) -> list[Result]:
     else:
         clashes = []
         for v in vnets:
-            if (v.get("name") or "").lower() == own_vnet or (hub_id and (v.get("id") or "").lower() == hub_id.lower()):
+            if ((v.get("name") or "").lower() == own_vnet or (v.get("rg") or "").lower() in kit
+                    or (hub_id and (v.get("id") or "").lower() == hub_id.lower())):
                 continue
             for pfx in v.get("prefixes") or []:
                 try:
@@ -263,7 +275,8 @@ def check_network(values: dict, acct: dict) -> list[Result]:
     zones = az_json(["network", "private-dns", "zone", "list", "--query", "[].{name:name, rg:resourceGroup}"])
     if zones is not None:
         found = sorted({f"{z['name']} ({z['rg']})" for z in zones if z.get("name") in PRIVATE_DNS_ZONES
-                        and not (z.get("rg") or "").lower().startswith(f"rg-{values.get('prefix', '')}".lower())})
+                        and (z.get("rg") or "").lower() not in kit
+                        and not (z.get("rg") or "").lower().startswith(f"rg-{values.get('prefix', '')}-".lower())})
         if found:
             out.append(Result(WARN, "Private DNS", "privatelink zones already exist elsewhere: " + ", ".join(found),
                               "If those are your central DNS zones, link the AVD VNet to them instead of using the kit's own zones"))
@@ -294,7 +307,8 @@ def check_policies(subscription_id: str) -> Result:
                     "--disable-scope-strict-match", "--query", "[?enforcementMode=='Default'].displayName"])
     if rows is None:
         return Result(WARN, "Azure Policy", "couldn't list the policy assignments that apply to this subscription")
-    rows = sorted({r for r in rows if r})
+    # Some built-in assignment names carry the subscription ID; keep it out of output people paste.
+    rows = sorted({UUID_IN_TEXT.sub("<id>", r) for r in rows if r})
     if not rows:
         return Result(PASS, "Azure Policy", "no enforced policy assignments on this subscription")
     shown = ", ".join(rows[:8]) + (f" and {len(rows) - 8} more" if len(rows) > 8 else "")
@@ -396,13 +410,37 @@ def run(values: dict) -> list[Result]:
         results.append(check_region(values["location"]))
         results += check_network(values, acct)
         results.append(check_policies(acct["id"]))
-        hosts = values.get("host_pool_capacity") or math.ceil(values["user_count"] / values["max_sessions_per_host"])
-        results += check_vm_size_and_quota(values["location"], values["vm_size"], hosts)
-        if values.get("nerdio_install", "terraform") == "terraform":
-            results += check_app_service_quota(acct["id"], values["location"], values.get("app_service_plan_sku") or "B3")
-            results.append(check_sql_region(acct["id"], values["location"]))
+        results += region_checks(values, acct["id"], values["location"])
     results += manual_items(values)
     return results
+
+
+def region_checks(values: dict, subscription_id: str, location: str) -> list[Result]:
+    """The checks that change with the region: VM size and vCPU quota, and App Service and SQL for the terraform install."""
+    hosts = values.get("host_pool_capacity") or math.ceil(values["user_count"] / values["max_sessions_per_host"])
+    out = check_vm_size_and_quota(location, values["vm_size"], hosts)
+    if values.get("nerdio_install", "terraform") == "terraform":
+        out += check_app_service_quota(subscription_id, location, values.get("app_service_plan_sku") or "B3")
+        out.append(check_sql_region(subscription_id, location))
+    return out
+
+
+def nearby_regions(location: str) -> list[str]:
+    """Physical regions in the same geography group as the configured one (US, Europe, ...)."""
+    rows = az_json(["account", "list-locations", "--query",
+                    "[?metadata.regionType=='Physical'].{name:name, group:metadata.geographyGroup}"]) or []
+    group = next((r.get("group") for r in rows if r.get("name") == location), None)
+    names = [r["name"] for r in rows if group and r.get("group") == group]
+    return sorted(set(names) | {location})
+
+
+def scan_regions(values: dict, subscription_id: str, regions: list[str], progress=None) -> dict[str, list[Result]]:
+    out = {}
+    for region in regions:
+        if progress:
+            progress(region)
+        out[region] = region_checks(values, subscription_id, region)
+    return out
 
 
 def as_json(results: list[Result]) -> str:
