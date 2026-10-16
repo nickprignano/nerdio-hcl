@@ -84,8 +84,10 @@ send and does nothing until you type `yes` (`--yes` skips the question, for pipe
 - App Service quota has no self-service API, so `fix quota` opens the request with Azure Support
   through its REST API (no paid support plan needed for quota). Replies go to your account's email.
 - vCPU quota uses the Azure Quota API; most increases apply within minutes.
-- `fix roles` only activates roles you're already eligible for. Run `az login` afterwards so your
-  token carries them. PIM settings that need approval or a ticket number still need the portal.
+- `fix roles` only activates roles you're already eligible for. The `az` sign-in can't manage Entra
+  PIM roles, so for those it signs in to Microsoft Graph PowerShell (built into Cloud Shell) with a
+  device code; that needs the Graph PowerShell app consented for the PIM scopes in your tenant. Run
+  `az login` afterwards so your token carries the new roles. PIM settings that need approval or a ticket number still need the portal.
 
 The portal is the last resort: a command prints the portal path only if Azure refuses the request.
 Cloud Shell's storage choice is the one thing with no command; Cloud Shell asks it on first start.
