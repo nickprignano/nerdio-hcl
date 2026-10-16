@@ -14,3 +14,4 @@ marked *Superseded by NNNN*.
 | [0006](0006-no-ansible.md) | No Ansible; Terraform owns desired state, Nerdio owns runtime work | Accepted |
 | [0007](0007-button-ux.md) | GitHub Actions `workflow_dispatch` forms are the button experience; HCP no-code optional | Accepted |
 | [0008](0008-chat-front-door.md) | Chat is the guided front door; the engine stays deterministic and usable without AI | Accepted |
+| [0009](0009-prefer-azure-github-hashicorp-oss.md) | Prefer Azure, GitHub, HashiCorp and open-source tooling; third-party services only when truly needed | Accepted |
