@@ -1,0 +1,129 @@
+# Sources the KB curator watches. See docs/knowledge/curation.md.
+# Add a source by appending a table below; no code change needed.
+#
+# kinds:
+#   github_releases  new releases of a repo
+#   github_commits   new commits on a repo's default branch (for repos that rarely tag releases);
+#                    add path = "..." to watch only one file or folder
+#   github_org_repos new or recently pushed repos in an org
+#   github_issues    issues and PRs opened or updated in a repo
+#   github_search    new repositories matching a search query (prior art)
+#   feed             RSS/Atom feed, optionally filtered by keywords
+#   zendesk          a Zendesk help center's recently updated articles
+
+# --- Nerdio -----------------------------------------------------------------
+
+[[source]]
+name = "Nerdio Terraform provider: commits"
+kind = "github_commits"
+repo = "Get-Nerdio/NME-Terraform-Provider"
+kb_page = "nerdio/terraform-provider.md"
+
+[[source]]
+name = "Nerdio Terraform provider: releases"
+kind = "github_releases"
+repo = "Get-Nerdio/NME-Terraform-Provider"
+kb_page = "nerdio/terraform-provider.md"
+
+[[source]]
+name = "Nerdio API spec (OpenAPI)"
+kind = "github_commits"
+repo = "Get-Nerdio/NME-Terraform-Provider"
+path = "internal/client/api.json"
+# A change here is where new endpoints (e.g. directory profile create) show up first.
+kb_page = "nerdio/upstream-contributions.md"
+
+[[source]]
+name = "Nerdio Terraform provider: issues and PRs"
+kind = "github_issues"
+repo = "Get-Nerdio/NME-Terraform-Provider"
+kb_page = "nerdio/upstream-contributions.md"
+
+[[source]]
+name = "Nerdio NMW repo (Marketplace template, install and update runbooks)"
+kind = "github_commits"
+repo = "Get-Nerdio/NMW"
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Nerdio GitHub org"
+kind = "github_org_repos"
+org = "Get-Nerdio"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Nerdio help center"
+kind = "zendesk"
+url = "https://nmehelp.getnerdio.com"
+kb_page = "nerdio/platform.md"
+
+# --- HashiCorp stack --------------------------------------------------------
+
+[[source]]
+name = "azurerm provider"
+kind = "github_releases"
+repo = "hashicorp/terraform-provider-azurerm"
+# azurerm ships weekly; only surface releases that touch what the kit uses.
+keywords = ["BREAKING", "virtual_desktop", "subnet", "private_dns", "private_endpoint",
+            "storage_account", "storage_share", "shared_image", "gallery", "app_service",
+            "mssql", "key_vault", "nat_gateway"]
+kb_page = "terraform/azurerm-5.md"
+
+[[source]]
+name = "azuread provider"
+kind = "github_releases"
+repo = "hashicorp/terraform-provider-azuread"
+kb_page = "terraform/azurerm-5.md"
+
+[[source]]
+name = "Packer Azure plugin"
+kind = "github_releases"
+repo = "hashicorp/packer-plugin-azure"
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Terraform"
+kind = "github_releases"
+repo = "hashicorp/terraform"
+kb_page = "terraform/testing-and-ci.md"
+
+[[source]]
+name = "Packer"
+kind = "github_releases"
+repo = "hashicorp/packer"
+kb_page = "packer/avd-image.md"
+
+# --- AVD --------------------------------------------------------------------
+
+[[source]]
+name = "Virtual Desktop Optimization Tool"
+kind = "github_commits"
+repo = "The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool"
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Azure updates: Virtual Desktop"
+kind = "feed"
+url = "https://www.microsoft.com/releasecommunications/api/v2/azure/rss"
+keywords = ["Virtual Desktop", "AVD", "FSLogix", "Azure Files", "Trusted Launch", "Compute Gallery"]
+kb_page = "nerdio/platform.md"
+
+# --- Prior art (community work) ---------------------------------------------
+
+[[source]]
+name = "Repos: nerdio terraform"
+kind = "github_search"
+query = "nerdio terraform"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Repos: nerdio packer"
+kind = "github_search"
+query = "nerdio packer"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Repos: avd terraform packer"
+kind = "github_search"
+query = "avd packer terraform in:name,description,readme"
+kb_page = "nerdio/community-projects.md"
