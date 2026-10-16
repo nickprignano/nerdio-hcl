@@ -61,7 +61,7 @@ variable "fslogix" {
 variable "nerdio_template_file" {
   description = "Path to the Nerdio Manager ARM template exported from the Marketplace."
   type        = string
-  default     = "../../templates/nerdio-manager/template.json"
+  default     = "../../../templates/nerdio-manager/template.json"
 }
 
 variable "nerdio_template_parameters" {
@@ -84,7 +84,7 @@ variable "entra_app" {
     wvd_admin_object_ids   = optional(list(string), [])
     grant_admin_consent    = optional(bool, false)
     enable_mail_send       = optional(bool, false)
-    create_rest_api_client = optional(bool, false)
+    create_rest_api_client = optional(bool, true)
   })
   default = {}
 }
@@ -113,3 +113,4 @@ variable "image_gallery" {
   })
   default = null
 }
+

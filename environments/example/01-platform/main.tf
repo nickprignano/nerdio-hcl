@@ -1,5 +1,5 @@
 module "foundation" {
-  source          = "../../modules/foundation"
+  source          = "../../../modules/foundation"
   prefix          = var.prefix
   location        = var.location
   tags            = var.tags
@@ -7,7 +7,7 @@ module "foundation" {
 }
 
 module "network" {
-  source              = "../../modules/network"
+  source              = "../../../modules/network"
   prefix              = var.prefix
   location            = var.location
   resource_group_name = module.foundation.resource_group_names["network"]
@@ -21,7 +21,7 @@ module "network" {
 }
 
 module "fslogix" {
-  source = "../../modules/fslogix-storage"
+  source = "../../../modules/fslogix-storage"
   count  = var.fslogix == null ? 0 : 1
 
   name                       = var.fslogix.storage_account_name
@@ -37,7 +37,7 @@ module "fslogix" {
 }
 
 module "image_gallery" {
-  source = "../../modules/image-gallery"
+  source = "../../../modules/image-gallery"
   count  = var.image_gallery == null ? 0 : 1
 
   gallery_name              = var.image_gallery.name
@@ -49,7 +49,7 @@ module "image_gallery" {
 }
 
 module "nerdio_manager" {
-  source              = "../../modules/nerdio-manager"
+  source              = "../../../modules/nerdio-manager"
   resource_group_name = module.foundation.resource_group_names["nerdio"]
   template_file       = var.nerdio_template_file
   parameters          = var.nerdio_template_parameters
@@ -57,7 +57,7 @@ module "nerdio_manager" {
 }
 
 module "nerdio_identity" {
-  source = "../../modules/nerdio-identity"
+  source = "../../../modules/nerdio-identity"
   count  = var.create_entra_app ? 1 : 0
 
   display_name           = var.entra_app.display_name
@@ -70,7 +70,7 @@ module "nerdio_identity" {
 }
 
 module "nerdio_hardening" {
-  source = "../../modules/nerdio-hardening"
+  source = "../../../modules/nerdio-hardening"
   count  = var.enable_hardening ? 1 : 0
 
   location                   = var.location

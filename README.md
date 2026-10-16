@@ -1,8 +1,13 @@
 # nerdio-hcl
 
-A HashiCorp-stack deployment kit for **Nerdio Manager for Enterprise** on Azure Virtual Desktop.
-Terraform builds the landing zone around Nerdio and deploys Nerdio itself; Packer builds the
-golden image that Nerdio rolls out to host pools.
+A HashiCorp-stack deployment kit for **Nerdio Manager for Enterprise** on Azure Virtual Desktop,
+built around Nerdio's official Terraform provider, [`nerdio/nme`](https://github.com/Get-Nerdio/NME-Terraform-Provider).
+
+- **Stage 1, platform** (`azurerm`, `azuread`): the Azure landing zone, Nerdio Manager itself, and the
+  Entra apps Nerdio and its REST API need.
+- **Stage 2, Nerdio config** (`nerdio/nme`): workspaces, linked resource groups and networks,
+  FSLogix and auto-scale profiles and dynamic host pools, all managed through Nerdio's REST API.
+- **Images** (Packer): a Windows 11 multi-session golden image published to a Compute Gallery.
 
 | Layer | Tool | What it covers |
 |---|---|---|
@@ -13,9 +18,12 @@ golden image that Nerdio rolls out to host pools.
 | Identity | Terraform (azuread) | The `nerdio-nmw-app` registration, app roles, Graph permissions, optional admin consent and REST API client |
 | Hardening | Terraform | Private endpoints for SQL and Key Vault, App Service VNet integration, optional private console |
 | Images | Terraform + Packer | Compute Gallery and a Windows 11 multi-session + M365 image (Trusted Launch, VDOT, updates) |
+| Nerdio config | Terraform (`nerdio/nme`) | Linked subscription, resource groups and network, workspace, FSLogix profile, auto-scale profile, dynamic host pools |
 
-Host pools, scaling plans, FSLogix profiles and app groups stay in Nerdio, which is built to own
-them. The kit gets everything ready for Nerdio's setup wizard and stops there.
+Nerdio's install script and setup wizard are the only manual steps; they sit between the two stages.
+`nerdio/nme` is early (0.x), so check its
+[coverage notes](https://github.com/Get-Nerdio/NME-Terraform-Provider/blob/main/AVD-COVERAGE.md)
+before you rely on it for something; app groups and session host actions aren't covered yet, for example.
 
 ## Layout
 
@@ -28,8 +36,11 @@ modules/
   nerdio-identity/   Entra app for Nerdio's "Use existing AD app" install path
   nerdio-hardening/  private endpoints and VNet integration for Nerdio's core resources
   image-gallery/     Compute Gallery and image definitions for Packer
+  nerdio-config/     Nerdio objects through the nerdio/nme provider
 environments/
-  example/           root module wiring everything together; copy per tenant/environment
+  example/
+    01-platform/       stage 1 root: Azure + Entra + Nerdio install
+    02-nerdio-config/  stage 2 root: Nerdio configuration via nerdio/nme
 packer/
   avd-win11/         Windows 11 multi-session image build
 templates/
@@ -46,11 +57,17 @@ Administrator (or Privileged Role Administrator + Cloud Application Administrato
 
 ```bash
 cp -r environments/example environments/sandbox
-cd environments/sandbox
-cp terraform.tfvars.example terraform.tfvars   # fill in tenant, subscription, names, CIDRs
+cd environments/sandbox/01-platform
+cp terraform.tfvars.example terraform.tfvars   # tenant, subscription, names, CIDRs (gitignored)
 az login --tenant <tenant-id>
-terraform init
-terraform apply
+terraform init && terraform apply
+
+# install Nerdio and finish its wizard, enable the REST API, then:
+terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
+export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
+cd ../02-nerdio-config
+cp terraform.tfvars.example terraform.tfvars   # workspace and host pools
+terraform init && terraform apply
 ```
 
 The full order of operations, including the manual Nerdio steps, is in
@@ -58,5 +75,11 @@ The full order of operations, including the manual Nerdio steps, is in
 
 ## Provider versions
 
-Modules require `azurerm >= 5.0` and `azuread >= 3.0`; the example pins `~> 5.0` and `~> 3.0`.
+Modules require `azurerm >= 5.0`, `azuread >= 3.0` and `nerdio/nme >= 0.1.0`.
 Validated with Terraform 1.16, azurerm 5.10, azuread 3.10 and Packer 1.16 with the Azure plugin 2.6.
+
+## Keeping it shareable
+
+The repo holds no tenant-specific values. Real IDs, names and CIDRs go in `terraform.tfvars`,
+`*.auto.tfvars.json` and `*.pkrvars.hcl`, which are gitignored. Secrets are passed through
+environment variables, never files. Examples use `contoso` names and all-zero GUIDs.

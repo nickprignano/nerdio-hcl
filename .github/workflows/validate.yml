@@ -18,8 +18,13 @@ jobs:
           terraform_version: "1.16.6"
       - name: fmt
         run: terraform fmt -recursive -check -diff
-      - name: validate
-        working-directory: environments/example
+      - name: validate platform stage
+        working-directory: environments/example/01-platform
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+      - name: validate Nerdio config stage (nerdio/nme provider)
+        working-directory: environments/example/02-nerdio-config
         run: |
           terraform init -backend=false -input=false
           terraform validate
@@ -47,3 +52,13 @@ jobs:
           packer init .
           packer fmt -check -diff .
           packer validate -var-file=example.pkrvars.hcl .
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

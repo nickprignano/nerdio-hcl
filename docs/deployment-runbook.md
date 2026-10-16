@@ -20,7 +20,7 @@ template, and put its parameters in `nerdio_template_parameters`.
 ## 2. First apply: landing zone, Nerdio core, Entra app
 
 ```bash
-cd environments/<env>
+cd environments/<env>/01-platform
 terraform init
 terraform apply
 ```
@@ -43,6 +43,8 @@ If `entra_app.grant_admin_consent` is false, a Global Administrator grants conse
 
 ## 4. Setup wizard (manual)
 
+Keep it minimal; stage 2 creates the workspace, profiles and host pools.
+
 In the Nerdio console:
 
 - Grant admin consent when prompted.
@@ -61,7 +63,32 @@ This replaces Nerdio's **Enable Private Endpoints** runbook. Use one or the othe
 With `private_app_service = true`, admins need a route into the VNet (VPN, Bastion or a jump
 host) to reach the console.
 
-## 6. Golden image
+## 6. Nerdio configuration (nerdio/nme)
+
+1. In Nerdio, open **Settings > Integrations** and enable the REST API. Stage 1 already created
+   the REST client app (`<app name>-rest-client`). Grant it admin consent if
+   `grant_admin_consent` was false.
+2. Hand stage 1's values to stage 2 and export the secret:
+
+   ```bash
+   cd environments/<env>/01-platform
+   terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
+   export NME_CLIENT_SECRET="$(terraform output -raw nme_client_secret)"
+   ```
+
+3. Describe the workspace and host pools in `02-nerdio-config/terraform.tfvars` and apply:
+
+   ```bash
+   cd ../02-nerdio-config
+   terraform init
+   terraform apply
+   ```
+
+This links the subscription, host pool resource group and session host subnet, then creates the
+workspace, an FSLogix profile on the stage 1 share, an auto-scale profile and the dynamic host
+pools. Nerdio then builds session hosts as auto-scale asks for them.
+
+## 7. Golden image
 
 ```bash
 cd packer/avd-win11
@@ -70,12 +97,11 @@ packer init .
 packer build -var-file=sandbox.pkrvars.hcl .
 ```
 
-In Nerdio: **Desktop Images > Add from Azure Compute Gallery**, pick the new version, then point
-host pools at it.
+In Nerdio: **Desktop Images > Add from Azure Compute Gallery**, pick the new version, then set
+the host pool's `image` in stage 2 to the identifier Nerdio shows and apply.
 
-## 7. Profiles
+## 8. Profile storage notes
 
-Create an FSLogix profile in Nerdio using the `fslogix_share_unc` output and link the storage
-account under **Storage > Azure Files**. For Entra Kerberos, also grant the storage account's
-Entra app admin consent and set the Kerberos ticket retrieval policy on hosts (Nerdio's FSLogix
-profile can push it).
+Stage 2 creates the Nerdio FSLogix profile. For Entra Kerberos, also grant admin consent to the
+storage account's Entra app; the profile's `entra_id_kerberos` setting pushes the
+Kerberos ticket retrieval policy to hosts.

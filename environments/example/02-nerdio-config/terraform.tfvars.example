@@ -1,0 +1,17 @@
+# Connection details, subscription, network and FSLogix share come from
+# platform.auto.tfvars.json, written by 01-platform (see docs/deployment-runbook.md).
+
+workspace = {
+  name          = "ws-avd"
+  friendly_name = "Virtual Desktops"
+}
+
+# ad_config_friendly_name = "Entra ID joined"   # the directory profile name from the setup wizard
+
+host_pools = {
+  "hp-general" = {
+    friendly_name = "General desktops"
+    vm_prefix     = "avdgen"
+    vm_size       = "Standard_D4s_v5"
+  }
+}

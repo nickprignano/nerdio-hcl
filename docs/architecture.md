@@ -24,8 +24,12 @@ rg-avd-monitoring  Log Analytics for AVD Insights
 
 ## Design decisions
 
-- **Nerdio owns AVD objects.** Host pools, app groups, scaling and FSLogix profiles are created
-  in Nerdio. Managing them in Terraform too would fight Nerdio's auto-scale and image rollout.
+- **AVD objects go through Nerdio's provider, not azurerm.** Host pools, workspaces, FSLogix and
+  auto-scale profiles are created with `nerdio/nme`, so Nerdio stays the system of record and its
+  auto-scale and image rollout keep working. The kit never creates `azurerm_virtual_desktop_*`
+  resources.
+- **Two stages, two states.** `nerdio/nme` needs a running Nerdio with its REST API enabled, and
+  Nerdio's install and wizard are manual, so config lives in its own root and state.
 - **Marketplace template, not a rebuild.** Nerdio only supports its Marketplace deployment, so the
   kit deploys the exported template rather than recreating App Service/SQL by hand. The module
   ignores template changes after install because Nerdio updates the app itself.
@@ -40,6 +44,11 @@ rg-avd-monitoring  Log Analytics for AVD Insights
   Nerdio imports directly.
 
 ## Open items to verify against Nerdio
+
+- `nerdio/nme` is 0.x. Workspace, linked resource group and linked network can't update in place,
+  so changing them replaces them. App groups, session hosts and schedules aren't covered yet.
+- Host pool `image` takes the identifier Nerdio shows for a desktop image. Marketplace paths work
+  as-is; for a Packer-built gallery image, add it under Desktop Images first and use its identifier.
 
 - The REST API client tag format (`NMW_REST_API_CLIENT:<app id>`) uses the Nerdio app's client ID.
   Nerdio's article is ambiguous; confirm in **Settings > Integrations** after enabling.

@@ -23,3 +23,8 @@ output "private_dns_zone_ids" {
     for k, z in azurerm_private_dns_zone.this : k => z.id
   } : var.existing_private_dns_zone_ids
 }
+
+output "session_host_subnet_name" {
+  description = "Session host subnet name, linked in Nerdio as the AVD network."
+  value       = azurerm_subnet.session_hosts.name
+}

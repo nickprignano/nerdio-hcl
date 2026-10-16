@@ -19,3 +19,4 @@ packer_cache/
 *.pkrvars.hcl
 !example.pkrvars.hcl
 manifest.json
+*.auto.tfvars.json
