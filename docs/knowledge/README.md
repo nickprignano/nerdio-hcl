@@ -4,6 +4,10 @@ What we've learned building a HashiCorp-stack (Terraform + Packer) deployment ki
 **Nerdio Manager for Enterprise** on Azure Virtual Desktop. It covers research findings, gotchas
 and the decisions behind the kit, and it is meant to be read and added to by anyone using the kit.
 
+The kit's goal: automate everything that can and should be automated, behind a turnkey
+copy-paste, button or chat experience, so a community user does as little heavy lifting as
+possible ([roadmap](stack-options.md)).
+
 This is a living document set. When something new is learned, add it to the topic page it
 belongs to instead of starting a new file.
 
@@ -20,7 +24,7 @@ belongs to instead of starting a new file.
 | [terraform/restricted-networks.md](terraform/restricted-networks.md) | Running Terraform and Packer where the registry is blocked |
 | [terraform/testing-and-ci.md](terraform/testing-and-ci.md) | `terraform test`, tflint and the CI workflow |
 | [packer/avd-image.md](packer/avd-image.md) | Building a Windows 11 multi-session image for Nerdio |
-| [stack-options.md](stack-options.md) | Roadmap to a zero-touch deployment: which manual steps can go, which HashiCorp/IBM/Microsoft tools fit, and what Nerdio would need to change |
+| [stack-options.md](stack-options.md) | Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change |
 | [decisions/](decisions/README.md) | Short decision records: what was decided and why |
 | [curation.md](curation.md) | The weekly source digest and the prior-art check that keep this KB current |
 

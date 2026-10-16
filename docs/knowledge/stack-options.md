@@ -1,11 +1,64 @@
-# Roadmap: zero-touch Nerdio deployment
+# Roadmap: turnkey, maximum-automation Nerdio deployment
 
-Which manual steps can be automated, which tools in the HashiCorp, IBM and Microsoft stacks are
-worth adding, and what Nerdio would need to change. Upstream asks are tracked with evidence in
-[nerdio/upstream-contributions.md](nerdio/upstream-contributions.md).
+Which manual steps can be automated, how a user drives the kit, which tools in the HashiCorp,
+IBM and Microsoft stacks are worth adding, and what Nerdio would need to change. Upstream asks are
+tracked with evidence in [nerdio/upstream-contributions.md](nerdio/upstream-contributions.md).
 
-Revised 2026-10-16 after a red-team pass that checked each claim against primary sources.
-The test for every item is whether it removes a manual step. Nothing here is built yet.
+Revised 2026-10-16. **Goal:** automate everything that can and should be automated, and
+wrap it in a turnkey experience, copy-paste, button or chat, so a community user does as little
+heavy lifting as possible. Every item is judged on two tests: does it remove a manual step, and
+does it make the kit easier to pick up? Claims were red-teamed against primary sources. Nothing here is built yet.
+
+## The experience
+
+One engine, three front doors. All three run the same Terraform, Packer and scripts, so there's one
+thing to maintain and test.
+
+**The engine:** a single `nerdio` entry point (a Makefile or a small script) with `preflight`,
+`bootstrap`, `deploy`, `image`, `check` and `destroy` commands. Every front door calls these.
+
+**Front door 1, copy-paste:** a [GitHub template repo](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template)
+plus a dev container, so Codespaces or VS Code opens with Terraform, Packer, az, pwsh, Playwright
+and the `nme` provider already installed. The user runs `./nerdio bootstrap`, answers a few prompts,
+and runs `./nerdio deploy`.
+
+**Front door 2, button:** GitHub Actions workflows with `workflow_dispatch` input forms, so each
+operation is a form plus a Run button in the Actions tab:
+- **Deploy:** environment name, region, directory type, host pool size.
+- **Build image:** runs Packer and points the host pools at the new version.
+- **Roll out image:** pick a host pool and a schedule.
+- **Day-2 actions:** reimage, drain or run a script, through Nerdio's API.
+- **Check:** health and the end-user launch test.
+- **Destroy.**
+
+Protected environments add an approval click before anything touches production.
+
+**Front door 3, chat:** the repo ships a `CLAUDE.md` and skills, so an AI assistant can drive the same
+commands conversationally ("add a host pool for finance with 10 users"). The assistant edits tfvars,
+opens a PR and triggers the workflows, so every change is still reviewed as code. Two MCP servers
+give it context:
+- HashiCorp's official [Terraform MCP server](https://developer.hashicorp.com/terraform/mcp-server/deploy),
+  for provider and module docs.
+- A small Nerdio MCP server we would build over the REST API. It's read-only by default, with
+  write actions gated behind confirmation. It's a candidate to contribute upstream.
+
+**The one step that can't be removed: bootstrap.** Someone with Owner and Global Admin rights has to
+create the deployment identity once. `./nerdio bootstrap` does this in a single run:
+- Sign in with az.
+- Run preflight checks: roles, resource provider registration, vCPU quota, region support.
+- Create the state storage.
+- Create the GitHub OIDC federated credential and an Entra app with the least-privilege roles.
+- Write the repo secrets and variables with `gh`.
+
+After that, everything is a button or a chat. There's no Azure "Deploy to Azure" button for
+Terraform, so this script is the copy-paste entry. Cloud Shell can run it.
+
+**Turnkey defaults:** a guided config generator writes `terraform.tfvars` from a few questions, and
+an "opinionated defaults" profile covers the rest (Entra-joined, one pooled host pool, FSLogix on
+Azure Files, the Packer image). Advanced users edit tfvars directly.
+
+**HCP Terraform no-code modules** would also give a button UX inside HCP Terraform. *Not verified:*
+which paid tier includes them, so treat this as optional. GitHub Actions is the free default.
 
 ## Where the manual steps stand
 
@@ -96,6 +149,21 @@ scripting any UI.
 - **Where it runs:** the same manual or scheduled GitHub Actions job as the wizard bridge, in a
   protected environment. No model tokens.
 
+## Filling the provider gaps (staying in Terraform)
+
+There's no Ansible: Terraform owns desired state, and Nerdio's own auto-scale, schedules and
+scripted actions own runtime work. Where `nerdio/nme` has no resource:
+- **Nerdio API objects with full create, read, update and delete:** app groups, secure variables,
+  notifications, shell apps and RBAC assignments. Use the generic `Mastercard/restapi` provider
+  (Apache-2.0; supports OAuth client credentials and per-object paths and methods; checked in its docs, not
+  tested). Each one is a stopgap and an upstream contribution candidate.
+- **One-off operations** (reimage, drain, power, run script, log off): today these are Actions
+  workflows calling the REST API. Long term they'd be Terraform actions (1.14+) in `nerdio/nme`, as an upstream ask.
+- **Entra and Intune gaps:** use `msgraph`'s generic resource.
+- **Can't be fully declarative:** host pool reimage and script schedules (the API has create and
+  update, no delete), app attach images (no delete), and the directory profile and first-run steps
+  (no API; Playwright bridge).
+
 ## Corrections from the red team
 
 1. **Nerdio post-processor:** an earlier claim was wrong. The API does see Compute Gallery images.
@@ -135,10 +203,13 @@ scripting any UI.
 | Vault (Community) or OpenBao | Build | Removes the manual secret hand-off between stages. Workload identity federation for the Azure engine is Enterprise only. |
 | Packer | Already in the kit | Pin the gallery image version in Terraform. |
 | HCP Packer | Optional only | Paid, no free tier. |
-| Ansible | Optional, inside Packer only | Nerdio scripted actions fit autoscaled hosts better. |
+| Ansible | Dropped ([decision 0006](decisions/0006-no-ansible.md)) | Terraform owns desired state; Nerdio auto-scale, schedules and scripted actions own runtime work. |
 | azuread | Already in the kit | Covers apps, groups and Conditional Access; stores client secrets in state. |
 | msgraph (preview v0.6.0) | For Graph gaps azuread doesn't cover | Official but preview. |
 | microsoft365 community provider (v1.4.0) | Optional Intune module, later | Purpose-built resources, but effectively one maintainer. |
+| GitHub Actions `workflow_dispatch` | The button UX ([decision 0007](decisions/0007-button-ux.md)) | Free, form inputs, runs the same engine. |
+| HCP Terraform no-code modules | Optional | Tier not verified. |
+| Terraform MCP server (HashiCorp) | Chat front door | Official; pairs with a Nerdio MCP server we'd build. |
 | Terraform Stacks | Later | Available on all HCP Terraform plans and TFE 2.0; worth it once the steps between stages are automated and `nme` has a license. |
 | Boundary | Dropped | RDP credential injection is Enterprise/HCP only and has no Entra sign-in; Azure Bastion covers this. |
 | Turbonomic, Cloudability, Instana | Document only | Turbonomic conflicts with Nerdio auto-scale; Cloudability only needs consistent tags; Instana has no AVD sensor. |
@@ -158,8 +229,15 @@ scripting any UI.
    provider gets a license.
 5. **Optional Playwright bridge** for the directory profile and first-run steps, opt-in and
    removed once Nerdio ships APIs for them.
-6. **Post-deploy checks:** Nerdio REST and Azure API assertions for config and host health, plus
-   one Playwright end-user launch test through the Windows App web client.
+6. **Post-deploy checks:** Terraform `check` blocks and `terraform test` calling the Nerdio REST and
+   Azure APIs, plus one Playwright end-user launch test through the Windows App web client.
+7. **Experience layer:** the `nerdio` entry point, `bootstrap` with preflight checks, the dev container,
+   and the Actions workflow forms. The engine comes first, then the button forms.
+8. **Gap fillers:** restapi-provider resources for app groups and the other uncovered objects.
+9. **Chat:** `CLAUDE.md` and skills, then the read-only Nerdio MCP server.
+
+Suggested sequence: 1 → 4 → 7 (bootstrap and engine) gives a working one-command deploy early;
+2, 3, 5, 6 and 8 harden it; 9 comes last.
 
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.
