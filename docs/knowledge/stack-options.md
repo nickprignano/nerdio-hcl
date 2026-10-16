@@ -60,6 +60,11 @@ The assistant is the concierge. It gathers the parameters, gets the user ready, 
 engine, and walks them through everything before and after the deployment. The engine underneath stays
 deterministic and scriptable, so the kit still works without AI, and every change remains reviewable code.
 
+Beyond setup, the assistant is a planning advisor, security reviewer, teacher and
+troubleshooter for the whole lifecycle. The full capability map, domain by domain, is in
+[chat-assistant.md](chat-assistant.md). It covers foundations, network, identity,
+encryption, Intune/ConfigMgr, security review, readiness, troubleshooting and day 2.
+
 **Phases the assistant leads:**
 1. **Discover:** ask about the goal in plain language: users, use cases, regions, identity model
    (Entra-joined, AD DS or Entra DS), GPU or not, budget, compliance needs. Then recommend a

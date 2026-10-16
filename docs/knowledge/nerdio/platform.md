@@ -73,8 +73,11 @@ registration/first-run state. Those two keep the wizard from being fully automat
 
 ## Networking note
 
-- *Inferred, not verified against Nerdio docs:* new Azure subnets no longer get default outbound
-  internet access, so session host subnets need a NAT gateway or a route through a firewall.
+- *Unverified, check Microsoft's current position before relying on it:* new Azure subnets no
+  longer get default outbound internet access, so session host subnets need a NAT gateway or a
+  route through a firewall.
+- RDP Shortpath and screen capture protection can be turned on with Nerdio's Windows scripted
+  actions in Get-Nerdio/NMW (`scripted-actions/windows-scripts`); see [../security/README.md](../security/README.md).
 
 ## Sources
 

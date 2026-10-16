@@ -25,6 +25,9 @@ belongs to instead of starting a new file.
 | [terraform/testing-and-ci.md](terraform/testing-and-ci.md) | `terraform test`, tflint and the CI workflow |
 | [packer/avd-image.md](packer/avd-image.md) | Building a Windows 11 multi-session image for Nerdio |
 | [stack-options.md](stack-options.md) | Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change |
+| [chat-assistant.md](chat-assistant.md) | What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 |
+| [troubleshooting/](troubleshooting/README.md) | Known errors: symptom, cause, fix and source |
+| [security/](security/README.md) | Security baselines Nerdio publishes, kit hardening, and how to record accepted risks |
 | [decisions/](decisions/README.md) | Short decision records: what was decided and why |
 | [curation.md](curation.md) | The weekly source digest and the prior-art check that keep this KB current |
 
