@@ -1,0 +1,18 @@
+# Experts study: people whose public Nerdio and AVD content the KB follows.
+# Method and scoring rules: experts.md. Schema: schema/experts.schema.json
+# Public professional links only. Run python3 scripts/kb/build.py after editing.
+
+reviewed: '2026-10-17'
+experts:
+- id: aaron-parker
+  name: Aaron Parker
+  affiliation: unknown
+  status: nominated
+  found_via: [maintainer list]
+  links: {blog: 'https://stealthpuppy.com', github: aaronparker}
+- id: wayne-bellows
+  name: Wayne Bellows
+  affiliation: unknown
+  status: nominated
+  found_via: [maintainer list]
+  links: {blog: 'https://modern-euc.com'}

@@ -2,12 +2,16 @@
 """List knowledge base pages that need a look: stale, unverified, or reported broken.
 
     python3 scripts/kb/freshness.py --max-age-days 90 --output freshness.md
+    gh issue list --label kb-digest --state all --limit 30 --json createdAt,body > digests.json
+    python3 scripts/kb/freshness.py --digests digests.json
 
 Flags:
   - pages whose last_reviewed is older than --max-age-days
   - pages with status unverified or partial, with the count of claims marked *unverified* inline
   - pages with unresolved "broke" or "outdated" field reports
   - known errors whose fix is still unverified
+  - experts not re-scored in --max-age-days, and nominations waiting to be scored
+  - with --digests, each tracked expert's yield: digest items ticked as worth adding (experts.md)
 
 Writes a Markdown checklist and, under GitHub Actions, items=<count> to GITHUB_OUTPUT.
 """
@@ -16,8 +20,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import json
 import re
 import sys
+import tomllib
 from datetime import date
 from pathlib import Path
 
@@ -25,10 +31,56 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import kblib  # noqa: E402
 from kblib import rel  # noqa: E402
 
+DIGEST_HEADING = re.compile(r"^### (.+?)(?: → .*)?$")
+DIGEST_ITEM = re.compile(r"^- \[([ xX])\] ")
 INLINE_UNVERIFIED = re.compile(r"\*(?:unverified|not verified)\b|not yet reviewed", re.I)
 
 
-def collect(max_age_days: int, today: date) -> dict[str, list[str]]:
+def digest_yield(digests: list[dict], since: date) -> dict[str, list[int]]:
+    """Per source name: [items ticked, items listed] across digest issues created since a date."""
+    counts: dict[str, list[int]] = {}
+    for d in digests:
+        if date.fromisoformat(d["createdAt"][:10]) < since:
+            continue
+        current = None
+        for line in (d.get("body") or "").splitlines():
+            if m := DIGEST_HEADING.match(line):
+                current = m.group(1).strip()
+            elif current and (m := DIGEST_ITEM.match(line)):
+                c = counts.setdefault(current, [0, 0])
+                c[1] += 1
+                c[0] += m.group(1) != " "
+    return counts
+
+
+def expert_items(max_age_days: int, today: date, digests: list[dict] | None) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {"Experts to re-score": [], "Expert yield": []}
+    experts = (kblib.load_yaml(kblib.EXPERTS) or {}).get("experts", [])
+    for e in experts:
+        if e["status"] == "nominated":
+            ref = f" (#{e['issue']})" if e.get("issue") else ""
+            out["Experts to re-score"].append(f"{e['name']}{ref}: nominated, not scored yet")
+        elif (today - date.fromisoformat(e["reviewed"])).days > max_age_days:
+            out["Experts to re-score"].append(f"{e['name']}: last scored {e['reviewed']}")
+    if digests is None:
+        return out
+    since = date.fromordinal(today.toordinal() - max_age_days)
+    counts = digest_yield(digests, since)
+    sources = tomllib.loads(kblib.SOURCES.read_text(encoding="utf-8")).get("source", [])
+    for e in experts:
+        if e["status"] != "tracked":
+            continue
+        names = [s["name"] for s in sources if s.get("expert") == e["id"]]
+        ticked = sum(counts.get(n, [0, 0])[0] for n in names)
+        listed = sum(counts.get(n, [0, 0])[1] for n in names)
+        if listed == 0:
+            out["Expert yield"].append(f"{e['name']}: nothing in the digests since {since}; check the feed still works")
+        elif ticked == 0:
+            out["Expert yield"].append(f"{e['name']}: {listed} item(s) since {since}, none ticked; lower relevance or add keywords")
+    return out
+
+
+def collect(max_age_days: int, today: date, digests: list[dict] | None = None) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {"Reported broken or outdated": [], "Stale": [],
                                       "Unverified claims": [], "Unverified known-error fixes": []}
     reports = (kblib.load_yaml(kblib.FIELD_REPORTS) or {}).get("reports", [])
@@ -57,6 +109,7 @@ def collect(max_age_days: int, today: date) -> dict[str, list[str]]:
     for e in (kblib.load_yaml(kblib.KNOWN_ERRORS) or {}).get("errors", []):
         if e["status"] == "unverified":
             sections["Unverified known-error fixes"].append(f"`{e['id']}`: {e['symptom'][:80]}")
+    sections.update(expert_items(max_age_days, today, digests))
     return sections
 
 
@@ -67,6 +120,7 @@ def render(sections: dict[str, list[str]], max_age_days: int) -> str:
         "",
         "For each item: re-check the claim against a primary source or a real run, update the page,",
         "set `last_reviewed` (and `status` if it changed), and mark any field report `resolved: true`.",
+        "For experts, re-score them in `docs/knowledge/experts.yaml` using the method in `experts.md`.",
         "",
     ]
     for title, items in sections.items():
@@ -82,10 +136,12 @@ def main() -> int:
     ap.add_argument("--max-age-days", type=int, default=90)
     ap.add_argument("--today", help="override today's date (YYYY-MM-DD), for testing")
     ap.add_argument("--output", help="write the report here instead of stdout")
+    ap.add_argument("--digests", help="JSON from gh issue list --label kb-digest (createdAt, body), for expert yield")
     args = ap.parse_args()
 
     today = date.fromisoformat(args.today) if args.today else date.today()
-    sections = collect(args.max_age_days, today)
+    digests = json.loads(Path(args.digests).read_text(encoding="utf-8")) if args.digests else None
+    sections = collect(args.max_age_days, today, digests)
     report = render(sections, args.max_age_days)
     if args.output:
         Path(args.output).write_text(report, encoding="utf-8")

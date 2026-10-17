@@ -1,8 +1,9 @@
 name: kb-feedback
 
 # Closes the loop from people using the KB back into it. When a maintainer labels a
-# "Knowledge base feedback" or "Known error" issue kb-accepted, this turns the issue form into a
-# change to the KB's YAML data (field-reports.yaml or troubleshooting/known-errors.yaml),
+# "Knowledge base feedback", "Known error" or "Suggest an expert" issue kb-accepted, this turns the
+# issue form into a change to the KB's YAML data (field-reports.yaml,
+# troubleshooting/known-errors.yaml or experts.yaml),
 # validates it, and opens a pull request for review. The label is the review gate: issue text is
 # untrusted, is only parsed as data, and nothing merges without a reviewed PR.
 #
@@ -29,7 +30,8 @@ jobs:
     if: >-
       github.event.label.name == 'kb-accepted' &&
       (contains(github.event.issue.labels.*.name, 'kb-feedback') ||
-       contains(github.event.issue.labels.*.name, 'kb-known-error'))
+       contains(github.event.issue.labels.*.name, 'kb-known-error') ||
+       contains(github.event.issue.labels.*.name, 'kb-source'))
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

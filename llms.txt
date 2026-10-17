@@ -27,12 +27,14 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [Chatbot-first deployment: where chat stops](docs/knowledge/chatbot-first.md): Every deployment step, whether the setup chat can drive it today, what blocks it, and the automation fix or workaround (status: plan)
 - [Roadmap: turnkey, maximum-automation Nerdio deployment](docs/knowledge/stack-options.md): Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change (status: plan)
 - [Keeping the knowledge base current](docs/knowledge/curation.md): How the KB stays current: the weekly source digest, the prior-art check, the feedback loop and the freshness check (status: verified)
+- [Experts we follow](docs/knowledge/experts.md): How we choose which Nerdio and AVD experts the KB follows: the study method, the scores, and the published list (status: verified)
 
 ## Structured data
 
 - [Known errors](docs/knowledge/troubleshooting/known-errors.yaml): symptom, cause, fix and source for errors hit with the kit
 - [Upstream asks](docs/knowledge/nerdio/upstream.yaml): gaps and asks for Nerdio's provider and API, with evidence and status
 - [Field reports](docs/knowledge/field-reports.yaml): what worked or broke when someone followed the KB
+- [Experts study](docs/knowledge/experts.yaml): people the KB follows, with scores, evidence and the feeds watched
 - [Schemas](docs/knowledge/schema/page.schema.json): JSON Schemas for page front matter and the YAML files above
 
 ## Decisions

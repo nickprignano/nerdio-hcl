@@ -4,7 +4,7 @@
 Generated:
   - the index table in docs/knowledge/README.md (from page front matter)
   - the list in docs/knowledge/decisions/README.md (from decision records)
-  - the tables in troubleshooting/README.md and nerdio/upstream-contributions.md (from YAML)
+  - the tables in troubleshooting/README.md, nerdio/upstream-contributions.md and experts.md (from YAML)
   - llms.txt at the repo root (from all of the above)
 
     python3 scripts/kb/build.py           # rewrite files
@@ -111,6 +111,56 @@ def render_upstream(section: str) -> str:
     return table([first, "Evidence", third, "Status"], rows)
 
 
+def expert_links(e: dict) -> str:
+    links = e.get("links", {})
+    out = []
+    if links.get("blog"):
+        out.append(f"[blog]({links['blog']})")
+    if links.get("youtube"):
+        out.append(f"[YouTube]({links['youtube']})")
+    if links.get("github"):
+        out.append(f"[GitHub](https://github.com/{links['github']})")
+    return ", ".join(out)
+
+
+def render_experts(status: str) -> str:
+    data = kblib.load_yaml(kblib.EXPERTS)
+    rows = []
+    for e in sorted(data["experts"], key=lambda e: (-kblib.expert_total(e), e["name"])):
+        if e["status"] != status:
+            continue
+        if status == "nominated":
+            issue = f"#{e['issue']}" if e.get("issue") else ""
+            rows.append([e["name"], expert_links(e), issue, e.get("notes", "")])
+            continue
+        sc = e["scores"]
+        score = f"{kblib.expert_total(e)} ({sc['relevance']}/{sc['depth']}/{sc['recency']}/{sc['track_record']}/{sc['feedability']})"
+        latest = f"[{e['latest']['date']}]({e['latest']['url']})" if e.get("latest") else "none found"
+        failed = [g for g, ok in e["gates"].items() if not ok]
+        why = e.get("notes", "")
+        if failed:
+            why = f"Fails: {', '.join(failed)}. " + why
+        rows.append([e["name"], e["affiliation"], expert_links(e), score, latest, why.strip()])
+    if status == "nominated":
+        return table(["Name", "Links", "Nomination", "Notes"], rows) if rows else "None waiting.\n"
+    if not rows:
+        return "None.\n"
+    return table(["Name", "Affiliation", "Links", "Score (rel/depth/recency/record/feed)", "Latest Nerdio or AVD post", "Notes"], rows)
+
+
+def render_expert_balance() -> str:
+    data = kblib.load_yaml(kblib.EXPERTS)
+    tracked = [e for e in data["experts"] if e["status"] == "tracked"]
+    counts: dict[str, int] = {}
+    for e in tracked:
+        counts[e["affiliation"]] = counts.get(e["affiliation"], 0) + 1
+    parts = ", ".join(f"{n} {a}" for a, n in sorted(counts.items(), key=lambda x: -x[1]))
+    by_status = {s: sum(1 for e in data["experts"] if e["status"] == s) for s in ("tracked", "watch", "declined", "nominated")}
+    return (f"Last scored {data['reviewed']}: {by_status['tracked']} tracked ({parts or 'none'}), "
+            f"{by_status['watch']} on the watch list, {by_status['declined']} declined, "
+            f"{by_status['nominated']} nominated and waiting to be scored.\n")
+
+
 def render_llms_txt() -> str:
     lines = [
         "# Nerdio HCL deployment kit",
@@ -135,6 +185,7 @@ def render_llms_txt() -> str:
         "- [Known errors](docs/knowledge/troubleshooting/known-errors.yaml): symptom, cause, fix and source for errors hit with the kit",
         "- [Upstream asks](docs/knowledge/nerdio/upstream.yaml): gaps and asks for Nerdio's provider and API, with evidence and status",
         "- [Field reports](docs/knowledge/field-reports.yaml): what worked or broke when someone followed the KB",
+        "- [Experts study](docs/knowledge/experts.yaml): people the KB follows, with scores, evidence and the feeds watched",
         "- [Schemas](docs/knowledge/schema/page.schema.json): JSON Schemas for page front matter and the YAML files above",
         "",
         "## Decisions",
@@ -168,6 +219,10 @@ def targets() -> dict[Path, str]:
         KB_DIR / "README.md": {"kb-index": render_kb_index},
         KB_DIR / "decisions" / "README.md": {"decision-index": render_decision_index},
         KB_DIR / "troubleshooting" / "README.md": {"known-errors": render_known_errors},
+        KB_DIR / "experts.md": {
+            "experts-balance": render_expert_balance,
+            **{f"experts-{s}": (lambda s=s: render_experts(s)) for s in ("tracked", "watch", "declined", "nominated")},
+        },
         KB_DIR / "nerdio" / "upstream-contributions.md": {
             s: (lambda s=s: render_upstream(s)) for s in ("feature_gaps", "api_asks", "docs_packaging")
         },

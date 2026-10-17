@@ -2,7 +2,8 @@
 """Turn an accepted KB feedback or known-error issue into a change to the KB's YAML data.
 
 Run by .github/workflows/kb-feedback.yml when a maintainer labels an issue kb-accepted. It reads
-the issue form, appends a field report (kb-feedback) or a known error (kb-known-error), and writes
+the issue form, appends a field report (kb-feedback), a known error (kb-known-error) or an expert
+nomination (kb-source, to experts.yaml as status nominated, for a maintainer to score), and writes
 the branch name, PR title and PR body for the workflow to open a pull request.
 
     python3 scripts/kb/feedback.py --event "$GITHUB_EVENT_PATH"
@@ -133,6 +134,53 @@ def add_known_error(issue: dict, fields: dict[str, str], today: str) -> tuple[st
             "`docs/knowledge/troubleshooting/known-errors.yaml` and regenerates the catalog page.")
 
 
+def https_or_empty(value: str, field: str) -> str:
+    value = clean(value, field, required=False)
+    if value and not value.startswith("https://"):
+        raise FeedbackError(f"'{field}' must be an https:// link")
+    return value
+
+
+def add_nomination(issue: dict, fields: dict[str, str], today: str) -> tuple[str, str]:
+    name = clean(fields.get("Name", ""), "Name")
+    if len(name) > 80:
+        raise FeedbackError("'Name' is longer than 80 characters")
+    links = {
+        "blog": https_or_empty(fields.get("Blog", ""), "Blog"),
+        "youtube": https_or_empty(fields.get("YouTube channel", ""), "YouTube channel"),
+        "github": clean(fields.get("GitHub username", ""), "GitHub username", required=False).lstrip("@"),
+    }
+    if links["github"] and not re.fullmatch(r"[A-Za-z0-9-]{1,39}", links["github"]):
+        raise FeedbackError("'GitHub username' isn't a valid GitHub username")
+    links = {k: v for k, v in links.items() if v}
+    if not links:
+        raise FeedbackError("give at least one of Blog, YouTube channel or GitHub username")
+    data = kblib.load_yaml(kblib.EXPERTS)
+    if any(e.get("issue") == issue["number"] for e in data["experts"]):
+        raise FeedbackError(f"issue #{issue['number']} is already in experts.yaml")
+    ids = {e["id"] for e in data["experts"]}
+    entry_id = slug(name)
+    if entry_id in ids:
+        raise FeedbackError(f"{name} is already in experts.yaml as '{entry_id}'")
+    data["experts"].append({
+        "id": entry_id,
+        "name": name,
+        "affiliation": "unknown",
+        "status": "nominated",
+        "found_via": [f"nomination (#{issue['number']}, {today})"],
+        "links": links,
+        "notes": clean(fields.get("Why follow them", ""), "Why follow them")[:300],
+        "issue": issue["number"],
+    })
+    write(kblib.EXPERTS, data)
+    return (f"KB source nomination: {name} (#{issue['number']})",
+            f"Adds {name} to `docs/knowledge/experts.yaml` as nominated, from #{issue['number']}.\n\n"
+            "Before merging, score them with the method in `docs/knowledge/experts.md`: add `gates`, "
+            "`scores`, `reviewed` and evidence, set the status the scores give, and add a source to "
+            "`sources.toml` with `expert = \"" + entry_id + "\"` if they're tracked. Or merge as is and the "
+            "freshness check will list them as waiting.")
+
+
 def write(path: Path, data) -> None:
     path.write_text(kblib.yaml_header(path) + kblib.dump_yaml(data), encoding="utf-8")
 
@@ -143,9 +191,11 @@ def handle(issue: dict, today: str) -> tuple[str, str]:
     public_safe(fields)
     if "kb-known-error" in labels:
         return add_known_error(issue, fields, today)
+    if "kb-source" in labels:
+        return add_nomination(issue, fields, today)
     if "kb-feedback" in labels:
         return add_field_report(issue, fields, today)
-    raise FeedbackError("the issue has neither the kb-feedback nor the kb-known-error label")
+    raise FeedbackError("the issue has none of the kb-feedback, kb-known-error or kb-source labels")
 
 
 def main() -> int:

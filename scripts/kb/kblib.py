@@ -19,6 +19,12 @@ LLMS_TXT = ROOT / "llms.txt"
 KNOWN_ERRORS = KB_DIR / "troubleshooting" / "known-errors.yaml"
 UPSTREAM = KB_DIR / "nerdio" / "upstream.yaml"
 FIELD_REPORTS = KB_DIR / "field-reports.yaml"
+EXPERTS = KB_DIR / "experts.yaml"
+SOURCES = KB_DIR / "sources.toml"
+
+# The experts study (experts.md): five scores of 0-3, plus pass/fail gates.
+TRACK_AT = 10
+WATCH_AT = 6
 
 # Files under docs/knowledge/ that aren't topic pages.
 NOT_PAGES = {"decisions/README.md", "decisions/template.md"}
@@ -122,3 +128,18 @@ _Dumper.add_representer(
     str,
     lambda d, s: d.represent_scalar("tag:yaml.org,2002:str", s, style=">" if len(s) > 90 else None),
 )
+
+
+def expert_total(e: dict) -> int:
+    return sum((e.get("scores") or {}).values())
+
+
+def expert_tier(e: dict) -> str:
+    """The status an expert's gates and scores give, by the rules in experts.md."""
+    g = e.get("gates") or {}
+    if not (g.get("identity") and g.get("original")):
+        return "declined"
+    total = expert_total(e)
+    if g.get("recent") and g.get("feed") and total >= TRACK_AT:
+        return "tracked"
+    return "watch" if total >= WATCH_AT else "declined"
