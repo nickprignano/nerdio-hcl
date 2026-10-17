@@ -23,6 +23,7 @@ that still comes from the Marketplace (see [platform.md](platform.md)).
 - Nerdio keeps its own coverage matrix in
   [AVD-COVERAGE.md](https://github.com/Get-Nerdio/NME-Terraform-Provider/blob/main/AVD-COVERAGE.md).
 - The repo has no license file at last review. See [upstream-contributions.md](upstream-contributions.md).
+  Our own Apache-2.0 license doesn't cover it ([0018](../decisions/0018-apache-2-license.md)).
 
 ## Authentication
 

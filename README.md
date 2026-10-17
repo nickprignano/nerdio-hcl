@@ -138,3 +138,10 @@ Every change follows [docs/guardrails.md](docs/guardrails.md). In short:
 The repo holds no tenant-specific values. Real IDs, names and CIDRs go in `terraform.tfvars`,
 `*.auto.tfvars.json` and `*.pkrvars.hcl`, which are gitignored. Secrets are passed through
 environment variables, never files. Examples use `contoso` names and all-zero GUIDs.
+
+## License
+
+The kit's own code and docs are licensed under the [Apache License 2.0](LICENSE). Components the
+kit downloads or calls (Nerdio Manager and the `nerdio/nme` provider, WDOT, Terraform and Packer,
+the Terraform providers, Azure itself) keep their own terms and aren't covered; see
+[NOTICE](NOTICE) and [decision 0018](docs/knowledge/decisions/0018-apache-2-license.md).

@@ -1,0 +1,27 @@
+nerdio-hcl
+Copyright 2026 Nick Prignano and the nerdio-hcl contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+The license covers only the code and documentation in this repository.
+
+Third-party components
+----------------------
+
+This repository does not include, vendor or redistribute any third-party code or binaries.
+The kit downloads or calls the components below at run time, straight from their publishers.
+Each keeps its own terms, and none of them is covered by this repository's license. Whoever
+runs the kit is responsible for accepting those terms.
+
+- Nerdio Manager for Enterprise, its app package and the nerdio/nme Terraform provider
+  (Get-Nerdio). The provider repository has no license file, so no reuse rights are granted;
+  the kit downloads Nerdio's own release at install time and never copies its code. Running
+  Nerdio Manager needs a Nerdio license under Nerdio's terms.
+- Windows Desktop Optimization Tool (The-Virtual-Desktop-Team): MIT license, plus a Microsoft
+  sample-code EULA in the same repository. Fetched at a pinned commit during image builds.
+- Terraform and Packer (HashiCorp): Business Source License 1.1.
+- Terraform providers such as hashicorp/azurerm, hashicorp/azuread and azure/azapi:
+  Mozilla Public License 2.0.
+- Microsoft Azure services, Windows images and Marketplace offers: Microsoft's terms.
+
+Nerdio is a trademark of its owner. This project is a community project and is not affiliated
+with or endorsed by Nerdio or Microsoft.
