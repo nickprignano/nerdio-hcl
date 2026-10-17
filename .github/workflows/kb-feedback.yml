@@ -6,8 +6,9 @@ name: kb-feedback
 # validates it, and opens a pull request for review. The label is the review gate: issue text is
 # untrusted, is only parsed as data, and nothing merges without a reviewed PR.
 #
-# Opening the PR needs Settings > Actions > General > "Allow GitHub Actions to create and approve
-# pull requests". Without it the branch is still pushed and the issue gets a link to open the PR.
+# Opening the PR needs "Allow GitHub Actions to create and approve pull requests", which the
+# pipeline bootstrap sets (modules/github-repo). Without it the branch is still pushed and the
+# issue gets a link to open the PR.
 # PRs opened with GITHUB_TOKEN don't trigger other workflows; this job runs the same checks
 # before pushing, and a maintainer can close and reopen the PR to run the full CI.
 

@@ -11,8 +11,9 @@
 #                                                   so the pipeline takes over from there
 #
 # Terraform (environments/example/00-pipeline) creates the state storage, the plan and apply
-# identities with GitHub OIDC trust, and the GitHub environments: <env>-plan, and <env>-apply,
-# which needs a reviewer's approval. This script is glue only: it reads IDs from
+# identities with GitHub OIDC trust, the GitHub environments: <env>-plan, and <env>-apply,
+# which needs a reviewer's approval, and the repository settings the kit relies on
+# (modules/github-repo: issue labels, workflow token, a ruleset on the branch the apply trusts). This script is glue only: it reads IDs from
 # `az account show`, the repository from git, and a GitHub token from `gh auth token`, which it
 # hands to that one terraform process and never writes down.
 #

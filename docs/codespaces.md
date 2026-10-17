@@ -13,11 +13,20 @@ and long applies belong on the [deploy pipeline](pipeline.md).
 | Graph PowerShell (`./nerdio fix roles`) | Built in | Not installed; use Cloud Shell for it |
 | Cost | Free, plus a small storage account | Free monthly allowance on personal accounts, then billed |
 
-## One-time setting
+## Longer idle timeout
 
-Raise the idle timeout: on GitHub, choose your profile picture > **Settings** > **Codespaces** >
-**Default idle timeout**, enter `240` and save. While you're there, check the **Default retention
-period**: GitHub deletes a stopped codespace after it (30 days unless you change it).
+The browser's **Create codespace** button uses your account's default idle timeout (30 minutes).
+To get 240 minutes without visiting a settings page, create the codespace from Cloud Shell
+instead; it then shows up under **Code** > **Codespaces** to open in the browser:
+
+```bash
+gh auth refresh -h github.com -s codespace   # once, adds the codespace scope
+gh codespace create -R <owner>/nerdio-hcl -b main --idle-timeout 240m
+```
+
+GitHub has no API for the account-wide default, so if you'd rather keep using the button, set
+it once under your profile's **Settings** > **Codespaces** > **Default idle timeout**. A stopped
+codespace is deleted after the retention period (30 days unless you change it).
 
 ## Start a codespace
 

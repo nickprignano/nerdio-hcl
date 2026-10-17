@@ -102,12 +102,15 @@ regenerates and validates the KB, and opens a pull request that closes the issue
 incomplete or fails validation, the workflow comments on the issue instead.
 
 The label is the safety gate: issue text from anyone is only parsed as data, the PR still goes
-through review, and gitleaks and the KB checks run on it. Two repository settings matter:
+through review, and gitleaks and the KB checks run on it. Two repository settings matter. The
+[pipeline bootstrap](../pipeline.md#set-it-up-once-in-cloud-shell) sets both in Terraform
+(`modules/github-repo`); if you don't use the pipeline:
 
-- Run **Actions > kb-freshness** once after setup so the `kb-*` labels exist (issue forms only
-  apply labels that already exist).
-- Turn on **Settings > Actions > General > Allow GitHub Actions to create and approve pull
-  requests**. Without it, the workflow pushes the branch and asks you to open the PR.
+- Run **Actions > kb-freshness** once so the `kb-*` labels exist (issue forms only apply labels
+  that already exist).
+- Allow GitHub Actions to create and approve pull requests:
+  `gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true`.
+  Without it, the workflow pushes the branch and asks you to open the PR.
 
 Pull requests opened by the workflow's own token don't start other workflows. The job runs the KB
 checks itself; close and reopen the PR to run the full CI before merging.
