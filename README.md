@@ -76,6 +76,7 @@ docs/
   guardrails.md
   deployment-runbook.md
   cloud-shell.md
+  codespaces.md      VS Code in the browser as an optional workbench
   secrets.md         how stage 2 gets the REST API secret without anyone handling it
   pipeline.md        plan and apply from GitHub Actions behind an approval
   architecture.md
@@ -104,6 +105,8 @@ terraform init && terraform apply              # reads the REST secret from Key 
 
 From Azure Cloud Shell (any browser, tablets included) `scripts/cloudshell-bootstrap.sh` reads
 the tenant and subscription from your sign-in instead; see [docs/cloud-shell.md](docs/cloud-shell.md).
+Prefer a full editor? The repo opens in GitHub Codespaces with the tools preinstalled; see
+[docs/codespaces.md](docs/codespaces.md).
 
 The full order of operations, including the manual Nerdio steps, is in
 [docs/deployment-runbook.md](docs/deployment-runbook.md).

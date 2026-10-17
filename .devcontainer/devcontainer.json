@@ -1,0 +1,27 @@
+// Dev container for GitHub Codespaces (VS Code in the browser, an iPad included).
+// Codespaces is an optional workbench next to Azure Cloud Shell, the kit's baseline
+// (decision 0012); see docs/codespaces.md. Tools come from the official dev container
+// features; post-create.sh only adds the nerdio/nme provider from Nerdio's own release.
+{
+  "name": "nerdio-hcl",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "1.16.6",
+      "tflint": "latest"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "hostRequirements": {
+    "cpus": 2
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hashicorp.terraform"
+      ]
+    }
+  }
+}
