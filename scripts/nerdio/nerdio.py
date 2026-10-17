@@ -248,14 +248,23 @@ def scan_regions(values: dict, regions: str, as_json: bool) -> int:
         for region, res in found.items():
             bad = [x for x in res if x.status == "fail"]
             unsure = [x for x in res if x.status == "warn"]
-            mark = "✗" if bad else "!" if unsure else "✓"
+            # vCPU quota is the one fix that's self-service (Azure Quota API, usually minutes).
+            only_vcpu = bad and all(x.check == "vCPU quota" for x in bad)
+            mark = "~" if only_vcpu else "✗" if bad else "!" if unsure else "✓"
             why = "; ".join(f"{x.check}: " + re.sub(r" for this subscription: .*", "", x.detail)
                             for x in bad + unsure) or "everything checked passes"
             print(f"{mark} {region:<20} {why}")
         good = [r for r, res in found.items() if not any(x.status == "fail" for x in res)]
-        print("\nUse one with ./nerdio init --set location=<region>" if good else
-              "\nNo region passes as is. Quota fixes (./nerdio fix ...) apply per region; "
-              "try another size with --set vm_size=<size>.")
+        near = [r for r, res in found.items()
+                if any(x.status == "fail" for x in res) and all(x.check == "vCPU quota" for x in res if x.status == "fail")]
+        if good:
+            print("\n✓ passes. Use one with ./nerdio init --set location=<region>")
+        elif near:
+            print(f"\n~ needs only vCPU quota, which is self-service: ./nerdio fix vcpu --location {near[0]} "
+                  "--family <family> --limit <vCPUs>")
+        else:
+            print("\nNo region passes as is. Quota fixes (./nerdio fix ...) apply per region; "
+                  "try another size with --set vm_size=<size>.")
     return 0
 
 

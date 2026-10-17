@@ -430,7 +430,9 @@ def nearby_regions(location: str) -> list[str]:
     rows = az_json(["account", "list-locations", "--query",
                     "[?metadata.regionType=='Physical'].{name:name, group:metadata.geographyGroup}"]) or []
     group = next((r.get("group") for r in rows if r.get("name") == location), None)
-    names = [r["name"] for r in rows if group and r.get("group") == group]
+    # Skip canary (euap) and staging regions; they're listed but not for general use.
+    names = [r["name"] for r in rows if group and r.get("group") == group
+             and not r["name"].endswith(("euap", "stg"))]
     return sorted(set(names) | {location})
 
 

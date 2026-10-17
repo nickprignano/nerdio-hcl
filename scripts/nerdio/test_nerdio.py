@@ -348,7 +348,7 @@ class PreflightTests(unittest.TestCase):
         self.assertNotIn("11111111", results["Azure Policy"].detail)
 
     def test_region_scan_reports_each_region(self):
-        overrides = {("account", "list-locations"): [{"name": "eastus2", "group": "US"}, {"name": "centralus", "group": "US"},
+        overrides = {("account", "list-locations"): [{"name": "eastus2", "group": "US"}, {"name": "centralus", "group": "US"}, {"name": "eastus2euap", "group": "US"},
                                                      {"name": "westeurope", "group": "Europe"}]}
         with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)):
             regions = preflight.nearby_regions("eastus2")
