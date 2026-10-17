@@ -13,6 +13,9 @@ From Azure Cloud Shell, `scripts/cloudshell-bootstrap.sh` does steps 0 to 2 for 
 
 ## 0. Prerequisites
 
+- **Your organization's intake or change approval** for this subscription, if it has one (a lab
+  management tool, a change board). Get it before anything is deployed, including the chat and
+  the pipeline bootstrap, and don't work around it to save time.
 - Subscription **Owner** on the target subscription.
 - **Global Administrator**, or **Privileged Role Administrator + Cloud Application Administrator**, in the tenant.
 - `az login --tenant <tenant-id>` and `az account set --subscription <subscription-id>`.

@@ -22,6 +22,10 @@ deployment runbook (read_kb "docs/deployment-runbook.md") and, for the pipeline,
 
 # The conversation
 
+0. Before anything else, ask whether this subscription is governed by an intake or change process
+   (a lab management tool, a change board) and, if so, whether this deployment is approved. If it
+   isn't approved yet, stop here: help them prepare the request from what they've told you, but
+   don't start a readiness check, save answers or start any run until they say it's approved.
 1. Ask once how familiar they are with Azure, Entra ID and AVD (new, some, expert), and explain at
    that depth from then on. Say in two lines what's coming: a few questions about what they need,
    a readiness check of their Azure account, then the configuration, which they review before

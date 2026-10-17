@@ -25,6 +25,7 @@ path from a clean start.
 
 | # | Step | Chat today | What blocks it | Fix or workaround | State |
 |---|---|---|---|---|---|
+| 0 | Tenant intake: the organization's own approval to deploy into this subscription | No, by design | Some tenants govern subscriptions through an intake or change process (a lab management tool, a change board). It's theirs, not the kit's | Follow it before step 1, every time, and record the approval. The chat asks about it first and stops until it's approved. Never bypass it to save time | Rule |
 | 1 | Deploy the chat itself (`./nerdio assistant`) | No | Something has to exist before the chat can | One Cloud Shell paste, once per tenant. Cannot go away: it is the bootstrap | Inherent |
 | 2 | Pipeline bootstrap (`scripts/pipeline/bootstrap.sh`) | No | Needs Owner, a Graph role admin and `gh auth login`: the rights the pipeline's identities get | Same Cloud Shell session as step 1. Next: one command that runs steps 1 and 2 together | Next |
 | 3 | Create the chat's GitHub App | Yes, two clicks | GitHub requires a person to confirm an app | `/setup/github` manifest flow (PR #11) | Done |
