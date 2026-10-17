@@ -75,3 +75,23 @@ variable "max_replicas" {
   type        = number
   default     = 2
 }
+
+variable "pipeline" {
+  description = <<-EOT
+    Connects the chat to the deploy pipeline (decision 0016, docs/pipeline.md), so it can save the
+    answers, start a plan and read it back. storage_account_id and environment come from the
+    00-pipeline stage. github.repository is owner/name; github.app_client_id is the GitHub App the
+    chat acts as, whose private key you import into this module's Key Vault with
+    scripts/pipeline/github-app-key.sh. Null keeps the chat paste-only.
+  EOT
+  type = object({
+    storage_account_id = string
+    environment        = string
+    github = object({
+      repository    = string
+      app_client_id = string
+      branch        = optional(string, "main")
+    })
+  })
+  default = null
+}

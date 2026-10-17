@@ -35,12 +35,6 @@ variable "github" {
   })
 }
 
-variable "answers_file" {
-  description = "Path to the ./nerdio answers to publish for the pipeline (written by the bootstrap script). Null leaves them unset."
-  type        = string
-  default     = null
-}
-
 variable "tags" {
   description = "Tags for every Azure resource."
   type        = map(string)

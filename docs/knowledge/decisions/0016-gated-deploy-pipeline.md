@@ -35,9 +35,13 @@ long-lived credential exists anywhere.
 - The plan identity names the apply identity as the deployer (`deployer_object_id`), so the plan
   shows the role assignments and ownership the apply will really create.
 - IDs are environment secrets so GitHub masks them; the workflow never prints a GUID.
-- Next: the chatbot gets tools to change answers through a pull request, start a plan and explain
-  it. It can request an apply but never approve one. The chatbot never holds Azure rights beyond
-  calling its model, which keeps 0014's rule that nothing in the conversation changes the tenant.
+- The chatbot drives it as a GitHub App limited to Actions on the repository, whose private key
+  is a non-exportable, sign-only Key Vault key. It saves the answers to a versioned blob (not a
+  pull request: the answers name groups and address ranges, and the repository is public),
+  starts runs and reads plan summaries. It can request an apply but never approve one, because
+  a GitHub App can't be an environment reviewer. Its identity holds no Azure rights beyond those
+  two blob containers and that key, which keeps 0014's rule that nothing in the conversation
+  changes the tenant.
 
 ### Consequences
 

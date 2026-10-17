@@ -2,6 +2,7 @@
 # Plan or apply one kit stage inside the deploy workflow (.github/workflows/deploy.yml).
 #
 #   scripts/pipeline/stage.sh plan    render tfvars from the answers, plan, save the plan
+#                                     and a change summary the setup chatbot can read
 #   scripts/pipeline/stage.sh apply   fetch the saved plan, check its hash, apply exactly it
 #
 # Glue only (docs/guardrails.md): Terraform does the work. Azure sign-in is GitHub OIDC
@@ -15,7 +16,6 @@
 #   ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID
 #   TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT
 #   NERDIO_PLAN_PRINCIPAL_ID NERDIO_APPLY_PRINCIPAL_ID
-#   NERDIO_ANSWERS           plan only: the ./nerdio answers JSON
 #   PLAN_BLOB PLAN_SHA256    apply only: from the plan job
 set -euo pipefail
 
@@ -53,9 +53,9 @@ init_stage() { # $1 dir, $2 state name
     -backend-config="use_azuread_auth=true" 2>&1 | redact | tail -n 3
 }
 
-blob() { # $1 upload|download, $2 file, then any extra az arguments
+blob() { # $1 upload|download, $2 container, $3 blob name, $4 file, then any extra az arguments
   az storage blob "$1" --auth-mode login --only-show-errors --account-name "$TFSTATE_STORAGE_ACCOUNT" \
-    --container-name plans --name "$PLAN_BLOB" --file "$2" "${@:3}" >/dev/null
+    --container-name "$2" --name "$3" --file "$4" "${@:5}" >/dev/null
 }
 
 if [ "$STAGE" = config ]; then
@@ -64,10 +64,11 @@ if [ "$STAGE" = config ]; then
 fi
 
 if [ "$action" = plan ]; then
-  [ -n "${NERDIO_ANSWERS:-}" ] || fail "No answers for $NERDIO_ENV. Publish them with scripts/pipeline-bootstrap.sh."
   echo "== Answers to tfvars"
   mkdir -p "$root/.nerdio"
-  printf '%s\n' "$NERDIO_ANSWERS" > "$root/.nerdio/answers.json"
+  # One versioned blob per environment, written by the bootstrap script or the setup chatbot.
+  blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null \
+    || fail "No answers for $NERDIO_ENV yet. Save them from the setup chatbot, or run scripts/pipeline/bootstrap.sh --answers-only."
   # Tenant and subscription come from ARM_*; group names are looked up with the plan identity.
   "$root/nerdio" init --non-interactive > "$work/init.log" 2>&1 || { redact < "$work/init.log"; fail "./nerdio init rejected the answers"; }
   grep -E '^(✓|✗|Wrote)' "$work/init.log" | redact || true
@@ -123,13 +124,25 @@ if [ "$action" = plan ]; then
     fi
   } | summary
 
+  # The change list for the setup chatbot: private storage, so values aren't redacted here.
+  run_dir="$NERDIO_ENV/$GITHUB_RUN_ID-${GITHUB_RUN_ATTEMPT:-1}"
+  if [ "$code" = 2 ]; then
+    terraform -chdir="$stage_dir" show -json "$work/tfplan" \
+      | jq --arg stage "$STAGE" --arg summary "$(grep -E '^Plan:' "$work/plan.log" || true)" \
+        '{stage: $stage, summary: $summary, changes: [.resource_changes[] | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | {action: (.change.actions | join(" then ")), address}]}' \
+      > "$work/summary.json"
+  else
+    jq -n --arg stage "$STAGE" '{stage: $stage, summary: "No changes.", changes: []}' > "$work/summary.json"
+  fi
+  blob upload plans "$run_dir/$STAGE.json" "$work/summary.json" --overwrite
+
   changes=false
   if [ "$code" = 2 ]; then
     changes=true
     tar -C "$work" -cf "$work/plan.tar" tfplan
     tar -C "$stage_dir" -rf "$work/plan.tar" .terraform.lock.hcl
-    PLAN_BLOB="$NERDIO_ENV/$GITHUB_RUN_ID-${GITHUB_RUN_ATTEMPT:-1}/$STAGE.tar"
-    blob upload "$work/plan.tar" --overwrite
+    PLAN_BLOB="$run_dir/$STAGE.tar"
+    blob upload plans "$PLAN_BLOB" "$work/plan.tar" --overwrite
     sha="$(sha256sum "$work/plan.tar" | cut -d' ' -f1)"
     { echo "plan_blob=$PLAN_BLOB"; echo "plan_sha256=$sha"; } >> "${GITHUB_OUTPUT:-/dev/null}"
     echo "Saved plan $sha"
@@ -141,7 +154,7 @@ fi
 # apply: exactly the plan the reviewer approved, or nothing.
 if [ -z "${PLAN_BLOB:-}" ] || ! [[ "${PLAN_SHA256:-}" =~ ^[0-9a-f]{64}$ ]]; then fail "No saved plan to apply"; fi
 echo "== Saved plan"
-blob download "$work/plan.tar"
+blob download plans "$PLAN_BLOB" "$work/plan.tar"
 echo "$PLAN_SHA256  $work/plan.tar" | sha256sum --check --quiet - || fail "The saved plan changed since it was reviewed; not applying"
 tar -C "$work" -xf "$work/plan.tar" tfplan
 tar -C "$stage_dir" -xf "$work/plan.tar" .terraform.lock.hcl

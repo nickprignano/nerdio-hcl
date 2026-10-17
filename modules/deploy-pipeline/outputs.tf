@@ -22,3 +22,8 @@ output "apply_principal_id" {
   description = "Object ID of the apply identity. Not a secret."
   value       = local.identities.apply.principal_id
 }
+
+output "storage_account_id" {
+  description = "Resource ID of the storage account, for granting the setup chatbot access to the answers and plans containers."
+  value       = azurerm_storage_account.state.id
+}

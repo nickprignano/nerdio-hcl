@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 import agent
+from pipeline import Pipeline
 
 STATIC = Path(__file__).resolve().parent / "static"
 MAX_BODY = 4 * 1024 * 1024
@@ -51,16 +52,30 @@ async def headers(request: Request, call_next):
     return response
 
 
-def signed_in_name(request: Request) -> str:
-    """The display name Container Apps authentication passes in. Empty when running locally."""
+OBJECT_ID_CLAIMS = ("http://schemas.microsoft.com/identity/claims/objectidentifier", "oid")
+
+
+def _claim(request: Request, types: tuple[str, ...]) -> str:
     raw = request.headers.get("x-ms-client-principal")
     if not raw:
-        return request.headers.get("x-ms-client-principal-name", "")
+        return ""
     try:
         claims = json.loads(base64.b64decode(raw)).get("claims", [])
     except (ValueError, TypeError):
         return ""
-    return next((c.get("val", "") for c in claims if c.get("typ") == "name"), "")
+    return next((c.get("val", "") for c in claims if c.get("typ") in types), "")
+
+
+def signed_in_name(request: Request) -> str:
+    """The display name Container Apps authentication passes in. Empty when running locally."""
+    if not request.headers.get("x-ms-client-principal"):
+        return request.headers.get("x-ms-client-principal-name", "")
+    return _claim(request, ("name",))
+
+
+def signed_in_object_id(request: Request) -> str:
+    """The signed-in user's Entra object ID, set by Container Apps authentication (the browser can't forge it)."""
+    return _claim(request, OBJECT_ID_CLAIMS)
 
 
 @app.get("/healthz")
@@ -87,9 +102,10 @@ def me(request: Request):
 
 
 @app.post("/api/chat")
-def chat(turn: Turn):
+def chat(turn: Turn, request: Request):
     try:
-        return agent.chat_turn(client(), turn.messages, turn.answers, turn.text)
+        return agent.chat_turn(client(), turn.messages, turn.answers, turn.text,
+                               signed_in_object_id(request), Pipeline())
     except Exception as exc:  # surface a readable error; details go to the log only
         log.exception("chat turn failed")
         name = type(exc).__name__

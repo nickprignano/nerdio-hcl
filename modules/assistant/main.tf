@@ -120,6 +120,13 @@ resource "azurerm_container_app" "this" {
         name  = "NERDIO_KIT_REPO"
         value = var.kit_repo_url
       }
+      dynamic "env" {
+        for_each = local.pipeline_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
 
       liveness_probe {
         transport = "HTTP"

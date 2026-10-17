@@ -391,5 +391,27 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(results[0].status, "fail")
 
 
+
+class AssistantPipelineLinkTests(unittest.TestCase):
+    def run_with(self, outputs: dict, remote: str):
+        def fake(cmd, **kwargs):
+            out = json.dumps({k: {"value": v} for k, v in outputs.items()}) if cmd[0] == "terraform" else remote
+            return mock.Mock(stdout=out, returncode=0)
+        with mock.patch.object(nerdio.subprocess, "run", side_effect=fake):
+            return nerdio.pipeline_link(Path("/nowhere/00-pipeline"), "Iv1.example")
+
+    def test_reads_pipeline_outputs_and_repository(self):
+        link, problem = self.run_with({"storage_account_id": "/subscriptions/x/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st",
+                                       "environment": "sandbox"}, "https://github.com/contoso/nerdio-hcl.git\n")
+        self.assertEqual(problem, "")
+        self.assertEqual(link["github"], {"repository": "contoso/nerdio-hcl", "app_client_id": "Iv1.example"})
+        self.assertEqual(link["environment"], "sandbox")
+
+    def test_needs_the_pipeline_and_an_app(self):
+        _, problem = self.run_with({}, "git@github.com:contoso/nerdio-hcl.git")
+        self.assertIn("bootstrap.sh", problem)
+        self.assertIn("--github-app", nerdio.pipeline_link(Path("/nowhere"), None)[1])
+
+
 if __name__ == "__main__":
     unittest.main()

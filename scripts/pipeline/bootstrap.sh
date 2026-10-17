@@ -3,7 +3,8 @@
 #
 #   ./scripts/pipeline/bootstrap.sh                 plan, then apply after you type yes
 #   ./scripts/pipeline/bootstrap.sh --plan          plan only
-#   ./scripts/pipeline/bootstrap.sh --answers-only  republish your ./nerdio answers after a change
+#   ./scripts/pipeline/bootstrap.sh --answers-only  publish your ./nerdio answers again after a change
+#                                                   (the setup chatbot can save them too)
 #   ./scripts/pipeline/bootstrap.sh --adopt         move 01-platform and 02-nerdio-config state you
 #                                                   applied from Cloud Shell into the pipeline's
 #                                                   storage, so the pipeline takes over from there
@@ -87,9 +88,46 @@ TF
   exit 1
 }
 
+# The pipeline renders each run from answers/<env>.json in the state storage (versioned, so every
+# change is kept). "me" means you; the pipeline signs in as a service identity, so publish your
+# object ID instead.
+publish_answers() {
+  local sa me tmp
+  if [ ! -f "$root/.nerdio/answers.json" ]; then
+    echo "No ./nerdio answers yet. Run ./nerdio init (or use the setup chatbot), then $0 --answers-only."
+    return
+  fi
+  sa="$(terraform -chdir="$stage" output -raw storage_account_name)"
+  me="$(az ad signed-in-user show --query id -o tsv)"
+  tmp="$(mktemp)"
+  jq --arg me "$me" 'walk(if type == "array" then map(if . == "me" then $me else . end) elif . == "me" then $me else . end)' \
+    "$root/.nerdio/answers.json" > "$tmp"
+  local i
+  for i in 1 2 3 4 5 6 7 8; do
+    if az storage blob upload --auth-mode login --only-show-errors --account-name "$sa" --container-name answers \
+      --name "$env_name.json" --file "$tmp" --overwrite >/dev/null 2>&1; then
+      rm -f "$tmp"
+      echo "Published your answers for $env_name"
+      return
+    fi
+    echo "Storage access isn't active yet; retrying in 30s ($i/8)"
+    sleep 30
+  done
+  rm -f "$tmp"
+  echo "Couldn't publish the answers. Run $0 --answers-only in a few minutes." >&2
+  exit 1
+}
+
 say "Account"
 az account show --query '{subscription:name, signedInAs:user.name}' -o table
 ensure_terraform
+
+if [ "$mode" = --answers-only ]; then
+  terraform -chdir="$stage" output -raw storage_account_name >/dev/null 2>&1 \
+    || { echo "Run $0 first; the pipeline's storage doesn't exist yet." >&2; exit 2; }
+  publish_answers
+  exit 0
+fi
 
 if [ "$mode" = --adopt ]; then
   terraform -chdir="$stage" output -raw storage_account_name >/dev/null 2>&1 \
@@ -114,26 +152,13 @@ echo "Repository $owner/$repo; applies need approval from: $reviewers"
 
 say "Variables"
 umask 077
-answers="null"
-if [ -f "$root/.nerdio/answers.json" ]; then
-  # "me" means you; the pipeline signs in as a service identity, so publish your object ID.
-  me="$(az ad signed-in-user show --query id -o tsv)"
-  jq --arg me "$me" 'walk(if type == "array" then map(if . == "me" then $me else . end) elif . == "me" then $me else . end)' \
-    "$root/.nerdio/answers.json" > "$stage/answers.json"
-  answers='"answers.json"'
-  echo "Publishing your ./nerdio answers to the $env_name-plan environment"
-else
-  echo "No ./nerdio answers yet. Run ./nerdio init, then $0 --answers-only."
-fi
 jq -n \
   --arg tenant "$(az account show --query tenantId -o tsv)" \
   --arg sub "$(az account show --query id -o tsv)" \
   --arg name "$name" --arg location "$location" --arg env "$env_name" \
   --arg owner "$owner" --arg repo "$repo" --arg reviewers "$reviewers" \
-  --argjson answers "$answers" \
   '{tenant_id: $tenant, subscription_id: $sub, name: $name, location: $location, environment: $env,
-    github: {owner: $owner, repository: $repo, reviewers: ($reviewers | split(",") | map(gsub("^\\s+|\\s+$"; "")))},
-    answers_file: $answers}' > "$stage/pipeline.auto.tfvars.json"
+    github: {owner: $owner, repository: $repo, reviewers: ($reviewers | split(",") | map(gsub("^\\s+|\\s+$"; "")))}}' > "$stage/pipeline.auto.tfvars.json"
 echo "Wrote 00-pipeline/pipeline.auto.tfvars.json (gitignored)"
 
 say "00-pipeline: terraform"
@@ -142,12 +167,14 @@ export GITHUB_TOKEN
 terraform -chdir="$stage" init -input=false >/dev/null
 case "$mode" in
   --plan) terraform -chdir="$stage" plan -input=false; exit 0 ;;
-  --answers-only) terraform -chdir="$stage" apply -input=false -target='module.pipeline.github_actions_environment_secret.this["plan/NERDIO_ANSWERS"]' ;;
   *) terraform -chdir="$stage" apply -input=false ;;
 esac
 unset GITHUB_TOKEN
 
 [ -f "$stage/backend.tf" ] || { say "Moving this stage's state into the new storage"; migrate "$stage" pipeline; }
+
+say "Answers"
+publish_answers
 
 cat <<MSG
 

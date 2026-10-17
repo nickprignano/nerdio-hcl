@@ -6,8 +6,11 @@
 #   plan  - read-only on the subscription; any run from the deploy branch can use it.
 #   apply - can change the subscription and Entra; GitHub only issues its token to a run a
 #           named reviewer has approved, from the deploy branch.
-# Whoever drives the pipeline (a person at the Actions tab, or later the setup chatbot) can
-# start a plan, but only a reviewer's approval in GitHub turns it into an apply.
+# Whoever drives the pipeline (a person at the Actions tab, or the setup chatbot) can start a
+# plan, but only a reviewer's approval in GitHub turns it into an apply.
+#
+# Containers: tfstate (state), plans (saved plans and their change summaries) and answers (the
+# ./nerdio answers each environment renders from, one blob per environment, versioned).
 
 data "azurerm_client_config" "current" {}
 
@@ -42,7 +45,6 @@ locals {
     { for k, v in local.shared_values : "plan/${k}" => { env = "plan", name = k, value = v } },
     { for k, v in local.shared_values : "apply/${k}" => { env = "apply", name = k, value = v } },
     { for env in keys(local.environments) : "${env}/AZURE_CLIENT_ID" => { env = env, name = "AZURE_CLIENT_ID", value = local.identities[env].client_id } },
-    var.answers_json == null ? {} : { "plan/NERDIO_ANSWERS" = { env = "plan", name = "NERDIO_ANSWERS", value = var.answers_json } },
   )
 
   graph_roles = merge(
@@ -58,7 +60,7 @@ resource "azurerm_resource_group" "this" {
 }
 
 # ---------------------------------------------------------------------------------------------
-# Terraform state and saved plans
+# Terraform state, saved plans and answers
 
 resource "azurerm_storage_account" "state" {
   name                            = local.storage_name
@@ -84,7 +86,7 @@ resource "azurerm_storage_account" "state" {
 }
 
 resource "azurerm_storage_container" "this" {
-  for_each              = toset(["tfstate", "plans"])
+  for_each              = toset(["tfstate", "plans", "answers"])
   name                  = each.key
   storage_account_id    = azurerm_storage_account.state.id
   container_access_type = "private"

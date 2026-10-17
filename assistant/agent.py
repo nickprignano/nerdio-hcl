@@ -1,8 +1,10 @@
 """The setup chatbot's agent loop and tools.
 
 The tools wrap the same ./nerdio engine the command line and the Actions form use, so all three
-ask the same questions and apply the same rules. None of them can reach Azure: anything that
-has to run in the tenant comes back as a Cloud Shell command for the person to paste.
+ask the same questions and apply the same rules. None of them can change Azure. Without the deploy
+pipeline, anything that has to run in the tenant comes back as a Cloud Shell command to paste.
+With it (pipeline.py, decision 0016), the bot can also save the answers, start a plan and read it
+back; an apply still waits for a reviewer's approval in GitHub.
 
 The server keeps no state. The browser sends the transcript and the answers with every turn,
 so the app can scale to zero, and the transcript is only ever appended to.
@@ -22,13 +24,15 @@ sys.path.insert(0, str(ROOT / "scripts" / "nerdio"))
 import engine  # noqa: E402
 import nerdio  # noqa: E402
 import tfcheck  # noqa: E402
+from pipeline import Pipeline, PipelineError  # noqa: E402
 
 PROMPT = (Path(__file__).resolve().parent / "prompt.md").read_text(encoding="utf-8")
 MODEL = os.environ.get("NERDIO_MODEL", "claude-opus-5-5")  # the Foundry deployment name
 EFFORT = os.environ.get("NERDIO_EFFORT", "medium")
 REPO_URL = os.environ.get("NERDIO_KIT_REPO", "https://github.com/nickprignano/nerdio-hcl")
 MAX_STEPS = 12
-KB_ALLOWED = [ROOT / "docs" / "knowledge", ROOT / "docs" / "deployment-runbook.md", ROOT / "docs" / "setup.md"]
+KB_ALLOWED = [ROOT / "docs" / "knowledge", ROOT / "docs" / "deployment-runbook.md", ROOT / "docs" / "setup.md",
+              ROOT / "docs" / "pipeline.md"]
 KB_MAX_CHARS = 40_000
 
 TOOLS = [
@@ -67,7 +71,7 @@ TOOLS = [
     {
         "name": "read_kb",
         "description": "Read a page of the kit's knowledge base to ground an answer: a path under docs/knowledge/ "
-                       "(for example docs/knowledge/nerdio/platform.md), docs/deployment-runbook.md or docs/setup.md. "
+                       "(for example docs/knowledge/nerdio/platform.md), docs/deployment-runbook.md, docs/setup.md or docs/pipeline.md. "
                        "An anchor after # is ignored. Pass docs/knowledge/README.md for the index.",
         "input_schema": {
             "type": "object",
@@ -92,14 +96,66 @@ TOOLS = [
     },
 ]
 
+# Offered only when the app is connected to the deploy pipeline.
+PIPELINE_TOOLS = [
+    {
+        "name": "pipeline_save_answers",
+        "description": "Save the current answers as the ones the deploy pipeline plans from, replacing what was "
+                       "saved before (the old version is kept). Only after the user said yes to saving them. "
+                       "\"me\" is saved as the signed-in user.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "pipeline_start",
+        "description": "Start the deploy workflow for one stage: platform (Azure, Entra and Nerdio Manager) first, "
+                       "then config (Nerdio's own settings). With apply true, the run asks to apply after the "
+                       "plan, but the apply waits until a reviewer approves it in GitHub; you can't approve it. "
+                       "Only after the user said yes to this exact stage and apply choice.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"stage": {"type": "string", "enum": ["platform", "config"]}, "apply": {"type": "boolean"}},
+            "required": ["stage", "apply"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
+        "name": "pipeline_runs",
+        "description": "The latest deploy runs: title (stage, plan or plan+apply), status, each job's status, "
+                       "whether it's waiting for a reviewer's approval, and its link.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "pipeline_plan",
+        "description": "The change list of one run's plan: each resource address and what happens to it "
+                       "(create, update, delete, or delete then create).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "integer"},
+                "stage": {"type": "string", "enum": ["platform", "config"]},
+                "attempt": {"type": "integer", "description": "The run's attempt number. Default 1."},
+            },
+            "required": ["run_id", "stage"],
+            "additionalProperties": False,
+        },
+    },
+]
+
+
+def tools_for(pipeline: Pipeline | None) -> list:
+    return TOOLS + PIPELINE_TOOLS if pipeline is not None and pipeline.configured else TOOLS
+
 
 class Session:
     """One turn's view of the conversation state the browser handed over."""
 
-    def __init__(self, answers: dict | None):
+    def __init__(self, answers: dict | None, user_object_id: str = "", pipeline: Pipeline | None = None):
         self.schema = engine.load_schema()
         self.answers = {k: v for k, v in (answers or {}).items() if isinstance(k, str)}
         engine.ensure_seed(self.answers)
+        self.user_object_id = user_object_id
+        self.pipeline = pipeline if pipeline is not None and pipeline.configured else None
 
     # -- tools ---------------------------------------------------------------
 
@@ -169,6 +225,25 @@ class Session:
             what = "Writes setup.auto.tfvars.json in both stages after Terraform checks them. Paste the output back here."
         return {"command": cmd, "explain": what}
 
+    def pipeline_save_answers(self) -> dict:
+        resolved = engine.resolve(self.schema, self.answers, engine.read_sources(placeholders=True))
+        if resolved.errors:
+            return {"saved": False, "errors": resolved.errors, "note": "Fix these answers first."}
+        answers = dict(self.answers)
+        if "prefix" not in answers:
+            # Pin the generated prefix so every run plans the same names the chat showed.
+            answers["prefix"] = resolved.values.get("prefix", "")
+
+        def me(value):
+            if isinstance(value, list):
+                return [me(v) for v in value]
+            return self.user_object_id if isinstance(value, str) and value.lower() == "me" else value
+
+        if any(me(v) != v for v in answers.values()) and not engine.UUID_RE.match(self.user_object_id or ""):
+            return {"saved": False, "note": "An answer says \"me\", but I can't tell who's signed in. "
+                                            "Use an Entra group name instead."}
+        return self.pipeline.save_answers({k: me(v) for k, v in answers.items()})
+
     # -- dispatch ------------------------------------------------------------
 
     def run_tool(self, name: str, args: dict) -> str:
@@ -183,8 +258,20 @@ class Session:
                 result = self.read_kb(str(args["path"]))
             elif name == "cloud_shell_command":
                 result = self.cloud_shell_command(args["kind"])
+            elif name.startswith("pipeline_") and self.pipeline is None:
+                result = {"error": "This chat isn't connected to the deploy pipeline."}
+            elif name == "pipeline_save_answers":
+                result = self.pipeline_save_answers()
+            elif name == "pipeline_start":
+                result = self.pipeline.start(args["stage"], bool(args["apply"]))
+            elif name == "pipeline_runs":
+                result = self.pipeline.runs()
+            elif name == "pipeline_plan":
+                result = self.pipeline.plan(int(args["run_id"]), args["stage"], int(args.get("attempt") or 1))
             else:
                 result = {"error": f"unknown tool {name}"}
+        except PipelineError as exc:
+            result = {"error": str(exc)}
         except (KeyError, TypeError, ValueError, engine.SchemaError) as exc:
             result = {"error": f"{type(exc).__name__}: {exc}"}
         return json.dumps(result, default=str)
@@ -211,9 +298,10 @@ def make_client():
     return AnthropicFoundry(azure_ad_token_provider=provider, resource=resource)
 
 
-def chat_turn(client, messages: list, answers: dict, text: str) -> dict:
+def chat_turn(client, messages: list, answers: dict, text: str, user_object_id: str = "",
+              pipeline: Pipeline | None = None) -> dict:
     """Run one user turn to completion. Returns the appended transcript, the answers and the reply text."""
-    session = Session(answers)
+    session = Session(answers, user_object_id, pipeline)
     messages = list(messages) + [{"role": "user", "content": text}]
     reply = ""
     for _ in range(MAX_STEPS):
@@ -221,7 +309,7 @@ def chat_turn(client, messages: list, answers: dict, text: str) -> dict:
             model=MODEL,
             max_tokens=16000,
             system=[{"type": "text", "text": PROMPT, "cache_control": {"type": "ephemeral"}}],
-            tools=TOOLS,
+            tools=tools_for(session.pipeline),
             messages=messages,
             output_config={"effort": EFFORT},
         )
