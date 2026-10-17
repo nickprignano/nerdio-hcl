@@ -45,3 +45,17 @@ errors:
   source: https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers
   status: verified
   added: '2026-10-16'
+- id: cloud-shell-reset-stops-terraform
+  symptom: Cloud Shell shows "Requesting a Cloud Shell" mid-apply or mid-destroy, and a rerun stops with `Error acquiring the state lock`
+  cause: Cloud Shell closes after about 20 minutes without a keypress, or when a tablet sleeps the tab. A run that was waiting at its "yes" prompt can survive and keep holding the lock
+  fix: Check `pgrep -a terraform` first. If a run is still there, stop it with `kill -INT <pid>`; if none is, `terraform force-unlock -force "$(jq -r .ID .terraform.tfstate.lock.info)"`. For long runs, review a saved plan (`terraform plan -destroy -out=destroy.tfplan`) and apply it with `nohup terraform apply destroy.tfplan > ~/destroy.log 2>&1 &`. The lasting fix is the deploy pipeline
+  source: chatbot-first.md
+  status: unverified
+  added: '2026-10-17'
+- id: smart-detection-action-group-blocks-destroy
+  symptom: A destroy fails on the Nerdio resource group with `the Resource Group still contains Resources`, naming `microsoft.insights/actiongroups/Application Insights Smart Detection`
+  cause: Azure creates that action group by itself when Application Insights is created, so it was never in Terraform's state. The azurerm provider refuses to delete a resource group that still holds resources it doesn't manage
+  fix: Check that it is the only resource listed, then `az monitor action-group delete -g <group> -n "Application Insights Smart Detection"`, plan the destroy again and apply it. Don't turn off `prevent_deletion_if_contains_resources` to get past it; that check is what caught it
+  source: chatbot-first.md
+  status: verified
+  added: '2026-10-17'
