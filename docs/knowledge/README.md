@@ -24,6 +24,7 @@ belongs to instead of starting a new file.
 <!-- BEGIN GENERATED: kb-index (from front matter; run scripts/kb/build.py) -->
 | Page | What's in it | Status |
 |---|---|---|
+| [workbenches.md](workbenches.md) | Where to run the kit from a browser: Azure Cloud Shell (baseline) or GitHub Codespaces (optional), with their limits | partial |
 | [nerdio/community-projects.md](nerdio/community-projects.md) | Other Nerdio + Terraform projects worth knowing about | partial |
 | [nerdio/entra-app.md](nerdio/entra-app.md) | The nerdio-nmw-app registration, permissions, app roles and the REST API client | partial |
 | [nerdio/platform.md](nerdio/platform.md) | What the Marketplace deployment creates, the install step, setup wizard, roles and hardening | partial |

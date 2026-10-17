@@ -15,7 +15,8 @@ then, continue with [deployment-runbook.md](deployment-runbook.md).
 
 ## Command line
 
-Works anywhere with Python 3, `az` and Terraform, including Azure Cloud Shell (Bash) in a browser.
+Works anywhere with Python 3, `az` and Terraform, including Azure Cloud Shell (Bash) in a browser
+and [GitHub Codespaces](codespaces.md).
 
 ```bash
 az account show                 # the tenant and subscription the kit will use
