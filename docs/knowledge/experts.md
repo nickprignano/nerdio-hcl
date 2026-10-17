@@ -14,7 +14,7 @@ chosen, so anyone can check it, re-run it or challenge it. The data is in
 [experts.yaml](experts.yaml), and the tables below are generated from it.
 
 <!-- BEGIN GENERATED: experts-balance (from experts.yaml; run scripts/kb/build.py) -->
-Last scored 2026-10-17: 0 tracked (none), 0 on the watch list, 0 declined, 2 nominated and waiting to be scored.
+Last scored 2026-10-17: 15 tracked (5 nerdio, 4 unknown, 3 partner, 2 independent, 1 microsoft), 7 on the watch list, 4 declined, 0 nominated and waiting to be scored.
 <!-- END GENERATED: experts-balance -->
 
 ## The method
@@ -36,7 +36,7 @@ from several channels, and each entry records which ones found it (`found_via`):
 
 ### 2. Apply the gates
 
-A candidate must pass all four gates to be tracked. Failing identity or originality declines
+A candidate must pass all four gates to be tracked. Organisations (Nerdio's YouTube channel, Microsoft's AVD blog) go through the same gates and scores as people. Failing identity or originality declines
 them; failing only recency or feed puts them on the watch list if their score is high enough.
 
 | Gate | Passes when |
@@ -44,7 +44,7 @@ them; failing only recency or feed puts them on the watch list if their score is
 | Original | They publish their own technical content, not just reshares or marketing |
 | Recent | They've posted about Nerdio or AVD in the last 12 months |
 | Feed | A free, machine-readable feed exists: blog RSS or Atom, a YouTube channel or a GitHub account (X isn't one; see [curation.md](curation.md#tracking-x-accounts-option-not-enabled)) |
-| Identity | One of their own profiles links to the others, so we know the accounts are the same person |
+| Identity | We know who's behind every account we'd watch: one of their own profiles links the others, or we watch only one account |
 
 ### 3. Score five things from 0 to 3
 
@@ -93,26 +93,52 @@ ask to be removed by opening an issue.
 ## Tracked
 
 <!-- BEGIN GENERATED: experts-tracked (from experts.yaml; run scripts/kb/build.py) -->
-None.
+| Name | Affiliation | Links | Score (rel/depth/recency/record/feed) | Latest Nerdio or AVD post | Notes |
+|---|---|---|---|---|---|
+| Aaron Parker | nerdio | [blog](https://stealthpuppy.com/), [GitHub](https://github.com/aaronparker) | 14 (3/3/2/3/3) | [2026-06-09](https://stealthpuppy.com/) | Maintains Evergreen and the aaronparker/nerdio scripts. Latest: "Evergreen Workbench is Generally Available". |
+| Dominiek Verham | partner | [blog](https://dominiekverham.com/) | 14 (3/2/3/3/3) | [2026-10-09](https://dominiekverham.com/) | Microsoft MVP and Nerdio NVP. The most Nerdio-focused independent blog found. Latest: "Configuring Nerdio Manager for MSP: post-installation checklist". |
+| Marcel Meurer | independent | [blog](https://blog.itprocloud.de/), [GitHub](https://github.com/MarcelMeurer) | 14 (2/3/3/3/3) | [2026-09-02](https://blog.itprocloud.de/) | Deep AVD gotchas. Makes Hydra, an AVD management tool that competes with Nerdio, so filter out product posts. Latest: "Azure Virtual Desktop Hybrid With Hydra Is General Available". |
+| Wayne Bellows | nerdio | [blog](https://modern-euc.com/), [GitHub](https://github.com/WayneBellows) | 14 (3/3/3/2/3) | [2026-10-08](https://modern-euc.com/) | Nerdio TAM. Weekly AVD image and FSLogix posts, plus scripted actions on GitHub. Latest: "How to Update an AVD Golden Image to Windows 11 26H2 Without a Bad Monday". |
+| Microsoft Azure Virtual Desktop blog | microsoft | [blog](https://techcommunity.microsoft.com/category/azure/blog/azurevirtualdesktopblog), [GitHub](https://github.com/avdaccelerator) | 13 (3/1/3/3/3) | [2026-10-01](https://techcommunity.microsoft.com/) | Official AVD announcements. Latest: "Now generally available: Regional resiliency for Azure Virtual Desktop". |
+| Nerdio (YouTube channel) | nerdio | [blog](https://getnerdio.com/blog/), [YouTube](https://www.youtube.com/channel/UClzdOrR9o0I05hnnByEKIKA), [GitHub](https://github.com/Get-Nerdio) | 13 (3/2/3/3/2) | none found | Webinars and release walkthroughs. Nerdio's blog has no feed. |
+| Cristian Schmitt Nieto | partner | [blog](https://schmitt-nieto.com/), [GitHub](https://github.com/schmittnieto) | 12 (2/3/3/2/2) | [2026-09-22](https://schmitt-nieto.com/) | Nerdio NVP. MIT-licensed Nerdio scripted actions; maintains the awesome-azure-virtual-desktop list. Latest: "Azure Local: Entra Joined AVD Session Hosts with PowerShell". |
+| Duo Infernale (Michele Blum and Flavio Meyer) | unknown | [blog](https://duo-infernale.ch/) | 12 (3/2/3/1/3) | [2026-10-14](https://duo-infernale.ch/) | Frequent AVD how-tos. Only the blog is watched. Identity: accounts aren't cross-linked, so only one is watched. Latest: "Azure Virtual Desktop: Now Available in Your Region". |
+| Neil McLoughlin | nerdio | [blog](https://virtualmanc.co.uk/), [YouTube](https://www.youtube.com/channel/UCS5W4f_rZexpCnBF1tSh1XA), [GitHub](https://github.com/virtualmanc) | 12 (3/2/2/3/2) | [2026-07-15](https://virtualmanc.co.uk/) | Nerdio TAM and Microsoft MVP. His new blog, virtualdesktops.community, couldn't be checked yet. Latest: "Context-Based Redirection in AVD & Windows 365 (guide)". |
+| markovich.io | independent | [blog](https://markovich.io/), [GitHub](https://github.com/wmarkovich) | 12 (3/2/3/1/3) | [2026-10-13](https://markovich.io/) | Posts almost daily without saying how; spot-check a sample for accuracy at the next review. Latest: "Windows 11 Image Versioning for AVD: Testing Copilot Search and AI Features Before They Hit Production". |
+| Johan Vanneuville | partner | [blog](https://johanvanneuville.com/) | 11 (3/2/1/2/3) | [2026-03-16](https://johanvanneuville.com/) | Nerdio NVP. Nerdio scripted actions and install guides; quiet since March 2026. Latest: "Pilot Nerdio to a succesfull install". |
+| ModernWorkspaceHub | unknown | [blog](https://modernworkspacehub.com/), [GitHub](https://github.com/durrante) | 11 (2/3/3/1/2) | [2026-09-09](https://modernworkspacehub.com/) | Maintains an AVD monitoring baseline (a fork of Microsoft's AMBA alerts). Latest: "Azure VM OS disk and C: drive sizes don". |
+| Alex ter Neuzen | unknown | [blog](https://www.gettothe.cloud/), [GitHub](https://github.com/GetToThe-Cloud) | 10 (1/3/3/1/2) | [2026-09-24](https://www.gettothe.cloud/) | AVD monitoring workbooks and KQL. Only the blog is watched, filtered to AVD. Latest: "Azure Virtual Desktop \| Sessionhost monitoring 2.0". |
+| Christiaan Brinkhoff | nerdio | [blog](https://christiaanbrinkhoff.com/), [YouTube](https://www.youtube.com/channel/UCP894c8_Rgop-qANoVK6Vkg) | 10 (2/1/2/3/2) | [2026-02-26](https://christiaanbrinkhoff.com/) | Joined Nerdio in 2026 from Microsoft's Windows 365 and AVD team. Mostly overviews. Latest: "Azure Virtual Desktop for hybrid environments". |
+| Travis Roberts (Ciraltos) | unknown | [blog](https://www.ciraltos.com/), [YouTube](https://www.youtube.com/channel/UCuB24cID6NnypDWSLe4gfqA) | 10 (1/2/3/2/2) | [2026-09-09](https://www.ciraltos.com/) | AVD explainers. Only the blog is watched, filtered to AVD. Identity: accounts aren't cross-linked, so only one is watched. Latest: "Azure Virtual Desktop Hybrid Is Now GA: 6 Reasons to Use It, and 2 Reasons to Reconsider". |
 <!-- END GENERATED: experts-tracked -->
 
 ## Watch list
 
 <!-- BEGIN GENERATED: experts-watch (from experts.yaml; run scripts/kb/build.py) -->
-None.
+| Name | Affiliation | Links | Score (rel/depth/recency/record/feed) | Latest Nerdio or AVD post | Notes |
+|---|---|---|---|---|---|
+| Dean Cefola (Azure Academy) | independent | [YouTube](https://www.youtube.com/channel/UC-MXgaFhsYU8PkqgKBdnusQ), [GitHub](https://github.com/DeanCefola) | 11 (3/3/0/3/2) | [2025-10-07](https://www.youtube.com/watch?v=bAB_gO8GU0o) | Fails: recent. Long-running AVD video series. No dated AVD video in the last 12 months was found; YouTube Shorts weren't checked. |
+| Aresh Sarkari | unknown | [blog](https://askaresh.com/) | 9 (1/3/1/2/2) | [2026-10-08](https://askaresh.com/) | Mostly Windows 365 now. Identity: accounts aren't cross-linked, so only one is watched. Latest: "Windows 365 Local Admin - Cloud PC Configurations vs User Settings + PowerShell (Graph REST API)". |
+| Mobile Jon | partner | [blog](https://mobile-jon.com/), [YouTube](https://www.youtube.com/channel/UCJBM-j8va7lrwTZBWSXt7vw), [GitHub](https://github.com/mobilejon) | 9 (1/3/1/2/2) | [2026-01-10](https://mobile-jon.com/2026/01/10/building-azure-virtual-desktop-images-powered-by-nerdio/) | Nerdio NVP. Deep when on topic, but mostly writes about Intune. |
+| Shabaz Darr | partner | [YouTube](https://www.youtube.com/channel/UCt5sNdu14RterwDfEDEJidQ) | 8 (2/2/0/3/1) | [2025-07-22](https://www.youtube.com/watch?v=k27nZcv7sew) | Fails: recent. Microsoft MVP and Nerdio NVP. Newest Nerdio video found is from July 2025; the channel moved to a new ID. |
+| Bas van Kaam | nerdio | [blog](https://www.basvankaam.com/) | 7 (2/2/0/3/0) | [2023-04-11](https://www.basvankaam.com/) | Fails: recent. No posts since 2023. Latest: "The Azure Virtual Desktop Security Guidelines Cheat Sheet - v1.0". |
+| Marius Sandbu | unknown | [blog](https://msandbu.org/) | 7 (0/3/0/3/1) | none found | Fails: recent. Active, but not on Nerdio or AVD now. Identity: accounts aren't cross-linked, so only one is watched. |
+| Sander Rozemuller | unknown | [blog](https://rozemuller.com/), [GitHub](https://github.com/srozemuller) | 7 (0/3/0/3/1) | none found | Fails: recent. Strong AVD automation history; recent posts are all Intune. Identity: accounts aren't cross-linked, so only one is watched. |
 <!-- END GENERATED: experts-watch -->
 
 ## Declined
 
 <!-- BEGIN GENERATED: experts-declined (from experts.yaml; run scripts/kb/build.py) -->
-None.
+| Name | Affiliation | Links | Score (rel/depth/recency/record/feed) | Latest Nerdio or AVD post | Notes |
+|---|---|---|---|---|---|
+| AVD Community Newsletter | independent | [blog](https://avdcommunity.com/category/newsletter/) | 11 (3/0/3/2/3) | [2026-10-02](https://avdcommunity.com/category/newsletter/) | Fails: original. A curated roundup, not original content. Used to find new people at each review. |
+| Patrick Coble | unknown | [blog](https://vdihacker.com/) | 6 (1/2/0/3/0) | none found | Fails: recent, feed, identity. Nerdio NVP. His site couldn't be read and no feed was confirmed. |
+| Dane Young | partner | [blog](https://blog.youngtech.com/) | 5 (0/2/0/2/1) | none found | Fails: recent. Nerdio NVP. Nothing on Nerdio or AVD in the current feed. Identity: accounts aren't cross-linked, so only one is watched. |
+| Fabian Rodrigues | unknown |  | 0 (0/0/0/0/0) | none found | Fails: original, recent, feed, identity. Couldn't identify a Nerdio or AVD author by this name. |
 <!-- END GENERATED: experts-declined -->
 
 ## Nominated, not scored yet
 
 <!-- BEGIN GENERATED: experts-nominated (from experts.yaml; run scripts/kb/build.py) -->
-| Name | Links | Nomination | Notes |
-|---|---|---|---|
-| Aaron Parker | [blog](https://stealthpuppy.com), [GitHub](https://github.com/aaronparker) |  |  |
-| Wayne Bellows | [blog](https://modern-euc.com) |  |  |
+None waiting.
 <!-- END GENERATED: experts-nominated -->

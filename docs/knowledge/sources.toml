@@ -59,17 +59,21 @@ url = "https://nmehelp.getnerdio.com"
 kb_page = "nerdio/platform.md"
 
 # --- Community experts ------------------------------------------------------
+# Chosen and scored with the method in experts.md; each source names its expert in experts.yaml.
+# validate.py checks that every tracked expert has a source here and every source's expert is tracked.
 
 [[source]]
 name = "stealthpuppy (Aaron Parker): Nerdio Manager scripts"
 kind = "github_commits"
 repo = "aaronparker/nerdio"
+expert = "aaron-parker"
 kb_page = "nerdio/community-projects.md"
 
 [[source]]
 name = "stealthpuppy (Aaron Parker): Intune remediations"
 kind = "github_commits"
 repo = "aaronparker/remediations"
+expert = "aaron-parker"
 kb_page = "security/README.md"
 
 [[source]]
@@ -77,6 +81,7 @@ name = "stealthpuppy (Aaron Parker): new and updated repos"
 kind = "github_user_repos"
 user = "aaronparker"
 keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Packer", "Terraform"]
+expert = "aaron-parker"
 kb_page = "nerdio/community-projects.md"
 
 [[source]]
@@ -84,65 +89,128 @@ name = "stealthpuppy (Aaron Parker): blog"
 kind = "feed"
 url = "https://stealthpuppy.com/feed.xml"
 keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "Intune", "image", "FSLogix", "Evergreen"]
+expert = "aaron-parker"
 kb_page = "nerdio/community-projects.md"
 
 [[source]]
 name = "Wayne Bellows: Modern EUC blog"
 kind = "feed"
 url = "https://modern-euc.com/feed/"
+expert = "wayne-bellows"
 kb_page = "packer/avd-image.md"
 
 [[source]]
 name = "Wayne Bellows: GitHub repos"
 kind = "github_user_repos"
 user = "WayneBellows"
+expert = "wayne-bellows"
 kb_page = "nerdio/community-projects.md"
 
 [[source]]
 name = "Neil McLoughlin (virtualmanc): blog"
 kind = "feed"
 url = "https://virtualmanc.co.uk/feed/"
+expert = "neil-mcloughlin"
 kb_page = "nerdio/platform.md"
 
 [[source]]
 name = "Neil McLoughlin (virtualmanc): GitHub repos"
 kind = "github_user_repos"
 user = "virtualmanc"
-kb_page = "nerdio/community-projects.md"
-
-[[source]]
-name = "Dean Cefola: Azure Academy (YouTube)"
-kind = "feed"
-url = "https://www.youtube.com/feeds/videos.xml?channel_id=UC-MXgaFhsYU8PkqgKBdnusQ"
-keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365", "FSLogix", "Intune", "image"]
-kb_page = "nerdio/platform.md"
-
-[[source]]
-name = "Dean Cefola: GitHub repos"
-kind = "github_user_repos"
-user = "DeanCefola"
-keywords = ["Nerdio", "AVD", "WVD", "Virtual Desktop", "image"]
+expert = "neil-mcloughlin"
 kb_page = "nerdio/community-projects.md"
 
 [[source]]
 name = "Nerdio (YouTube)"
 kind = "feed"
 url = "https://www.youtube.com/feeds/videos.xml?channel_id=UClzdOrR9o0I05hnnByEKIKA"
+expert = "nerdio-youtube"
 kb_page = "nerdio/platform.md"
 
 [[source]]
-name = "Dane Young: Nerdio posts"
+name = "Dominiek Verham: blog"
 kind = "feed"
-url = "https://blog.youngtech.com/category/nerdio/feed/"
-# Untested: the blog blocked automated checks. Drop it if the digest keeps listing it as failed.
+url = "https://dominiekverham.com/feed/"
+expert = "dominiek-verham"
 kb_page = "nerdio/platform.md"
 
+# Makes Hydra, which competes with Nerdio: use the AVD findings, skip product news.
 [[source]]
-name = "Marius Sandbu: blog"
+name = "Marcel Meurer: blog"
 kind = "feed"
-url = "https://msandbu.org/feed/"
-keywords = ["Nerdio", "AVD", "Virtual Desktop", "Windows 365"]
+url = "https://blog.itprocloud.de/feed.xml"
+keywords = ["Nerdio", "AVD", "Azure Virtual Desktop", "Virtual Desktop", "FSLogix", "session host", "host pool"]
+expert = "marcel-meurer"
+kb_page = "troubleshooting/README.md"
+
+[[source]]
+name = "Duo Infernale: blog"
+kind = "feed"
+url = "https://duo-infernale.ch/feed/"
+expert = "duo-infernale"
+kb_page = "troubleshooting/README.md"
+
+[[source]]
+name = "Cristian Schmitt Nieto: blog"
+kind = "feed"
+url = "https://schmitt-nieto.com/feed.xml"
+keywords = ["Nerdio", "AVD", "Azure Virtual Desktop", "Virtual Desktop", "FSLogix", "session host", "host pool"]
+expert = "cristian-schmitt-nieto"
 kb_page = "nerdio/community-projects.md"
+
+# On probation: spot-check a sample for accuracy at the next review (experts.md).
+[[source]]
+name = "markovich.io: blog"
+kind = "feed"
+url = "https://markovich.io/feed/"
+expert = "wayne-markovich"
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "Johan Vanneuville: blog"
+kind = "feed"
+url = "https://johanvanneuville.com/feed/"
+expert = "johan-vanneuville"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "Alex ter Neuzen: blog"
+kind = "feed"
+url = "https://www.gettothe.cloud/feed/"
+keywords = ["Nerdio", "AVD", "Azure Virtual Desktop", "Virtual Desktop", "FSLogix", "session host", "host pool"]
+expert = "alex-ter-neuzen"
+kb_page = "troubleshooting/README.md"
+
+[[source]]
+name = "Travis Roberts (Ciraltos): blog"
+kind = "feed"
+url = "https://www.ciraltos.com/feed/"
+keywords = ["Nerdio", "AVD", "Azure Virtual Desktop", "Virtual Desktop", "FSLogix", "session host", "host pool"]
+expert = "travis-roberts"
+kb_page = "troubleshooting/README.md"
+
+[[source]]
+name = "ModernWorkspaceHub: blog"
+kind = "feed"
+url = "https://modernworkspacehub.com/feed/"
+keywords = ["Nerdio", "AVD", "Azure Virtual Desktop", "Virtual Desktop", "FSLogix", "session host", "host pool"]
+expert = "modernworkspacehub"
+kb_page = "troubleshooting/README.md"
+
+[[source]]
+name = "Christiaan Brinkhoff: blog"
+kind = "feed"
+url = "https://christiaanbrinkhoff.com/feed/"
+keywords = ["Nerdio", "AVD", "Azure Virtual Desktop", "Virtual Desktop", "FSLogix", "session host", "host pool"]
+expert = "christiaan-brinkhoff"
+kb_page = "nerdio/platform.md"
+
+[[source]]
+name = "Microsoft Azure Virtual Desktop blog"
+kind = "feed"
+url = "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=AzureVirtualDesktopBlog"
+expert = "microsoft-avd-blog"
+kb_page = "nerdio/platform.md"
 
 # --- HashiCorp stack --------------------------------------------------------
 
