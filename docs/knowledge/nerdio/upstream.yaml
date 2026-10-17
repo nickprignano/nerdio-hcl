@@ -83,6 +83,38 @@ feature_gaps:
     OIDC or a managed identity, and no Key Vault or Vault hand-off would be needed
     ([decision 0015](../decisions/0015-secrets-key-vault-default-openbao-optional.md)).
   status: candidate
+- id: sovereign-cloud-token-endpoint
+  title: Azure Government sign-in (token URL or cloud setting) in the provider
+  evidence: >-
+    The token endpoint defaults to `https://login.microsoftonline.com/<tenant>/oauth2/v2.0/token`
+    (`internal/provider/provider_clients.go`, commit `65e547f`). The client config already has a `TokenURL`
+    field, but the provider schema doesn't expose it. Nerdio supports NME in Azure Government
+    ([help article 40495096260493](https://nmehelp.getnerdio.com/hc/en-us/articles/40495096260493)).
+  why: >-
+    The provider can't authenticate against `login.microsoftonline.us`, so no Gov or GCC High install can be
+    configured as code. Likely the smallest provider change on this list: a `token_url` attribute with an
+    `NME_TOKEN_URL` variable, or a `cloud` enum.
+  status: candidate
+- id: azure-local-hybrid-objects
+  title: Azure Local hybrid networks and hybrid host pools
+  evidence: >-
+    NME supports AVD on Azure Local through "Link Hybrid Network" and Hybrid Host Pools
+    ([25499377328909](https://nmehelp.getnerdio.com/hc/en-us/articles/25499377328909),
+    [40495096378125](https://nmehelp.getnerdio.com/hc/en-us/articles/40495096378125)). The provider only has
+    `hci_gpu_allocation_mode` on `nme_vm_deployment_profile`; the OpenAPI spec has no hybrid network, custom
+    location or hybrid host pool paths.
+  why: Azure Local deployments stop at the Azure side; linking the cluster and creating pools stays in the console.
+  status: candidate
+- id: windows-365-resources
+  title: Windows 365 resources or data sources
+  evidence: >-
+    NME manages Azure network connections, provisioning policies, user settings and Cloud PC lifecycle
+    ([25499404997901](https://nmehelp.getnerdio.com/hc/en-us/articles/25499404997901)). The OpenAPI spec's only
+    Cloud PC trace is `uploadToCloudPc` on the set-as-image call.
+  why: >-
+    The kit can create Cloud PC objects through Graph (`microsoft365` provider), but Terraform and Nerdio
+    can't agree on who owns them without at least a read API in Nerdio.
+  status: candidate
 api_asks:
 - id: directory-profile-create-api-and-provider-resource
   title: Directory profile create API and provider resource
@@ -127,6 +159,18 @@ api_asks:
     Nerdio's terms on automating the console UI weren't checked.
   why: Ask before publishing the bridge in a public kit; the API asks above remain the real fix.
   status: candidate
+- id: intune-policy-and-approvals-api
+  title: Intune policy, backup and approvals API
+  evidence: >-
+    NME manages Intune compliance, configuration profiles, baselines, Conditional Access, apps and Windows Update
+    with backups and an approval workflow ([25499402447373](https://nmehelp.getnerdio.com/hc/en-us/articles/25499402447373),
+    [32612203319693](https://nmehelp.getnerdio.com/hc/en-us/articles/32612203319693)). The OpenAPI spec has only an
+    Intune device console-connect call and Intune devices in user entitlements; turning the integration on is a
+    console step with Global Administrator consent.
+  why: >-
+    Policy as code today has to go straight to Graph, which skips Nerdio's approvals. An API (and turning the
+    integration on without the console) would let Terraform drive Nerdio-managed Intune with its guardrails intact.
+  status: candidate
 docs_packaging:
 - id: registry-publishing-plus-a-license
   title: Registry publishing plus a LICENSE
@@ -167,4 +211,16 @@ docs_packaging:
   fix: >-
     Ask Nerdio to confirm the tag method is a supported replacement for the UI toggle, and document auth
     setup end to end.
+  status: candidate
+- id: azure-government-install-docs
+  title: Azure Government install and API endpoints
+  evidence: >-
+    Nerdio's Gov article covers a Marketplace install with app-credential linking only, no managed-identity or
+    split-identity installs, and no User Cost Attribution
+    ([40495096260493](https://nmehelp.getnerdio.com/hc/en-us/articles/40495096260493)). It doesn't say whether
+    `mainTemplate.json` works in Gov, which package API host Gov installs use, or which token audience the REST
+    API expects there.
+  fix: >-
+    Document the Gov endpoints (package API, REST API scope and token authority) and whether the template path is
+    supported in Gov.
   status: candidate
