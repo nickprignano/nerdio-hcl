@@ -43,6 +43,13 @@ offers Claude on Foundry, if different), `--image` (your own build), and `--plan
   create the model deployment, create it in the Foundry portal and set
   `foundry = { create_deployment = false, deployment_name = "<its name>" }` in the tfvars.
 
+## Put it on your home screen
+
+The chat installs like an app, with no App Store and nothing to pay for. On an iPhone or iPad, open
+the URL in Safari or Edge, sign in, tap **Share**, then **Add to Home Screen**. In Edge or Chrome on
+a computer, use **Install** in the address bar. It opens full screen with its own icon, and
+sign-in works the same way as in the browser.
+
 ## How it works
 
 - **Nothing in your tenant is changed by the chat.** The bot's tools only read the kit's schema
@@ -50,8 +57,9 @@ offers Claude on Foundry, if different), `--image` (your own build), and `--plan
   configuration), it gives you one Cloud Shell command to paste, and you paste the output back.
 - **No IDs or secrets in the conversation.** Tenant and subscription IDs come from your Cloud Shell
   sign-in, and group names are looked up there. The bot never asks for a password, key or secret.
-- **No stored conversations.** The app keeps no state. The conversation lives in your browser tab
-  until you close it or click **New**.
+- **No stored conversations.** The app keeps no state. The conversation lives in your browser, so
+  it survives switching to Cloud Shell and back. It's cleared when you click **New**, after a week
+  unused, or when a different admin signs in on the same browser.
 - **Grounded answers.** Each recommendation comes from the question's help text, the knowledge base
   in `docs/knowledge/`, or the documentation it links. When there's no source, it says so.
 

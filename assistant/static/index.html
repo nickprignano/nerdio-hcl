@@ -4,6 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Nerdio setup</title>
+  <!-- Installable: Share > Add to Home Screen on iPhone and iPad, Install in Edge and Chrome.
+       use-credentials sends the sign-in cookie, so the manifest isn't bounced to the login page. -->
+  <link rel="manifest" href="/static/manifest.webmanifest" crossorigin="use-credentials">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Nerdio setup">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#2257c5">
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
