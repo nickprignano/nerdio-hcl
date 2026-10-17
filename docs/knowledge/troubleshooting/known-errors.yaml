@@ -52,3 +52,10 @@ errors:
   source: chatbot-first.md
   status: unverified
   added: '2026-10-17'
+- id: smart-detection-action-group-blocks-destroy
+  symptom: A destroy fails on the Nerdio resource group with `the Resource Group still contains Resources`, naming `microsoft.insights/actiongroups/Application Insights Smart Detection`
+  cause: Azure creates that action group by itself when Application Insights is created, so it was never in Terraform's state. The azurerm provider refuses to delete a resource group that still holds resources it doesn't manage
+  fix: Check that it is the only resource listed, then `az monitor action-group delete -g <group> -n "Application Insights Smart Detection"`, plan the destroy again and apply it. Don't turn off `prevent_deletion_if_contains_resources` to get past it; that check is what caught it
+  source: chatbot-first.md
+  status: verified
+  added: '2026-10-17'
