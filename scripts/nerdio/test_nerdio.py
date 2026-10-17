@@ -234,7 +234,17 @@ class PreflightTests(unittest.TestCase):
             ("account", "show"): {"id": ZERO, "name": "sandbox", "user": {"type": "user", "name": "admin"}},
             ("ad", "signed-in-user"): "66666666-7777-8888-9999-000000000000",
             ("role", "assignment"): ["Owner"],
-            ("rest", "--method"): {"value": [{"displayName": "Global Administrator"}]},
+            ("rest", "directoryRole"): {"value": [{"displayName": "Global Administrator"}]},
+            ("rest", "authorizationPolicy"): {"defaultUserRolePermissions": {"allowedToCreateApps": False}},
+            ("rest", "Microsoft.Web"): {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3 VMs"},
+                                                    "limit": 10, "currentValue": 0}]},
+            ("appservice", "list-locations"): ["East US 2", "West Europe"],
+            ("rest", "Microsoft.Sql"): {"status": "Default", "supportedServerVersions": [
+                {"supportedEditions": [{"supportedServiceLevelObjectives": [{"name": "S1"}]}]}]},
+            ("network", "vnet", "list"): [],
+            ("group", "list"): [],
+            ("network", "private-dns"): [],
+            ("policy", "assignment"): [],
             ("provider", "list"): [{"ns": ns, "state": "Registered"} for ns in preflight.PROVIDERS],
             ("account", "list-locations"): ["eastus2", "westeurope"],
             ("vm", "list-skus"): [{"name": "Standard_D8s_v5", "family": "standardDSv5Family", "restrictions": [],
@@ -243,7 +253,12 @@ class PreflightTests(unittest.TestCase):
                                    {"name": {"value": "cores"}, "limit": 100, "currentValue": 10}],
         }
         data.update(overrides or {})
-        return lambda args: data.get(tuple(args[:2]))
+        def fake(args):
+            if args[0] == "rest":
+                url = args[args.index("--url") + 1]
+                return next((v for (k, frag), v in data.items() if k == "rest" and frag in url), None)
+            return data[tuple(args[:3])] if tuple(args[:3]) in data else data.get(tuple(args[:2]))
+        return fake
 
     def values(self):
         schema = engine.load_schema()
@@ -272,11 +287,101 @@ class PreflightTests(unittest.TestCase):
                 self.assertTrue(r.fix, r.check)
 
     def test_consent_needs_the_role_pair_or_global_admin(self):
-        overrides = {("rest", "--method"): {"value": [{"displayName": "Cloud Application Administrator"}]}}
+        overrides = {("rest", "directoryRole"): {"value": [{"displayName": "Cloud Application Administrator"}]}}
         with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
              mock.patch.object(preflight, "check_tools", return_value=[]):
             results = preflight.run(self.values())
         self.assertIn("Entra admin role", {r.check for r in results if r.status == "fail"})
+
+    def test_app_service_quota_of_zero_fails_with_the_fix_command(self):
+        overrides = {("rest", "Microsoft.Web"): {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3 VMs"},
+                                                             "limit": 0, "currentValue": 0}]}}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]):
+            results = preflight.run(self.values())
+        quota = [r for r in results if r.check == "App Service quota"]
+        self.assertEqual([r.status for r in quota], ["fail"])
+        self.assertIn("./nerdio fix quota", quota[0].fix)
+
+    def test_app_service_quota_unreadable_warns(self):
+        overrides = {("rest", "Microsoft.Web"): None}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]):
+            results = preflight.run(self.values())
+        self.assertEqual([r.status for r in results if r.check == "App Service quota"], ["warn"])
+
+    def test_app_registration_blocked_without_a_role_fails(self):
+        overrides = {("rest", "directoryRole"): {"value": []}}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]):
+            results = preflight.run(self.values())
+        self.assertIn("App registration", {r.check for r in results if r.status == "fail"})
+
+    def run_with(self, overrides=None, **values):
+        vals = self.values()
+        vals.update(values)
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)), \
+             mock.patch.object(preflight, "check_tools", return_value=[]), \
+             mock.patch.object(preflight, "check_cloud_shell", return_value=[]):
+            return {r.check: r for r in preflight.run(vals)}
+
+    def test_contributor_plus_access_admin_counts_as_owner(self):
+        results = self.run_with({("role", "assignment"): ["Contributor", "User Access Administrator"]})
+        self.assertEqual(results["Subscription Owner"].status, "pass")
+
+    def test_overlapping_vnet_warns(self):
+        results = self.run_with({("network", "vnet", "list"): [
+            {"name": "vnet-other", "id": "/x/vnet-other", "prefixes": ["10.50.8.0/24"]}]})
+        self.assertEqual(results["Address range"].status, "warn")
+
+    def test_the_kits_own_earlier_resources_are_not_flagged(self):
+        results = self.run_with({
+            ("group", "list"): ["rg-nme-sbx-ab12-network"],
+            ("network", "vnet", "list"): [{"name": "vnet-nme-sbx-ab12-avd", "id": "/x/v", "rg": "rg-nme-sbx-ab12-network",
+                                           "prefixes": ["10.50.0.0/20"]}],
+            ("network", "private-dns"): [{"name": "privatelink.blob.core.windows.net", "rg": "rg-nme-sbx-ab12-network"}]})
+        self.assertEqual(results["Address range"].status, "pass")
+        self.assertNotIn("Private DNS", results)
+
+    def test_policy_names_hide_ids(self):
+        results = self.run_with({("policy", "assignment"): ["ASC Default (subscription: 11111111-2222-3333-4444-555555555555)"]})
+        self.assertNotIn("11111111", results["Azure Policy"].detail)
+
+    def test_region_scan_reports_each_region(self):
+        overrides = {("account", "list-locations"): [{"name": "eastus2", "group": "US"}, {"name": "centralus", "group": "US"}, {"name": "eastus2euap", "group": "US"},
+                                                     {"name": "westeurope", "group": "Europe"}]}
+        with mock.patch.object(preflight, "az_json", side_effect=self.fake_az(overrides)):
+            regions = preflight.nearby_regions("eastus2")
+            found = preflight.scan_regions(self.values(), ZERO, regions)
+        self.assertEqual(regions, ["centralus", "eastus2"])
+        self.assertEqual(set(found), {"centralus", "eastus2"})
+        self.assertIn("Azure SQL region", {r.check for r in found["centralus"]})
+
+    def test_hub_overlap_and_missing_rights_fail(self):
+        hub = "/subscriptions/x/resourceGroups/hub/providers/Microsoft.Network/virtualNetworks/hub"
+        results = self.run_with({("network", "vnet", "show"): {"prefixes": ["10.50.0.0/16"]},
+                                 ("role", "assignment"): ["Reader"]}, hub_vnet_id=hub)
+        self.assertEqual(results["Hub network"].status, "fail")
+        self.assertEqual(results["Hub peering rights"].status, "fail")
+
+    def test_unreadable_hub_fails(self):
+        results = self.run_with({("network", "vnet", "show"): None}, hub_vnet_id="/subscriptions/x/hub")
+        self.assertEqual(results["Hub network"].status, "fail")
+
+    def test_sql_region_closed_fails(self):
+        results = self.run_with({("rest", "Microsoft.Sql"): {"status": "Disabled", "reason": "RegionDoesNotAllowProvisioning"}})
+        self.assertEqual(results["Azure SQL region"].status, "fail")
+
+    def test_enforced_policies_are_listed_for_review(self):
+        results = self.run_with({("policy", "assignment"): ["Allowed locations", "Require a tag"]})
+        self.assertEqual(results["Azure Policy"].status, "manual")
+        self.assertIn("Allowed locations", results["Azure Policy"].detail)
+
+    def test_ephemeral_cloud_shell_fails(self):
+        with mock.patch.dict(os.environ, {"AZUREPS_HOST_ENVIRONMENT": "cloud-shell/1.0"}), \
+             mock.patch.object(os.path, "isdir", return_value=False):
+            results = preflight.check_cloud_shell()
+        self.assertEqual(results[0].status, "fail")
 
     def test_not_signed_in_stops_early(self):
         with mock.patch.object(preflight, "az_json", return_value=None), \

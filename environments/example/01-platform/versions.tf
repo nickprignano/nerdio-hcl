@@ -39,8 +39,23 @@ provider "azurerm" {
   features {}
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
-  # The kit registers the resource providers it needs explicitly.
+  # Register only the providers Nerdio Manager and the kit need. The provider does this when it
+  # starts and skips any already registered, so subscriptions that already have them (most do)
+  # work too. A resource per provider failed there with "already exists".
   resource_provider_registrations = "none"
+  resource_providers_to_register = [
+    "Microsoft.Automation",
+    "Microsoft.Compute",
+    "Microsoft.DesktopVirtualization",
+    "Microsoft.Insights",
+    "Microsoft.KeyVault",
+    "Microsoft.Network",
+    "Microsoft.OperationalInsights",
+    "Microsoft.RecoveryServices",
+    "Microsoft.Sql",
+    "Microsoft.Storage",
+    "Microsoft.Web",
+  ]
 }
 
 provider "azuread" {

@@ -1,23 +1,12 @@
-locals {
-  # Providers listed in Nerdio's prerequisites, plus the ones the kit itself uses.
-  resource_providers = toset([
-    "Microsoft.DesktopVirtualization",
-    "Microsoft.Compute",
-    "Microsoft.Storage",
-    "Microsoft.Automation",
-    "Microsoft.RecoveryServices",
-    "Microsoft.Sql",
-    "Microsoft.Insights",
-    "Microsoft.KeyVault",
-    "Microsoft.Web",
-    "Microsoft.Network",
-    "Microsoft.OperationalInsights",
-  ])
-}
+# Resource providers are registered by the azurerm provider block in the root module
+# (resource_providers_to_register), which skips any already registered. The old per-provider
+# resource failed on subscriptions that had them. Forget it without unregistering anything.
+removed {
+  from = azurerm_resource_provider_registration.this
 
-resource "azurerm_resource_provider_registration" "this" {
-  for_each = var.register_resource_providers ? local.resource_providers : toset([])
-  name     = each.value
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "azurerm_resource_group" "this" {
@@ -25,8 +14,6 @@ resource "azurerm_resource_group" "this" {
   name     = each.value
   location = var.location
   tags     = merge(var.tags, { "nerdio-kit-role" = each.key })
-
-  depends_on = [azurerm_resource_provider_registration.this]
 }
 
 resource "azurerm_log_analytics_workspace" "avd" {

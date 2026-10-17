@@ -6,6 +6,11 @@
   ./nerdio questions --phase discover   the questions as JSON, for the setup chatbot
   ./nerdio show                 the current answers and where each value came from
   ./nerdio preflight            read-only readiness checks (roles, providers, region, quota)
+  ./nerdio preflight --regions  find regions where the VM size, quota, App Service and SQL all pass
+  ./nerdio redact --tail 40     the bootstrap's last output with IDs, IPs and tenant names masked, to share
+  ./nerdio fix quota            ask Azure Support for App Service quota (shows it, then asks yes)
+  ./nerdio fix vcpu --family F --limit N   raise a VM family's vCPU quota (shows it, then asks yes)
+  ./nerdio fix roles            activate eligible PIM roles the kit needs (shows them, then asks yes)
   ./nerdio schema check         check the schema against the Terraform variables (CI)
   ./nerdio form --write|--check generate or check the Actions form from the schema
   ./nerdio assistant --admin-group "AVD Admins"   deploy the setup chatbot into this tenant
@@ -20,10 +25,14 @@ import re
 import subprocess
 import sys
 import textwrap
+from dataclasses import asdict
+from pathlib import Path
 
 import engine
+import fix
 import form
 import preflight
+import redact
 import tfcheck
 
 ASKED_PHASES = ["discover", "configure"]
@@ -227,11 +236,70 @@ def cmd_show(args) -> int:
     return 1 if resolved.errors else 0
 
 
+def scan_regions(values: dict, regions: str, as_json: bool) -> int:
+    sub = engine.az_json(["account", "show", "--query", "id"])
+    if not sub:
+        print("stopped: sign in with az login first", file=sys.stderr)
+        return 1
+    names = [r.strip() for r in regions.split(",") if r.strip()] or preflight.nearby_regions(values["location"])
+    found = preflight.scan_regions(values, sub, names, None if as_json else
+                                   lambda r: print(f"checking {r} ...", file=sys.stderr))
+    if as_json:
+        print(json.dumps({r: [asdict(x) for x in res] for r, res in found.items()}, indent=2))
+    else:
+        print(f"\n{values['vm_size']}, {values.get('app_service_plan_sku') or 'B3'} App Service, Azure SQL:\n")
+        for region, res in found.items():
+            bad = [x for x in res if x.status == "fail"]
+            unsure = [x for x in res if x.status == "warn"]
+            # vCPU quota is the one fix that's self-service (Azure Quota API, usually minutes).
+            only_vcpu = bad and all(x.check == "vCPU quota" for x in bad)
+            mark = "~" if only_vcpu else "✗" if bad else "!" if unsure else "✓"
+            why = "; ".join(f"{x.check}: " + re.sub(r" for this subscription: .*", "", x.detail)
+                            for x in bad + unsure) or "everything checked passes"
+            print(f"{mark} {region:<20} {why}")
+        good = [r for r, res in found.items() if not any(x.status == "fail" for x in res)]
+        near = [r for r, res in found.items()
+                if any(x.status == "fail" for x in res) and all(x.check == "vCPU quota" for x in res if x.status == "fail")]
+        if good:
+            print("\n✓ passes. Use one with ./nerdio init --set location=<region>")
+        elif near:
+            print(f"\n~ needs only vCPU quota, which is self-service: ./nerdio fix vcpu --location {near[0]} "
+                  "--family <family> --limit <vCPUs>")
+        else:
+            print("\nNo region passes as is. Quota fixes (./nerdio fix ...) apply per region; "
+                  "try another size with --set vm_size=<size>.")
+    return 0
+
+
+LAST_LOG = engine.ROOT / ".nerdio" / "logs" / "last.log"
+
+
+def cmd_redact(args) -> int:
+    if args.file:
+        text = Path(args.file).read_text(encoding="utf-8", errors="replace")
+    elif not sys.stdin.isatty():
+        text = sys.stdin.read()
+    elif LAST_LOG.exists():
+        text = LAST_LOG.read_text(encoding="utf-8", errors="replace")
+    else:
+        print("nothing to redact: pipe output in, name a file, or run the bootstrap script first", file=sys.stderr)
+        return 1
+    lines = redact.redact(text, redact.account_terms()).splitlines()
+    print("\n".join(lines[-args.tail:] if args.tail else lines))
+    return 0
+
+
 def cmd_preflight(args) -> int:
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
+    problems = apply_sets(schema, answers, args.set or [])  # tried for this run only, not saved
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
     resolved = engine.resolve(schema, answers, {"tenant": "", "subscription": ""})
+    if args.regions is not None:
+        return scan_regions(resolved.values, args.regions, args.json)
     results = preflight.run(resolved.values)
     if args.json:
         print(preflight.as_json(results))
@@ -245,6 +313,30 @@ def cmd_preflight(args) -> int:
         manual = sum(r.status == "manual" for r in results)
         print(f"\n{'NO-GO' if fails else 'GO'}: {fails} to fix, {manual} to confirm yourself.")
     return 1 if any(r.status == "fail" for r in results) else 0
+
+
+def cmd_fix(args) -> int:
+    schema = engine.load_schema()
+    answers = engine.load_answers()
+    engine.ensure_seed(answers)
+    values = engine.resolve(schema, answers, {"tenant": "", "subscription": ""}).values
+    try:
+        sub = fix.az(["account", "show", "--query", "id"])
+        if args.what == "quota":
+            if args.status:
+                return fix.quota_status(sub)
+            return fix.fix_quota(sub, args.location or values["location"], args.sku, args.limit,
+                                 args.country, args.email, args.timezone or values.get("timezone_id") or "UTC", args.yes)
+        if args.what == "vcpu":
+            if not args.family:
+                print("stopped: --family is needed, e.g. --family standardDSv5Family (preflight's vCPU line names it)", file=sys.stderr)
+                return 1
+            return fix.fix_vcpu(sub, args.location or values["location"], args.family, args.limit, args.yes)
+        return fix.fix_roles(sub, bool(values.get("create_entra_app")) and bool(values.get("grant_admin_consent")),
+                             args.hours, args.yes)
+    except fix.FixError as exc:
+        print(f"stopped: {exc}", file=sys.stderr)
+        return 1
 
 
 def cmd_schema(args) -> int:
@@ -352,7 +444,29 @@ def main(argv: list[str]) -> int:
 
     p = sub.add_parser("preflight", help="read-only readiness checks")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--set", action="append", metavar="NAME=VALUE", help="try a different answer for this run (not saved)")
+    p.add_argument("--regions", nargs="?", const="", metavar="A,B,...",
+                   help="check the region-specific items across regions (default: the configured region's geography)")
     p.set_defaults(func=cmd_preflight)
+
+    p = sub.add_parser("fix", help="request quota or activate PIM roles that preflight found missing")
+    p.add_argument("what", choices=["quota", "vcpu", "roles"])
+    p.add_argument("--family", help="vcpu: VM family quota name, e.g. standardDSv5Family")
+    p.add_argument("--sku", default="B3", help="quota: App Service SKU (default B3, what Nerdio uses)")
+    p.add_argument("--limit", type=int, default=2, help="quota/vcpu: new limit to ask for (default 2; give vcpu its own)")
+    p.add_argument("--location", help="quota: region (default: your answers, else eastus2)")
+    p.add_argument("--country", help="quota: 3-letter country for the support contact, if Entra doesn't have it")
+    p.add_argument("--email", help="quota: where Azure Support replies (default: your account's mail)")
+    p.add_argument("--timezone", help="quota: your time zone for the support contact")
+    p.add_argument("--status", action="store_true", help="quota: list the kit's quota requests and their status")
+    p.add_argument("--hours", type=int, default=4, help="roles: activation length in hours (default 4)")
+    p.add_argument("--yes", action="store_true", help="don't ask before sending (for pipelines)")
+    p.set_defaults(func=cmd_fix)
+
+    p = sub.add_parser("redact", help="mask IDs, IPs, emails and tenant names in output before sharing it")
+    p.add_argument("file", nargs="?", help="file to read (default: stdin, else the bootstrap's last log)")
+    p.add_argument("--tail", type=int, metavar="N", help="only the last N lines")
+    p.set_defaults(func=cmd_redact)
 
     p = sub.add_parser("schema", help="check the schema against the Terraform variables")
     p.add_argument("action", choices=["check"])
