@@ -1,6 +1,9 @@
-// Nerdio setup chat. The server is stateless: the transcript and answers live in this tab.
+// Nerdio setup chat. The server is stateless: the transcript and answers live in this browser.
+// They're kept in localStorage, not sessionStorage, because iOS often closes a home-screen app
+// while you're in Cloud Shell. They're cleared by New, after a week unused, or when someone else signs in.
 (() => {
   const KEY = "nerdio-setup-v1";
+  const MAX_AGE = 7 * 24 * 3600 * 1000;
   const log = document.getElementById("log");
   const form = document.getElementById("ask");
   const text = document.getElementById("text");
@@ -8,10 +11,21 @@
   let state = load();
 
   function load() {
-    try { return JSON.parse(sessionStorage.getItem(KEY)) || fresh(); } catch { return fresh(); }
+    try {
+      const kept = JSON.parse(localStorage.getItem(KEY) || sessionStorage.getItem(KEY));
+      sessionStorage.removeItem(KEY);
+      if (kept && Date.now() - (kept.saved || Date.now()) < MAX_AGE) return kept;
+    } catch { /* storage blocked or unreadable */ }
+    return fresh();
   }
   function fresh() { return { messages: [], answers: {}, view: [] }; }
-  function save() { try { sessionStorage.setItem(KEY, JSON.stringify(state)); } catch { /* private mode */ } }
+  function save() {
+    try {
+      state.saved = Date.now();
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch { /* private mode */ }
+  }
+  function clear() { state = fresh(); try { localStorage.removeItem(KEY); } catch { /* private mode */ } log.innerHTML = ""; }
 
   function escape(s) {
     return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -94,10 +108,16 @@
   });
 
   document.getElementById("reset").addEventListener("click", () => {
-    if (!confirm("Start a new conversation? Your answers in this tab will be cleared.")) return;
-    state = fresh(); save(); log.innerHTML = "";
+    if (!confirm("Start a new conversation? Your answers on this device will be cleared.")) return;
+    clear();
   });
 
-  fetch("/api/me").then(r => r.json()).then(d => { if (d.name) document.getElementById("who").textContent = d.name; }).catch(() => {});
+  fetch("/api/me").then(r => r.json()).then(d => {
+    if (!d.name) return;
+    document.getElementById("who").textContent = d.name;
+    // A shared device: don't show one admin's conversation to the next.
+    if (state.owner && state.owner !== d.name) clear();
+    if (state.owner !== d.name) { state.owner = d.name; if (state.view.length) save(); }
+  }).catch(() => {});
   state.view.forEach(([role, body]) => show(role, body));
 })();
