@@ -72,7 +72,8 @@ TOOLS = [
         "name": "read_kb",
         "description": "Read a page of the kit's knowledge base to ground an answer: a path under docs/knowledge/ "
                        "(for example docs/knowledge/nerdio/platform.md), docs/deployment-runbook.md, docs/setup.md or docs/pipeline.md. "
-                       "An anchor after # is ignored. Pass docs/knowledge/README.md for the index.",
+                       "An anchor after # is ignored. Pass docs/knowledge/README.md for the index, and "
+                       "docs/knowledge/troubleshooting/known-errors.yaml for known errors and their fixes.",
         "input_schema": {
             "type": "object",
             "properties": {"path": {"type": "string"}},
@@ -110,10 +111,11 @@ PIPELINE_TOOLS = [
         "description": "Start the deploy workflow for one stage: platform (Azure, Entra and Nerdio Manager) first, "
                        "then config (Nerdio's own settings). With apply true, the run asks to apply after the "
                        "plan, but the apply waits until a reviewer approves it in GitHub; you can't approve it. "
-                       "Only after the user said yes to this exact stage and apply choice.",
+                       "Stage preflight runs the read-only readiness check from the saved answers instead "
+                       "(apply must be false). Only after the user said yes to this exact stage and apply choice.",
         "input_schema": {
             "type": "object",
-            "properties": {"stage": {"type": "string", "enum": ["platform", "config"]}, "apply": {"type": "boolean"}},
+            "properties": {"stage": {"type": "string", "enum": ["platform", "config", "preflight"]}, "apply": {"type": "boolean"}},
             "required": ["stage", "apply"],
             "additionalProperties": False,
         },
@@ -127,13 +129,16 @@ PIPELINE_TOOLS = [
     },
     {
         "name": "pipeline_plan",
-        "description": "The change list of one run's plan: each resource address and what happens to it "
-                       "(create, update, delete, or delete then create).",
+        "description": "One run's result. preflight: each readiness check's status, detail and fix. platform or "
+                       "config: the plan's change list (each resource address and what happens to it: create, "
+                       "update, delete, or delete then create), the variables adopted from an earlier Cloud Shell "
+                       "run, and, once applied, the apply's result; after a platform apply that includes the names "
+                       "Nerdio's setup wizard asks for. A failed run gives the error and the log's last lines, IDs masked.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "run_id": {"type": "integer"},
-                "stage": {"type": "string", "enum": ["platform", "config"]},
+                "stage": {"type": "string", "enum": ["platform", "config", "preflight"]},
                 "attempt": {"type": "integer", "description": "The run's attempt number. Default 1."},
             },
             "required": ["run_id", "stage"],
@@ -202,7 +207,8 @@ class Session:
         rel = path.split("#", 1)[0].strip().lstrip("/")
         target = (ROOT / rel).resolve()
         allowed = any(target == a.resolve() or a.resolve() in target.parents for a in KB_ALLOWED)
-        if not allowed or target.suffix != ".md" or not target.is_file():
+        # Pages, and the YAML registers next to them (known errors and their fixes).
+        if not allowed or target.suffix not in (".md", ".yaml") or not target.is_file():
             return {"error": f"not a knowledge-base page: {path}"}
         text = target.read_text(encoding="utf-8")
         return {"path": rel, "content": text[:KB_MAX_CHARS], "truncated": len(text) > KB_MAX_CHARS}

@@ -52,13 +52,29 @@ and admin on the repository.
 in progress. The first pipeline plan will move Key Vault roles and app ownership from you to the
 apply identity; add yourself to `entra_app.owner_object_ids` if you want to stay an app owner.
 
+`--adopt` also carries over the variable values your Cloud Shell runs used (for example the
+`sandbox.auto.tfvars` that `cloudshell-bootstrap.sh` wrote). A Cloud Shell run names things its
+own way, so planning from your answers alone would replace the deployment. Terraform evaluates
+those files and the script publishes the result as `answers/<env>.<stage>.adopted.tfvars.json`;
+values of sensitive variables, and the tenant, subscription and deployer IDs, are left out. Each
+pipeline plan lays them over the answers, and the plan summary lists them, so the chatbot can say
+which values come from Cloud Shell. To go back to planning from answers only, delete that blob:
+
+```bash
+az storage blob delete --auth-mode login --account-name <state storage> --container-name answers \
+  --name sandbox.platform.adopted.tfvars.json
+```
+
 **Changed your answers?** `./scripts/pipeline/bootstrap.sh --answers-only` publishes them again,
 or save them from the chatbot. Earlier versions are kept as blob versions.
 
 ## Deploy
 
 Actions > **deploy** > **Run workflow**: pick the environment and stage (platform first, then
-config), and tick **apply** to apply after the plan. Read the plan in the run summary, then
+config), and tick **apply** to apply after the plan. Stage **preflight** runs the read-only
+readiness check (`./nerdio preflight`) from the saved answers as the plan identity, and never
+applies. Its checks of a person's roles come back as "manual", because the apply identity holds
+those roles by design. Read the plan in the run summary, then
 approve the `<env>-apply` deployment (GitHub's mobile app works). Nerdio's first-run wizard
 still runs in the browser between the stages, because Nerdio has no API for it yet.
 
@@ -92,6 +108,20 @@ apply, and you approve that run in GitHub.
 A GitHub App can't be an environment reviewer, so the bot can't approve its own run. With
 Actions write it could also re-run or cancel other workflow runs in this repository; the kit's
 code only ever dispatches `deploy.yml`. To cut it off, suspend or uninstall the app in GitHub.
+
+## What the chatbot can read back
+
+Each run leaves its result in the `plans` container, under `<env>/<run id>-<attempt>/`:
+
+| Blob | What's in it |
+|---|---|
+| `preflight.json` | Each readiness check's status, detail and fix, IDs masked |
+| `<stage>.json` | The plan's change list, and which values were adopted from Cloud Shell |
+| `<stage>-apply.json` | The apply's result. After the platform stage it includes the names Nerdio's first-run wizard asks for: the console URL, the AVD network and the resource groups |
+| either, on failure | The error and the last 30 lines of the log, IDs masked |
+
+So the chat can explain a failure, and walk you through the wizard with exact names, without
+anyone opening the run's log. None of it goes to the public run log.
 
 ## Limits, for now
 

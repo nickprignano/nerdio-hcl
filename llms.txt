@@ -23,6 +23,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [Security baselines and hardening](docs/knowledge/security/README.md): Security baselines Nerdio publishes, kit hardening, and how to record accepted risks (status: partial)
 - [Known errors](docs/knowledge/troubleshooting/README.md): Known errors: symptom, cause, fix and source (status: verified)
 - [Chat assistant: the white-glove guide](docs/knowledge/chat-assistant.md): What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 (status: plan)
+- [Chatbot-first deployment: where chat stops](docs/knowledge/chatbot-first.md): Every deployment step, whether the setup chat can drive it today, what blocks it, and the automation fix or workaround (status: plan)
 - [Roadmap: turnkey, maximum-automation Nerdio deployment](docs/knowledge/stack-options.md): Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change (status: plan)
 - [Keeping the knowledge base current](docs/knowledge/curation.md): How the KB stays current: the weekly source digest, the prior-art check, the feedback loop and the freshness check (status: verified)
 
@@ -51,6 +52,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0014. The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry](docs/knowledge/decisions/0014-self-hosted-setup-chatbot.md): accepted
 - [0015. Secrets: Key Vault by default; OpenBao as the optional Vault-style module](docs/knowledge/decisions/0015-secrets-key-vault-default-openbao-optional.md): accepted
 - [0016. Deploy through GitHub Actions with OIDC and a reviewer gate; chat drives the pipeline](docs/knowledge/decisions/0016-gated-deploy-pipeline.md): accepted
+- [0017. Every Azure deployment is chatbot-first](docs/knowledge/decisions/0017-chatbot-first-deployment.md): accepted
 
 ## Optional
 

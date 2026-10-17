@@ -36,6 +36,7 @@ belongs to instead of starting a new file.
 | [security/](security/README.md) | Security baselines Nerdio publishes, kit hardening, and how to record accepted risks | partial |
 | [troubleshooting/](troubleshooting/README.md) | Known errors: symptom, cause, fix and source | verified |
 | [chat-assistant.md](chat-assistant.md) | What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 | plan |
+| [chatbot-first.md](chatbot-first.md) | Every deployment step, whether the setup chat can drive it today, what blocks it, and the automation fix or workaround | plan |
 | [stack-options.md](stack-options.md) | Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change | plan |
 | [curation.md](curation.md) | How the KB stays current: the weekly source digest, the prior-art check, the feedback loop and the freshness check | verified |
 | [decisions/](decisions/README.md) | Decision records (MADR): what was decided and why |  |
