@@ -3,7 +3,7 @@ output "url" {
   value       = module.assistant.url
 }
 
-output "github_key_vault_name" {
-  description = "Where scripts/pipeline/github-app-key.sh imports the GitHub App's private key. Null without the pipeline."
-  value       = module.assistant.github_key_vault_name
+output "github_setup_url" {
+  description = "Open once to create the chat's GitHub App for the deploy pipeline. Null without the pipeline."
+  value       = module.assistant.github_setup_url
 }

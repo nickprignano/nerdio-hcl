@@ -384,10 +384,8 @@ def cmd_form(args) -> int:
     return 0
 
 
-def pipeline_link(pipeline_stage: Path, app_client_id: str | None) -> tuple[dict, str]:
+def pipeline_link(pipeline_stage: Path) -> tuple[dict, str]:
     """The assistant's pipeline settings, from 00-pipeline's outputs and this checkout's origin."""
-    if not app_client_id:
-        return {}, "Give the GitHub App's client ID: --github-app Iv1.… (docs/pipeline.md, \"Connect the chatbot\")"
     res = subprocess.run(["terraform", f"-chdir={pipeline_stage}", "output", "-json"], capture_output=True, text=True, check=False)
     try:
         outputs = {k: v["value"] for k, v in json.loads(res.stdout or "{}").items()}
@@ -401,7 +399,7 @@ def pipeline_link(pipeline_stage: Path, app_client_id: str | None) -> tuple[dict
     if not m:
         return {}, "Couldn't tell the GitHub repository from this checkout's origin remote."
     return {"storage_account_id": outputs["storage_account_id"], "environment": outputs.get("environment", "sandbox"),
-            "github": {"repository": m.group(1), "app_client_id": app_client_id}}, ""
+            "github": {"repository": m.group(1)}}, ""
 
 
 def cmd_assistant(args) -> int:
@@ -419,8 +417,8 @@ def cmd_assistant(args) -> int:
             tfvars[key] = value
     if args.foundry_location:
         tfvars.setdefault("foundry", {})["location"] = args.foundry_location
-    if args.pipeline or args.github_app:
-        link, problem = pipeline_link(stage.parent / "00-pipeline", args.github_app)
+    if args.pipeline:
+        link, problem = pipeline_link(stage.parent / "00-pipeline")
         if problem:
             print(f"✗ {problem}", file=sys.stderr)
             return 1
@@ -442,7 +440,9 @@ def cmd_assistant(args) -> int:
         subprocess.run(["terraform", f"-chdir={stage}", "output", "url"], check=False)
         print("Open that URL and sign in. The first visit may take a few seconds while the app wakes up.")
         if tfvars.get("pipeline"):
-            print("Next, once: import the GitHub App's private key with ./scripts/pipeline/github-app-key.sh <file.pem>")
+            print("Then, once, open this to give the chat its GitHub App (one click on GitHub, then install it):")
+            subprocess.run(["terraform", f"-chdir={stage}", "output", "-raw", "github_setup_url"], check=False)
+            print()
     return code
 
 
@@ -514,8 +514,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--env", default="example", help="environment folder under environments/")
     p.add_argument("--plan", action="store_true", help="show the plan only")
     p.add_argument("--pipeline", action="store_true",
-                   help="connect it to the deploy pipeline from scripts/pipeline/bootstrap.sh (needs --github-app)")
-    p.add_argument("--github-app", metavar="CLIENT_ID", help="client ID of the GitHub App the chat starts runs as")
+                   help="connect it to the deploy pipeline from scripts/pipeline/bootstrap.sh")
     p.set_defaults(func=cmd_assistant)
 
     args = parser.parse_args(argv)

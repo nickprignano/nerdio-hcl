@@ -67,14 +67,13 @@ variable "tags" {
 }
 
 variable "pipeline" {
-  description = "Connects the chat to the deploy pipeline (see modules/assistant). ./nerdio assistant --pipeline --github-app <client ID> fills it in."
+  description = "Connects the chat to the deploy pipeline (see modules/assistant). ./nerdio assistant --pipeline fills it in."
   type = object({
     storage_account_id = string
     environment        = string
     github = object({
-      repository    = string
-      app_client_id = string
-      branch        = optional(string, "main")
+      repository = string
+      branch     = optional(string, "main")
     })
   })
   default = null

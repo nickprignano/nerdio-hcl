@@ -9,8 +9,9 @@ It can't apply anything. An apply runs only after a named reviewer approves it i
 GitHub App can't be a reviewer. The app's managed identity holds no Azure rights beyond these two
 blob containers and signing with one Key Vault key.
 
-GitHub access is a GitHub App installed on the kit's repository with Actions read and write. Its
-private key was imported into Key Vault as a non-exportable key: the bot asks Key Vault to sign a
+GitHub access is a GitHub App installed on the kit's repository with Actions read and write,
+registered from /setup/github (github_setup.py). Its private key lives in Key Vault as a
+non-exportable, sign-only key tagged with the app's client ID: the bot asks Key Vault to sign a
 short-lived JWT and never sees the key. Standard library only, apart from azure-identity for tokens.
 """
 
@@ -45,7 +46,6 @@ class Pipeline:
         self.storage = env.get("NERDIO_PIPELINE_STORAGE", "")
         self.environment = env.get("NERDIO_PIPELINE_ENV", "")
         self.repository = env.get("NERDIO_GITHUB_REPO", "")
-        self.app_client_id = env.get("NERDIO_GITHUB_APP_CLIENT_ID", "")
         self.key_url = env.get("NERDIO_GITHUB_KEY_URL", "").rstrip("/")
         self.branch = env.get("NERDIO_PIPELINE_BRANCH", "main")
         self._credential = credential
@@ -54,7 +54,7 @@ class Pipeline:
 
     @property
     def configured(self) -> bool:
-        return all([self.storage, self.environment, self.repository, self.app_client_id, self.key_url])
+        return all([self.storage, self.environment, self.repository, self.key_url])
 
     # -- plumbing ------------------------------------------------------------
 
@@ -73,21 +73,42 @@ class Pipeline:
         except urllib.error.HTTPError as exc:
             return exc.code, exc.read()
 
+    def _vault_headers(self) -> dict:
+        return {"Authorization": f"Bearer {self._token('https://vault.azure.net/.default')}",
+                "Content-Type": "application/json"}
+
+    def app_key(self) -> dict | None:
+        """The GitHub App's key tags (client_id, app_id, slug), or None before /setup/github has run."""
+        status, raw = self._request("GET", f"{self.key_url}?api-version=7.4", self._vault_headers())
+        if status == 404:
+            return None
+        if status != 200:
+            raise PipelineError(f"Couldn't read the GitHub App's key from Key Vault (HTTP {status}).")
+        return json.loads(raw).get("tags") or {}
+
+    def import_app_key(self, jwk: dict, tags: dict) -> None:
+        body = {"key": jwk, "hsm": False, "attributes": {"enabled": True, "exportable": False}, "tags": tags}
+        status, _ = self._request("PUT", f"{self.key_url}?api-version=7.4", self._vault_headers(),
+                                  json.dumps(body).encode())
+        if status != 200:
+            raise PipelineError(f"Key Vault didn't accept the GitHub App's key (HTTP {status}).")
+
     def _github_jwt(self) -> str:
         """A ten-minute app JWT, signed by Key Vault with the non-exportable key."""
+        tags = self.app_key()
+        if not tags or not tags.get("client_id"):
+            raise PipelineError("The chat has no GitHub App yet. Open /setup/github on this site to create one "
+                                "(one click on GitHub, then install it on the repository).")
         now = int(time.time())
         header = _b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
-        claims = _b64url(json.dumps({"iat": now - 60, "exp": now + 540, "iss": self.app_client_id}).encode())
+        claims = _b64url(json.dumps({"iat": now - 60, "exp": now + 540, "iss": tags["client_id"]}).encode())
         signing_input = f"{header}.{claims}".encode()
         digest = _b64url(hashlib.sha256(signing_input).digest())
         status, raw = self._request(
-            "POST", f"{self.key_url}/sign?api-version=7.4",
-            {"Authorization": f"Bearer {self._token('https://vault.azure.net/.default')}",
-             "Content-Type": "application/json"},
+            "POST", f"{self.key_url}/sign?api-version=7.4", self._vault_headers(),
             json.dumps({"alg": "RS256", "value": digest}).encode())
         if status != 200:
-            raise PipelineError("Key Vault wouldn't sign for the GitHub App. Has its key been imported "
-                                "(scripts/pipeline/github-app-key.sh)?")
+            raise PipelineError(f"Key Vault wouldn't sign for the GitHub App (HTTP {status}).")
         return f"{header}.{claims}.{json.loads(raw)['value']}"
 
     def _repo_token(self) -> str:
@@ -98,7 +119,8 @@ class Pipeline:
                        "X-GitHub-Api-Version": "2022-11-28"}
         status, raw = self._request("GET", f"{GITHUB_API}/repos/{self.repository}/installation", jwt_headers)
         if status != 200:
-            raise PipelineError(f"The GitHub App isn't installed on {self.repository}.")
+            raise PipelineError(f"The chat's GitHub App isn't installed on {self.repository}. Open /setup/github "
+                                "on this site for the install link.")
         installation = json.loads(raw)["id"]
         # Scoped down to this one repository and Actions only, whatever else the app was granted.
         status, raw = self._request(

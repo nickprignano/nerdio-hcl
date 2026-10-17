@@ -8,7 +8,7 @@ output "foundry_resource" {
   value       = azurerm_cognitive_account.foundry.name
 }
 
-output "github_key_vault_name" {
-  description = "Key Vault to import the GitHub App's private key into (scripts/pipeline/github-app-key.sh). Null without the pipeline."
-  value       = one(azurerm_key_vault.github[*].name)
+output "github_setup_url" {
+  description = "Open once to create the chat's GitHub App for the deploy pipeline. Null without the pipeline."
+  value       = local.pipeline_enabled ? "${local.app_url}/setup/github" : null
 }

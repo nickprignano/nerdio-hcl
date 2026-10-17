@@ -67,20 +67,23 @@ still runs in the browser between the stages, because Nerdio has no API for it y
 The chatbot starts runs as a GitHub App that can only use Actions on this repository. Its
 private key lives in Key Vault as a non-exportable, sign-only key: the bot asks Key Vault to sign
 a ten-minute token and never sees the key. The bot's managed identity can write the `answers`
-container, read the `plans` container and sign with that key, and nothing else in Azure.
+container, read the `plans` container and use the keys in its own Key Vault, which holds only
+that key, and nothing else in Azure.
 
-1. **Create the GitHub App** (on GitHub, once): your profile picture > Settings > Developer
-   settings > GitHub Apps > New GitHub App. Name it (for example `nerdio-chat-<you>`), set the
-   homepage to your repository, untick **Webhook > Active**, and under **Repository permissions**
-   set **Actions** to *Read and write*. Leave everything else at *No access*. Create it, note its
-   **Client ID**, then **Generate a private key** (a `.pem` file downloads) and **Install App** on
-   this repository only.
-2. **Connect the chatbot** (Cloud Shell): upload the `.pem` with Manage files > Upload, then
+1. **Connect the chatbot** (Cloud Shell):
 
    ```bash
-   ./nerdio assistant --admin-group "AVD Admins" --pipeline --github-app <client ID>
-   ./scripts/pipeline/github-app-key.sh ~/<the file>.pem   # imports it, then deletes the file
+   ./nerdio assistant --admin-group "AVD Admins" --pipeline
    ```
+
+   It prints a setup link, `https://<your chat>/setup/github`.
+2. **Create the GitHub App** (in the browser, once): open that link and sign in. It sends GitHub
+   a ready-made app definition (GitHub's [manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest)):
+   private, no webhook, *Actions: read and write* and nothing else. Click **Create GitHub App**,
+   then **Install** on this repository only. GitHub hands the new app's private key straight to
+   the chatbot, which imports it into Key Vault; nobody downloads or pastes a `.pem`.
+
+To replace the app, open `/setup/github?replace=true`, then delete the old app in GitHub.
 
 Now ask the chatbot to deploy. It saves your answers and starts a platform plan, each only after
 you say yes, then reads the plan back to you. When you're happy, it starts a run that asks to
