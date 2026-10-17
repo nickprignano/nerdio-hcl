@@ -45,3 +45,10 @@ errors:
   source: https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers
   status: verified
   added: '2026-10-16'
+- id: cloud-shell-reset-stops-terraform
+  symptom: Cloud Shell shows "Requesting a Cloud Shell" mid-apply or mid-destroy, and a rerun stops with `Error acquiring the state lock`
+  cause: Cloud Shell closes after about 20 minutes without a keypress, or when a tablet sleeps the tab. A run that was waiting at its "yes" prompt can survive and keep holding the lock
+  fix: Check `pgrep -a terraform` first. If a run is still there, stop it with `kill -INT <pid>`; if none is, `terraform force-unlock -force "$(jq -r .ID .terraform.tfstate.lock.info)"`. For long runs, review a saved plan (`terraform plan -destroy -out=destroy.tfplan`) and apply it with `nohup terraform apply destroy.tfplan > ~/destroy.log 2>&1 &`. The lasting fix is the deploy pipeline
+  source: chatbot-first.md
+  status: unverified
+  added: '2026-10-17'
