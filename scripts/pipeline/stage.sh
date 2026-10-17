@@ -3,7 +3,12 @@
 #
 #   scripts/pipeline/stage.sh plan    render tfvars from the answers, plan, save the plan
 #                                     and a change summary the setup chatbot can read
+#                                     (STAGE=preflight runs the read-only readiness check instead)
 #   scripts/pipeline/stage.sh apply   fetch the saved plan, check its hash, apply exactly it
+#
+# Every run leaves a result in the plans container for the setup chatbot, failures included
+# (with the last lines of the log, IDs masked), so the chat can explain what happened without
+# anyone opening the log. A platform apply also saves the outputs Nerdio's wizard asks for.
 #
 # Glue only (docs/guardrails.md): Terraform does the work. Azure sign-in is GitHub OIDC
 # (ARM_USE_OIDC), so there's no secret. Logs and the job summary never show tenant,
@@ -11,7 +16,7 @@
 # repository's Actions logs are public.
 #
 # Inputs (set by the workflow from the GitHub environment's variables):
-#   STAGE                    platform | config
+#   STAGE                    platform | config | preflight
 #   NERDIO_ENV               sandbox | dev | prod
 #   ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID
 #   TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT
@@ -22,7 +27,13 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 action="${1:-}"
 case "$action" in plan | apply) ;; *) echo "usage: $0 plan|apply" >&2; exit 64 ;; esac
-case "${STAGE:-}" in platform) dir_name=01-platform ;; config) dir_name=02-nerdio-config ;; *) echo "STAGE must be platform or config" >&2; exit 64 ;; esac
+case "${STAGE:-}" in
+  platform) dir_name=01-platform ;;
+  config) dir_name=02-nerdio-config ;;
+  preflight) dir_name="" ;;
+  *) echo "STAGE must be platform, config or preflight" >&2; exit 64 ;;
+esac
+[ "$STAGE" != preflight ] || [ "$action" = plan ] || { echo "preflight only plans" >&2; exit 64; }
 [[ "${NERDIO_ENV:-}" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "NERDIO_ENV is missing or malformed" >&2; exit 64; }
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT; do
   [ -n "${!v:-}" ] || { echo "$v isn't set: run scripts/pipeline-bootstrap.sh for the $NERDIO_ENV environment first" >&2; exit 2; }
@@ -33,6 +44,11 @@ platform="$env_dir/01-platform"
 stage_dir="$env_dir/$dir_name"
 work="${RUNNER_TEMP:-$(mktemp -d)}/nerdio-$STAGE"
 mkdir -p "$work"
+# Where this run's results go in the plans container, and the chatbot reads them.
+run_dir="$NERDIO_ENV/${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+result_blob="$run_dir/$STAGE.json"
+[ "$action" = apply ] && result_blob="$run_dir/$STAGE-apply.json"
+log=""  # the log the last step wrote; a failure reports its tail
 
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID NERDIO_PLAN_PRINCIPAL_ID NERDIO_APPLY_PRINCIPAL_ID; do
   if [ -n "${!v:-}" ]; then echo "::add-mask::${!v}"; fi
@@ -41,7 +57,22 @@ done
 # Everything printed goes through this, so no GUID reaches a log or the summary.
 redact() { sed -E 's/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/<id>/g'; }
 summary() { if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then redact >> "$GITHUB_STEP_SUMMARY"; else redact; fi; }
-fail() { echo "::error::$*" | redact; exit 1; }
+
+blob() { # $1 upload|download, $2 container, $3 blob name, $4 file, then any extra az arguments
+  az storage blob "$1" --auth-mode login --only-show-errors --account-name "$TFSTATE_STORAGE_ACCOUNT" \
+    --container-name "$2" --name "$3" --file "$4" "${@:5}" >/dev/null
+}
+
+# A failure also leaves a result for the chatbot: the message and the log's tail, IDs masked.
+fail() {
+  echo "::error::$*" | redact
+  local tail=""
+  [ -n "$log" ] && [ -f "$log" ] && tail="$(grep -v '^\s*$' "$log" | tail -n 30 | redact)"
+  jq -n --arg stage "$STAGE" --arg action "$action" --arg error "$(echo "$*" | redact)" --arg log "$tail" \
+    '{stage: $stage, action: $action, status: "failed", error: $error, log_tail: $log}' > "$work/failed.json"
+  blob upload plans "$result_blob" "$work/failed.json" --overwrite 2>/dev/null || true
+  exit 1
+}
 
 init_stage() { # $1 dir, $2 state name
   printf 'terraform {\n  backend "azurerm" {}\n}\n' > "$1/backend.tf"
@@ -51,11 +82,6 @@ init_stage() { # $1 dir, $2 state name
     -backend-config="container_name=tfstate" \
     -backend-config="key=nerdio/$NERDIO_ENV/$2.tfstate" \
     -backend-config="use_azuread_auth=true" 2>&1 | redact | tail -n 3
-}
-
-blob() { # $1 upload|download, $2 container, $3 blob name, $4 file, then any extra az arguments
-  az storage blob "$1" --auth-mode login --only-show-errors --account-name "$TFSTATE_STORAGE_ACCOUNT" \
-    --container-name "$2" --name "$3" --file "$4" "${@:5}" >/dev/null
 }
 
 if [ "$STAGE" = config ]; then
@@ -70,8 +96,43 @@ if [ "$action" = plan ]; then
   blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null \
     || fail "No answers for $NERDIO_ENV yet. Save them from the setup chatbot, or run scripts/pipeline/bootstrap.sh --answers-only."
   # Tenant and subscription come from ARM_*; group names are looked up with the plan identity.
-  "$root/nerdio" init --non-interactive > "$work/init.log" 2>&1 || { redact < "$work/init.log"; fail "./nerdio init rejected the answers"; }
-  grep -E '^(✓|✗|Wrote)' "$work/init.log" | redact || true
+  log="$work/init.log"
+  "$root/nerdio" init --non-interactive > "$log" 2>&1 || { redact < "$log"; fail "./nerdio init rejected the answers"; }
+  grep -E '^(✓|✗|Wrote)' "$log" | redact || true
+
+  if [ "$STAGE" = preflight ]; then
+    echo "== Readiness check (read-only)"
+    # Signed in as the plan identity, so the checks of a person's roles come back as "manual":
+    # the apply identity holds those roles by design. Everything else is checked for real.
+    log="$work/preflight.log"
+    set +e
+    "$root/nerdio" preflight --json > "$work/preflight.json" 2> "$log"
+    code=$?
+    set -e
+    jq -e 'type == "array"' "$work/preflight.json" >/dev/null 2>&1 || fail "The readiness check didn't finish"
+    redact < "$work/preflight.json" | jq --arg stage preflight \
+      '{stage: $stage, status: (if any(.[]; .status == "fail") then "no-go" else "go" end), results: .}' > "$work/result.json"
+    blob upload plans "$result_blob" "$work/result.json" --overwrite
+    {
+      echo "## $NERDIO_ENV / readiness check: $(jq -r '.status | ascii_upcase' "$work/result.json")"
+      echo
+      echo "| Result | Check | Detail |"
+      echo "|---|---|---|"
+      jq -r '.results[] | "| \(.status) | \(.check) | \(.detail | gsub("\\|"; "/")) |"' "$work/result.json"
+    } | summary
+    echo "Readiness check: $(jq -r .status "$work/result.json") (exit $code)"
+    echo "changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+    exit 0
+  fi
+
+  # Values carried over from an earlier Cloud Shell deployment (bootstrap.sh --adopt). They win
+  # over the answers, so the pipeline plans the names that already exist instead of replacements.
+  adopted=()
+  if blob download answers "$NERDIO_ENV.$STAGE.adopted.tfvars.json" "$work/adopted.json" 2>/dev/null; then
+    cp "$work/adopted.json" "$stage_dir/zz-adopted.auto.tfvars.json"
+    mapfile -t adopted < <(jq -r 'keys[]' "$work/adopted.json")
+    echo "Using ${#adopted[@]} values adopted from Cloud Shell: ${adopted[*]}"
+  fi
 
   out="$platform/setup.auto.tfvars.json"
   install="$(jq -r '.nerdio_install // "terraform"' "$out")"
@@ -98,11 +159,12 @@ if [ "$action" = plan ]; then
   export TF_VAR_deployer_object_id="${NERDIO_APPLY_PRINCIPAL_ID:?}"
   init_stage "$stage_dir" "$STAGE"
   set +e
-  terraform -chdir="$stage_dir" plan -input=false -no-color -lock-timeout=5m -detailed-exitcode -out="$work/tfplan" > "$work/plan.log" 2>&1
+  log="$work/plan.log"
+  terraform -chdir="$stage_dir" plan -input=false -no-color -lock-timeout=5m -detailed-exitcode -out="$work/tfplan" > "$log" 2>&1
   code=$?
   set -e
   if [ "$code" = 1 ]; then
-    grep -v '^\s*$' "$work/plan.log" | tail -n 40 | redact
+    grep -v '^\s*$' "$log" | tail -n 40 | redact
     fail "terraform plan failed"
   fi
   grep -E '^(Plan:|No changes)' "$work/plan.log" | redact || true
@@ -125,16 +187,16 @@ if [ "$action" = plan ]; then
   } | summary
 
   # The change list for the setup chatbot: private storage, so values aren't redacted here.
-  run_dir="$NERDIO_ENV/$GITHUB_RUN_ID-${GITHUB_RUN_ATTEMPT:-1}"
+  adopted_json="$(printf '%s\n' "${adopted[@]}" | jq -R . | jq -s 'map(select(. != ""))')"
   if [ "$code" = 2 ]; then
     terraform -chdir="$stage_dir" show -json "$work/tfplan" \
-      | jq --arg stage "$STAGE" --arg summary "$(grep -E '^Plan:' "$work/plan.log" || true)" \
-        '{stage: $stage, summary: $summary, changes: [.resource_changes[] | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | {action: (.change.actions | join(" then ")), address}]}' \
+      | jq --arg stage "$STAGE" --arg summary "$(grep -E '^Plan:' "$work/plan.log" || true)" --argjson adopted "$adopted_json" \
+        '{stage: $stage, status: "planned", summary: $summary, adopted: $adopted, changes: [.resource_changes[] | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | {action: (.change.actions | join(" then ")), address}]}' \
       > "$work/summary.json"
   else
-    jq -n --arg stage "$STAGE" '{stage: $stage, summary: "No changes.", changes: []}' > "$work/summary.json"
+    jq -n --arg stage "$STAGE" --argjson adopted "$adopted_json" '{stage: $stage, status: "planned", summary: "No changes.", adopted: $adopted, changes: []}' > "$work/summary.json"
   fi
-  blob upload plans "$run_dir/$STAGE.json" "$work/summary.json" --overwrite
+  blob upload plans "$result_blob" "$work/summary.json" --overwrite
 
   changes=false
   if [ "$code" = 2 ]; then
@@ -162,5 +224,24 @@ tar -C "$stage_dir" -xf "$work/plan.tar" .terraform.lock.hcl
 echo "== $dir_name: terraform apply"
 init_stage "$stage_dir" "$STAGE"
 # A plan goes stale if the state moved since it was made; Terraform then refuses to apply it.
-terraform -chdir="$stage_dir" apply -input=false -no-color -lock-timeout=5m "$work/tfplan" 2>&1 | redact
+log="$work/apply.log"
+set +e
+terraform -chdir="$stage_dir" apply -input=false -no-color -lock-timeout=5m "$work/tfplan" > "$log" 2>&1
+code=$?
+set -e
+redact < "$log"
+[ "$code" = 0 ] || fail "terraform apply failed"
 { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Applied the reviewed plan."; } | summary
+
+# The result for the chatbot. After the platform stage, include the names Nerdio's first-run
+# wizard asks for, so the chat can walk the user through it with the exact values. Names only:
+# no secrets, and nothing printed to the public log.
+outputs='{}'
+if [ "$STAGE" = platform ]; then
+  outputs="$(terraform -chdir="$stage_dir" output -json 2>/dev/null \
+    | jq '{nerdio_url, avd_vnet_name, resource_group_names, fslogix_share_unc} | with_entries(select(.value != null) | .value = .value.value)' \
+    || echo '{}')"
+fi
+jq -n --arg stage "$STAGE" --argjson outputs "$outputs" \
+  '{stage: $stage, action: "apply", status: "applied", outputs: $outputs}' > "$work/applied.json"
+blob upload plans "$result_blob" "$work/applied.json" --overwrite

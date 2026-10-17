@@ -2,8 +2,9 @@
 
 What the bot can do here, and nothing more:
 - save the answers to answers/<env>.json in the pipeline's storage (versioned, so every change is kept)
-- start the deploy workflow, as a plan or as a plan that asks for an apply
-- read run status and the plan's change summary
+- start the deploy workflow, as a plan, a plan that asks for an apply, or a readiness check
+- read run status and each run's result: the readiness check, the plan's change summary, what a
+  failure said (IDs masked), and after a platform apply the names Nerdio's wizard asks for
 
 It can't apply anything. An apply runs only after a named reviewer approves it in GitHub, and a
 GitHub App can't be a reviewer. The app's managed identity holds no Azure rights beyond these two
@@ -29,6 +30,7 @@ import urllib.request
 GITHUB_API = "https://api.github.com"
 WORKFLOW = "deploy.yml"
 STAGES = ("platform", "config")
+RUNNABLE = STAGES + ("preflight",)
 TIMEOUT = 30
 
 
@@ -159,8 +161,9 @@ class Pipeline:
         return {"saved": True, "environment": self.environment, "keys": sorted(answers)}
 
     def start(self, stage: str, apply: bool) -> dict:
-        if stage not in STAGES:
-            raise PipelineError(f"stage must be one of {', '.join(STAGES)}")
+        if stage not in RUNNABLE:
+            raise PipelineError(f"stage must be one of {', '.join(RUNNABLE)}")
+        apply = apply and stage != "preflight"  # the readiness check never applies
         status, data = self._github("POST", f"/actions/workflows/{WORKFLOW}/dispatches", {
             "ref": self.branch,
             "inputs": {"environment": self.environment, "stage": stage, "apply": "true" if apply else "false"},
@@ -185,16 +188,34 @@ class Pipeline:
             out.append(item)
         return {"environment": self.environment, "runs": out}
 
-    def plan(self, run_id: int, stage: str, attempt: int = 1) -> dict:
-        if stage not in STAGES:
-            raise PipelineError(f"stage must be one of {', '.join(STAGES)}")
-        name = f"{self.environment}/{int(run_id)}-{int(attempt)}/{stage}.json"
+    def _result(self, name: str) -> dict | None:
         status, raw = self._request("GET", self._blob_url("plans", name), self._blob_headers())
         if status == 404:
-            return {"found": False, "note": "No plan summary for that run yet. The plan job may still be running."}
+            return None
         if status != 200:
-            raise PipelineError(f"Couldn't read the plan summary (HTTP {status}).")
-        summary = json.loads(raw)
+            raise PipelineError(f"Couldn't read the run's result (HTTP {status}).")
+        return json.loads(raw)
+
+    def plan(self, run_id: int, stage: str, attempt: int = 1) -> dict:
+        """One run's result for a stage: the readiness check, or the plan and, if it ran, the apply."""
+        if stage not in RUNNABLE:
+            raise PipelineError(f"stage must be one of {', '.join(RUNNABLE)}")
+        base = f"{self.environment}/{int(run_id)}-{int(attempt)}"
+        summary = self._result(f"{base}/{stage}.json")
+        if summary is None:
+            return {"found": False, "note": "No result for that run yet. Its first job may still be running."}
+        if summary.get("status") == "failed":
+            return {"found": True, "status": "failed", "error": summary.get("error"), "log_tail": summary.get("log_tail")}
+        if stage == "preflight":
+            return {"found": True, "status": summary.get("status"), "results": summary.get("results", [])}
         changes = summary.get("changes", [])
-        return {"found": True, "summary": summary.get("summary"), "change_count": len(changes),
-                "changes": changes[:300], "truncated": len(changes) > 300}
+        out = {"found": True, "status": summary.get("status", "planned"), "summary": summary.get("summary"),
+               "adopted": summary.get("adopted", []), "change_count": len(changes),
+               "changes": changes[:300], "truncated": len(changes) > 300}
+        # A re-run of only the apply job is a later attempt of the same run, so look there too.
+        for later in range(int(attempt), int(attempt) + 3):
+            applied = self._result(f"{self.environment}/{int(run_id)}-{later}/{stage}-apply.json")
+            if applied is not None:
+                out["apply"] = applied
+                break
+        return out

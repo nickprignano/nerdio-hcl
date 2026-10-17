@@ -132,11 +132,48 @@ class PipelineTests(unittest.TestCase):
 
     def test_plan_summary(self):
         url = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/7-1/platform.json"
-        p, _ = pipeline({("GET", url): (200, {"summary": "Plan: 1 to add", "changes": [{"action": "create", "address": "a.b"}]})})
+        no_apply = ("GET", "https://stexampletf000000.blob.core.windows.net/plans/sandbox/7-")
+        p, _ = pipeline({("GET", url): (200, {"summary": "Plan: 1 to add", "adopted": ["prefix"],
+                                              "changes": [{"action": "create", "address": "a.b"}]}),
+                         no_apply: (404, b"")})
         out = p.plan(7, "platform")
         self.assertEqual(out["change_count"], 1)
+        self.assertEqual(out["adopted"], ["prefix"])
+        self.assertNotIn("apply", out)
         p, _ = pipeline({("GET", url): (404, b"")})
         self.assertFalse(p.plan(7, "platform")["found"])
+
+    def test_plan_includes_the_apply_and_wizard_values(self):
+        blobs = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/"
+        applied = {"status": "applied", "outputs": {"avd_vnet_name": "vnet-contoso-avd"}}
+        p, http = pipeline({("GET", blobs + "7-1/platform.json"): (200, {"summary": "Plan: 1 to add", "changes": []}),
+                            ("GET", blobs + "7-1/platform-apply.json"): (404, b""),
+                            # Only the apply job was re-run, so its result is under the next attempt.
+                            ("GET", blobs + "7-2/platform-apply.json"): (200, applied)})
+        out = p.plan(7, "platform")
+        self.assertEqual(out["apply"]["outputs"]["avd_vnet_name"], "vnet-contoso-avd")
+
+    def test_failed_run_reports_the_error(self):
+        url = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/8-1/platform.json"
+        p, _ = pipeline({("GET", url): (200, {"status": "failed", "error": "terraform plan failed",
+                                              "log_tail": "Error: quota exceeded"})})
+        out = p.plan(8, "platform")
+        self.assertEqual(out["status"], "failed")
+        self.assertIn("quota", out["log_tail"])
+
+    def test_preflight_runs_and_never_applies(self):
+        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        p, http = pipeline({(("POST", dispatch)): (204, b"")})
+        out = p.start("preflight", True)
+        self.assertFalse(out["apply_requested"])
+        self.assertEqual(http.calls[-1][3]["inputs"], {"environment": "sandbox", "stage": "preflight", "apply": "false"})
+        url = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/9-1/preflight.json"
+        p, _ = pipeline({("GET", url): (200, {"status": "no-go", "results": [{"status": "fail", "check": "SQL region"}]})})
+        out = p.plan(9, "preflight")
+        self.assertEqual(out["status"], "no-go")
+        self.assertEqual(out["results"][0]["check"], "SQL region")
+        with self.assertRaises(PipelineError):
+            p.start("destroy", False)
 
     def test_runs_flag_waiting_for_approval(self):
         base = "https://api.github.com/repos/contoso/nerdio-hcl/actions"

@@ -7,7 +7,8 @@
 #                                                   (the setup chatbot can save them too)
 #   ./scripts/pipeline/bootstrap.sh --adopt         move 01-platform and 02-nerdio-config state you
 #                                                   applied from Cloud Shell into the pipeline's
-#                                                   storage, so the pipeline takes over from there
+#                                                   storage, and the variable values that run used,
+#                                                   so the pipeline takes over from there
 #
 # Terraform (environments/example/00-pipeline) creates the state storage, the plan and apply
 # identities with GitHub OIDC trust, and the GitHub environments: <env>-plan, and <env>-apply,
@@ -88,6 +89,58 @@ TF
   exit 1
 }
 
+# Cloud Shell runs (cloudshell-bootstrap.sh, or hand-edited tfvars) name things differently from
+# what the answers would render, so planning from answers alone would replace the deployment.
+# Publish the values that run used as answers/<env>.<stage>.adopted.tfvars.json; the pipeline
+# lays them over the answers. Terraform evaluates them, so HCL tfvars come out as exact JSON.
+# Values of sensitive variables are skipped: they belong in Key Vault, not in a file.
+adopt_values() { # $1 dir, $2 stage name (platform|config)
+  local dir="$1" sa names=() name expr out tmp f
+  sa="$(terraform -chdir="$stage" output -raw storage_account_name)"
+  for f in "$dir"/*.tfvars "$dir"/*.tfvars.json; do
+    [ -f "$f" ] || continue
+    case "$(basename "$f")" in
+      setup.auto.tfvars.json | platform.auto.tfvars.json | zz-adopted.auto.tfvars.json) continue ;; # the pipeline writes these itself
+    esac
+    if [[ "$f" == *.json ]]; then
+      mapfile -t -O "${#names[@]}" names < <(jq -r 'keys[]' "$f")
+    else
+      mapfile -t -O "${#names[@]}" names < <(sed -nE 's/^([A-Za-z_][A-Za-z0-9_-]*)[[:space:]]*=.*/\1/p' "$f")
+    fi
+  done
+  # The pipeline sets these itself from its own sign-in and identities.
+  mapfile -t names < <(printf '%s\n' "${names[@]}" | grep -vxE 'tenant_id|subscription_id|deployer_object_id|' | sort -u)
+  if [ "${#names[@]}" = 0 ]; then echo "$(basename "$dir"): no Cloud Shell values to carry over"; return; fi
+  tmp="$(mktemp)"
+  expr="jsonencode({$(for name in "${names[@]}"; do printf '%s = var.%s, ' "$name" "$name"; done)})"
+  out="$(terraform -chdir="$dir" console <<<"$expr" 2>/dev/null || true)"
+  if [ "$out" = "(sensitive value)" ] || [ -z "$out" ]; then
+    # One at a time, so a sensitive variable is skipped instead of hiding the rest.
+    echo '{}' > "$tmp"
+    for name in "${names[@]}"; do
+      out="$(terraform -chdir="$dir" console <<<"jsonencode(var.$name)" 2>/dev/null || true)"
+      case "$out" in "" | "(sensitive value)") echo "  skipping $name (sensitive or unreadable)"; continue ;; esac
+      jq --arg k "$name" --argjson v "$(jq -r . <<<"$out")" '.[$k] = $v' "$tmp" > "$tmp.n" && mv "$tmp.n" "$tmp"
+    done
+  else
+    jq -r . <<<"$out" | jq . > "$tmp"
+  fi
+  local i
+  for i in 1 2 3 4 5 6 7 8; do
+    if az storage blob upload --auth-mode login --only-show-errors --account-name "$sa" --container-name answers \
+      --name "$env_name.$2.adopted.tfvars.json" --file "$tmp" --overwrite >/dev/null 2>&1; then
+      echo "$(basename "$dir"): carried over $(jq 'length' "$tmp") values for the pipeline: $(jq -r 'keys | join(", ")' "$tmp")"
+      rm -f "$tmp"
+      return
+    fi
+    echo "Storage access isn't active yet; retrying in 30s ($i/8)"
+    sleep 30
+  done
+  rm -f "$tmp"
+  echo "Couldn't publish $(basename "$dir")'s values. Run $0 --adopt again in a few minutes." >&2
+  exit 1
+}
+
 # The pipeline renders each run from answers/<env>.json in the state storage (versioned, so every
 # change is kept). "me" means you; the pipeline signs in as a service identity, so publish your
 # object ID instead.
@@ -136,6 +189,10 @@ if [ "$mode" = --adopt ]; then
   echo "Don't run this while a plan or apply is running in either stage."
   [ -f "$env_dir/01-platform/terraform.tfstate" ] && migrate "$env_dir/01-platform" platform
   [ -f "$env_dir/02-nerdio-config/terraform.tfstate" ] && migrate "$env_dir/02-nerdio-config" config
+  say "Carrying over the values your Cloud Shell runs used"
+  [ -f "$env_dir/01-platform/backend.tf" ] && adopt_values "$env_dir/01-platform" platform
+  [ -f "$env_dir/02-nerdio-config/backend.tf" ] && adopt_values "$env_dir/02-nerdio-config" config
+  echo "They take precedence over your answers, so the first plan keeps the names you already have."
   echo "From now on, plan and apply with the deploy workflow (docs/pipeline.md)."
   exit 0
 fi

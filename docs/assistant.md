@@ -57,7 +57,8 @@ sign-in works the same way as in the browser.
   configuration), it gives you one Cloud Shell command to paste, and you paste the output back.
 - **Deploying from the chat** is optional: connect it to the [deploy pipeline](pipeline.md#connect-the-chatbot)
   with `--pipeline`, then open `/setup/github` once to create its GitHub App in two clicks. Then
-  it can save your answers for the pipeline, start a plan and explain it. It can ask for an apply
+  it can save your answers for the pipeline, run the readiness check, start a plan and explain it,
+  explain a failed run from its log, and guide you through Nerdio's wizard with the exact names. It can ask for an apply
   but can't approve one: that's you, in GitHub. Its identity gets no Azure rights beyond two blob
   containers and its own Key Vault, which holds only the GitHub App's key.
 - **No IDs or secrets in the conversation.** Tenant and subscription IDs come from your Cloud Shell
