@@ -1,5 +1,7 @@
 """./nerdio: the kit's engine entry point. Every front door (chat, this CLI, the Actions form) calls it.
 
+  ./nerdio use trial            remember this tenant and subscription as "trial" (first time), then
+                                check and switch to it; other commands then refuse the wrong tenant
   ./nerdio init                 interview, then write the tfvars (Terraform checks them)
   ./nerdio init --advanced      also ask the advanced questions
   ./nerdio init --set k=v ...   answer without prompts (add --non-interactive to never prompt)
@@ -32,6 +34,7 @@ import engine
 import fix
 import form
 import preflight
+import profiles
 import redact
 import tfcheck
 
@@ -137,7 +140,52 @@ def fix_errors_interactively(schema: dict, answers: dict, sources: dict) -> engi
     return engine.resolve(schema, answers, sources)
 
 
+def check_profile() -> bool:
+    ok, message = profiles.guard()
+    if message:  # stderr, so --json output stays clean
+        print(("" if ok else "✗ ") + message, file=sys.stderr)
+    return ok
+
+
+def cmd_use(args) -> int:
+    """Save the signed-in tenant and subscription for a kit environment once; check it after that."""
+    if not args.env:
+        cur = profiles.current()
+        for env in profiles.names():
+            prof = profiles.load(env) or {}
+            print(f"{'*' if env == cur else ' '} {env:<16} {prof.get('subscription_name', '')}")
+        if not profiles.names():
+            print("No profiles yet. Sign in to the subscription and run ./nerdio use <env>, e.g. ./nerdio use trial")
+        return 0
+    if not profiles.ENV_RE.match(args.env):
+        print("✗ Use a short lowercase name: letters, digits and dashes, starting with a letter (e.g. trial, prod)", file=sys.stderr)
+        return 1
+    if args.forget:
+        print(f"Forgot {args.env}" if profiles.forget(args.env) else f"No profile named {args.env}")
+        return 0
+    if profiles.load(args.env) is None:
+        account = engine.az_json(["account", "show"])
+        if not account:
+            print("✗ Not signed in: run az login (Cloud Shell already is), then try again.", file=sys.stderr)
+            return 1
+        where = account.get("tenantDisplayName") or account.get("tenantDefaultDomain") or "this tenant"
+        print(f"Save subscription {account.get('name', '?')!r} in {where} as {args.env!r}?")
+        if not args.yes and input("Type yes to save: ").strip().lower() != "yes":
+            print("Nothing saved.")
+            return 1
+        profiles.save(args.env, account)
+        print(f"Saved to {profiles.path(args.env)} (only you can read it; it's not in the repo).")
+    ok, message = profiles.ensure(args.env)
+    print(("" if ok else "✗ ") + message, file=sys.stdout if ok else sys.stderr)
+    if not ok:
+        return 1
+    profiles.set_current(args.env)
+    return 0
+
+
 def cmd_init(args) -> int:
+    if not args.placeholder_ids and not check_profile():
+        return 1
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
@@ -290,6 +338,8 @@ def cmd_redact(args) -> int:
 
 
 def cmd_preflight(args) -> int:
+    if not check_profile():
+        return 1
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
@@ -316,6 +366,8 @@ def cmd_preflight(args) -> int:
 
 
 def cmd_fix(args) -> int:
+    if not check_profile():
+        return 1
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
@@ -406,6 +458,8 @@ def cmd_assistant(args) -> int:
     """Deploy the setup chatbot with Terraform. Run it in Azure Cloud Shell; IDs come from az."""
     stage = engine.ROOT / "environments" / args.env / "00-assistant"
     out = stage / "assistant.auto.tfvars.json"
+    if not check_profile():
+        return 1
     tfvars = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
     sources = engine.read_sources()
     if not (sources["tenant"] and sources["subscription"]):
@@ -449,6 +503,12 @@ def cmd_assistant(args) -> int:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="nerdio", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("use", help="remember or switch to a kit environment's tenant and subscription")
+    p.add_argument("env", nargs="?", help="kit environment name, e.g. trial or prod (omit to list them)")
+    p.add_argument("--forget", action="store_true", help="delete this environment's saved profile")
+    p.add_argument("--yes", action="store_true", help="save without asking")
+    p.set_defaults(func=cmd_use)
 
     p = sub.add_parser("init", help="interview and write the tfvars")
     p.add_argument("--env", default="example", help="environment folder under environments/ (default: example)")

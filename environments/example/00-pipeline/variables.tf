@@ -48,6 +48,24 @@ variable "github_settings" {
   default = {}
 }
 
+variable "access" {
+  description = <<-EOT
+    What the pipeline's identities may do, for tenants with strict access rules. Leave a field
+    out to keep the kit's default; docs/access.md lists each one and why the kit needs it.
+      apply_roles            Azure roles for the apply identity on the subscription
+      apply_assignable_roles the only roles it may assign (Azure enforces this with a condition)
+      apply_graph_roles      Microsoft Graph roles for the apply identity
+      plan_graph_roles       Microsoft Graph roles for the read-only plan identity
+  EOT
+  type = object({
+    apply_roles            = optional(list(string))
+    apply_assignable_roles = optional(list(string))
+    apply_graph_roles      = optional(list(string))
+    plan_graph_roles       = optional(list(string))
+  })
+  default = {}
+}
+
 variable "tags" {
   description = "Tags for every Azure resource."
   type        = map(string)

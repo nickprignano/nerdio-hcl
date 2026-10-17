@@ -17,7 +17,8 @@
 # `az account show`, the repository from git, and a GitHub token from `gh auth token`, which it
 # hands to that one terraform process and never writes down.
 #
-#   NME_ENV        kit environment (default sandbox)
+#   NME_ENV        kit environment (default: the one ./nerdio use picked last, else sandbox).
+#                  The first run saves this tenant and subscription for it; later runs check them.
 #   NME_LOCATION   region for the state storage (default eastus2)
 #   NME_NAME       short name for the pipeline's resources (default nme-<first 3 of env>)
 #   NME_REVIEWERS  comma-separated GitHub logins who may approve applies (default: you)
@@ -33,7 +34,7 @@ stage="$env_dir/00-pipeline"
 mode="${1:-apply}"
 case "$mode" in apply | --plan | --answers-only | --adopt) ;; *) echo "usage: $0 [--plan|--answers-only|--adopt]" >&2; exit 64 ;; esac
 
-env_name="${NME_ENV:-sandbox}"
+env_name="${NME_ENV:-$(cat "${XDG_CONFIG_HOME:-$HOME/.config}/nerdio-hcl/current" 2>/dev/null || echo sandbox)}"
 location="${NME_LOCATION:-eastus2}"
 name="${NME_NAME:-nme-${env_name:0:3}}"
 
@@ -171,6 +172,11 @@ publish_answers() {
   echo "Couldn't publish the answers. Run $0 --answers-only in a few minutes." >&2
   exit 1
 }
+
+say "Environment $env_name"
+# Saves this tenant and subscription for the environment the first time (after a yes), and from
+# then on switches to it or stops if you're signed in to a different tenant.
+"$root/nerdio" use "$env_name" || exit 2
 
 say "Account"
 az account show --query '{subscription:name, signedInAs:user.name}' -o table

@@ -26,7 +26,8 @@ git clone https://github.com/nickprignano/nerdio-hcl ~/nerdio-hcl && cd ~/nerdio
 ./nerdio assistant --admin-group "AVD Admins"
 ```
 
-It reads the tenant and subscription from `az account show`, writes
+It reads the tenant and subscription from `az account show` (checked against `./nerdio use`, if
+you've [pinned an environment](pipeline.md#enter-the-tenant-and-subscription-once)), writes
 `00-assistant/assistant.auto.tfvars.json` (gitignored), and runs `terraform apply`. Review the plan
 and type `yes`. When it finishes, it prints the URL. Open it and sign in.
 
