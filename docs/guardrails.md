@@ -61,6 +61,10 @@ environment. Plan first, always. An assistant prepares the change; it never appl
 - Nerdio's app package is fetched from Nerdio's service at install time and never stored here.
 - Record where a fact came from (repo and commit) in the [knowledge base](knowledge/README.md)
   ([decision 0013](knowledge/decisions/0013-unlicensed-code-reference-only.md)).
+- This repository is Apache-2.0 ([LICENSE](../LICENSE)). That covers only our own code and docs.
+  Third-party components keep their own terms, listed in [NOTICE](../NOTICE); add any new
+  component the kit downloads or calls there
+  ([decision 0018](knowledge/decisions/0018-apache-2-license.md)).
 
 ## 8. Ask Nerdio before working around Nerdio
 

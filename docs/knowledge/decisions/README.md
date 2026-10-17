@@ -24,4 +24,5 @@ marked *Superseded by NNNN*.
 | [0015](0015-secrets-key-vault-default-openbao-optional.md) | Secrets: Key Vault by default; OpenBao as the optional Vault-style module | Accepted |
 | [0016](0016-gated-deploy-pipeline.md) | Deploy through GitHub Actions with OIDC and a reviewer gate; chat drives the pipeline | Accepted |
 | [0017](0017-chatbot-first-deployment.md) | Every Azure deployment is chatbot-first | Accepted |
+| [0018](0018-apache-2-license.md) | License the kit under Apache-2.0 | Accepted |
 <!-- END GENERATED: decision-index -->
