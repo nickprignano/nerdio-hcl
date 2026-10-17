@@ -55,6 +55,10 @@ jobs:
           done
       - uses: terraform-linters/setup-tflint@v4
       - name: tflint
+        env:
+          # tflint --init downloads rulesets from the GitHub API; unauthenticated calls hit the
+          # shared runner IP's rate limit (403). The workflow token raises it.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           tflint --init
           tflint --recursive --minimum-failure-severity=error
