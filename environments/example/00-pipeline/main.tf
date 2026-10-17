@@ -1,6 +1,6 @@
 # One-time bootstrap for the deploy pipeline (decision 0016): state storage, the plan and apply
 # identities, and the GitHub environments that gate an apply behind a reviewer's approval.
-# Run it from Cloud Shell with scripts/pipeline-bootstrap.sh; after this, plans and applies run
+# Run it from Cloud Shell with scripts/pipeline/bootstrap.sh; after this, plans and applies run
 # in GitHub Actions.
 
 module "pipeline" {
@@ -13,4 +13,15 @@ module "pipeline" {
   environment     = var.environment
   github          = var.github
   tags            = var.tags
+}
+
+# Repository settings the kit relies on: the kb-* labels, a read-only default workflow token,
+# Actions allowed to open pull requests, and a ruleset protecting the branch the apply trusts.
+module "github_repo" {
+  source = "../../../modules/github-repo"
+
+  repository                     = var.github.repository
+  branch                         = var.github.branch
+  protect_branch                 = var.github_settings.protect_branch
+  actions_can_open_pull_requests = var.github_settings.actions_can_open_pull_requests
 }

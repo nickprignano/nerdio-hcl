@@ -38,6 +38,12 @@ gh auth login                        # choose "Login with a web browser"; works 
 ./scripts/pipeline/bootstrap.sh      # review the plan, type yes
 ```
 
+It also sets the repository settings the kit relies on (`modules/github-repo`): the `kb-*` issue
+labels, a read-only default workflow token, Actions allowed to open pull requests (for
+kb-feedback), and a ruleset on `main` so it only changes through pull requests and can't be
+force-pushed or deleted. The apply environment trusts `main`, so that ruleset is part of the gate.
+Turn either of the last two off with `github_settings` in `00-pipeline/terraform.tfvars`.
+
 It reads your tenant and subscription from `az account show`, the repository from git, and you
 as the approver (set `NME_REVIEWERS=login1,login2` for others). It moves its own state into the
 new storage account, then publishes your `./nerdio` answers there (`answers/<env>.json`), with

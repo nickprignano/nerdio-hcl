@@ -12,11 +12,11 @@ terraform {
     }
     github = {
       source  = "integrations/github"
-      version = "~> 6.0"
+      version = "~> 6.3"
     }
   }
 
-  # scripts/pipeline-bootstrap.sh starts with local state, then moves it into the storage account
+  # scripts/pipeline/bootstrap.sh starts with local state, then moves it into the storage account
   # this stage creates (backend.tf, gitignored). See backend.tf.example.
 }
 

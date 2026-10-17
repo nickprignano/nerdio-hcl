@@ -28,7 +28,8 @@ and [docs/cloud-shell.md](../cloud-shell.md).
 Checked against GitHub's docs on 2026-10-17:
 
 - Idle timeout: 30 minutes by default, 5 to 240 minutes, set per user under GitHub
-  Settings > Codespaces > Default idle timeout.
+  Settings > Codespaces > Default idle timeout (no API), or per codespace with
+  `gh codespace create --idle-timeout 240m`, which the kit's docs use instead.
 - Included usage for personal accounts each month: GitHub Free 120 core hours and 15 GB-month of
   storage, GitHub Pro 180 core hours and 20 GB-month. Compute counts per core, so the smallest
   (2-core) machine uses 2 core hours an hour: about 60 hours a month on Free.

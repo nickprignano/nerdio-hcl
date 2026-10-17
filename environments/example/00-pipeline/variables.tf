@@ -35,6 +35,19 @@ variable "github" {
   })
 }
 
+variable "github_settings" {
+  description = <<-EOT
+    Repository settings the bootstrap manages. protect_branch adds a ruleset so the branch the
+    apply trusts only changes through pull requests. actions_can_open_pull_requests lets the
+    kb-feedback workflow open its pull request.
+  EOT
+  type = object({
+    protect_branch                 = optional(bool, true)
+    actions_can_open_pull_requests = optional(bool, true)
+  })
+  default = {}
+}
+
 variable "tags" {
   description = "Tags for every Azure resource."
   type        = map(string)
