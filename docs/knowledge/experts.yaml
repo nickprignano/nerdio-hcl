@@ -1,0 +1,758 @@
+reviewed: '2026-10-17'
+experts:
+- id: dominiek-verham
+  name: Dominiek Verham
+  affiliation: partner
+  status: tracked
+  found_via:
+  - Nerdio NVP program page
+  - Nerdio community 'Highlighting NVP' post
+  - web search
+  links:
+    blog: https://dominiekverham.com/
+    feed: https://dominiekverham.com/feed/
+  latest:
+    date: '2026-10-09'
+    url: https://dominiekverham.com/
+  evidence:
+  - https://dominiekverham.com/how-to-enable-nerdio-manager-database-resilience/
+  - https://dominiekverham.com/optimizing-auto-scale-profiles-in-nerdio-manager/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 2
+    recency: 3
+    track_record: 3
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Microsoft MVP and Nerdio NVP. The most Nerdio-focused independent blog found. Latest: "Configuring
+    Nerdio Manager for MSP: post-installation checklist".
+- id: wayne-bellows
+  name: Wayne Bellows
+  affiliation: nerdio
+  status: tracked
+  found_via:
+  - maintainer's starting list
+  - blog
+  - GitHub
+  links:
+    blog: https://modern-euc.com/
+    feed: https://modern-euc.com/feed/
+    github: WayneBellows
+  latest:
+    date: '2026-10-08'
+    url: https://modern-euc.com/
+  evidence:
+  - https://github.com/WayneBellows/fslogix-healthcheck
+  - https://github.com/WayneBellows/fslogix-cleanup-private-endpoint
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 3
+    recency: 3
+    track_record: 2
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Nerdio TAM. Weekly AVD image and FSLogix posts, plus scripted actions on GitHub. Latest: "How to Update
+    an AVD Golden Image to Windows 11 26H2 Without a Bad Monday".
+- id: aaron-parker
+  name: Aaron Parker
+  affiliation: nerdio
+  status: tracked
+  found_via:
+  - maintainer's starting list
+  - GitHub topic 'nerdio'
+  links:
+    blog: https://stealthpuppy.com/
+    feed: https://stealthpuppy.com/feed/
+    github: aaronparker
+  latest:
+    date: '2026-06-09'
+    url: https://stealthpuppy.com/
+  evidence:
+  - https://github.com/aaronparker/nerdio
+  - https://github.com/EUCPilots/evergreen-module
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 3
+    recency: 2
+    track_record: 3
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Maintains Evergreen and the aaronparker/nerdio scripts. Latest: "Evergreen Workbench is Generally
+    Available".
+- id: marcel-meurer
+  name: Marcel Meurer
+  affiliation: independent
+  status: tracked
+  found_via:
+  - awesome-azure-virtual-desktop list (snowball)
+  - blog
+  links:
+    blog: https://blog.itprocloud.de/
+    feed: https://blog.itprocloud.de/feed.xml
+    github: MarcelMeurer
+  latest:
+    date: '2026-09-02'
+    url: https://blog.itprocloud.de/
+  evidence:
+  - https://blog.itprocloud.de/
+  - https://blog.itprocloud.de/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 2
+    depth: 3
+    recency: 3
+    track_record: 3
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Deep AVD gotchas. Makes Hydra, an AVD management tool that competes with Nerdio, so filter out product
+    posts. Latest: "Azure Virtual Desktop Hybrid With Hydra Is General Available".
+- id: duo-infernale
+  name: Duo Infernale (Michele Blum and Flavio Meyer)
+  affiliation: unknown
+  status: tracked
+  found_via:
+  - AVD Community Newsletter (2026-10-02 issue)
+  - web search
+  links:
+    blog: https://duo-infernale.ch/
+    feed: https://duo-infernale.ch/feed/
+  latest:
+    date: '2026-10-14'
+    url: https://duo-infernale.ch/
+  evidence:
+  - https://duo-infernale.ch/azure-virtual-desktop-direct-launch-url/
+  - https://duo-infernale.ch/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 2
+    recency: 3
+    track_record: 1
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Frequent AVD how-tos. Only the blog is watched. Identity: accounts aren't cross-linked, so only one
+    is watched. Latest: "Azure Virtual Desktop: Now Available in Your Region".
+- id: cristian-schmitt-nieto
+  name: Cristian Schmitt Nieto
+  affiliation: partner
+  status: tracked
+  found_via:
+  - web search (Nerdio scripted actions)
+  - GitHub
+  - Nerdio NVP page
+  links:
+    blog: https://schmitt-nieto.com/
+    feed: https://schmitt-nieto.com/feed.xml
+    github: schmittnieto
+  latest:
+    date: '2026-09-22'
+    url: https://schmitt-nieto.com/
+  evidence:
+  - https://github.com/schmittnieto/nerdio-scripted-actions
+  - https://schmitt-nieto.com/blog/nerdio-scripted-actions-windows-scripts/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 2
+    depth: 3
+    recency: 3
+    track_record: 2
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    Nerdio NVP. MIT-licensed Nerdio scripted actions; maintains the awesome-azure-virtual-desktop list.
+    Latest: "Azure Local: Entra Joined AVD Session Hosts with PowerShell".
+- id: wayne-markovich
+  name: markovich.io
+  affiliation: independent
+  status: tracked
+  found_via:
+  - AVD Community Newsletter (2026-10-02 issue)
+  links:
+    blog: https://markovich.io/
+    feed: https://markovich.io/feed/
+    github: wmarkovich
+  latest:
+    date: '2026-10-13'
+    url: https://markovich.io/
+  evidence:
+  - https://markovich.io/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 2
+    recency: 3
+    track_record: 1
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Posts almost daily without saying how; spot-check a sample for accuracy at the next review. Latest:
+    "Windows 11 Image Versioning for AVD: Testing Copilot Search and AI Features Before They Hit Production".
+- id: johan-vanneuville
+  name: Johan Vanneuville
+  affiliation: partner
+  status: tracked
+  found_via:
+  - Nerdio NVP pages
+  - web search (Nerdio scripted action)
+  - awesome-AVD list
+  links:
+    blog: https://johanvanneuville.com/
+    feed: https://johanvanneuville.com/feed/
+  latest:
+    date: '2026-03-16'
+    url: https://johanvanneuville.com/
+  evidence:
+  - >-
+    https://johanvanneuville.com/automation/enable-azure-disk-encryption-on-a-avd-session-host-using-a-nerdio-scripted-action/
+  - https://johanvanneuville.com/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 2
+    recency: 1
+    track_record: 2
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Nerdio NVP. Nerdio scripted actions and install guides; quiet since March 2026. Latest: "Pilot Nerdio
+    to a succesfull install".
+- id: neil-mcloughlin
+  name: Neil McLoughlin
+  affiliation: nerdio
+  status: tracked
+  found_via:
+  - maintainer's starting list
+  - Sessionize
+  - GitHub
+  - awesome-AVD list (YouTube)
+  links:
+    blog: https://virtualmanc.co.uk/
+    feed: https://virtualmanc.co.uk/feed/
+    youtube: https://www.youtube.com/channel/UCS5W4f_rZexpCnBF1tSh1XA
+    github: virtualmanc
+  latest:
+    date: '2026-07-15'
+    url: https://virtualmanc.co.uk/
+  evidence:
+  - https://virtualmanc.co.uk/
+  - https://github.com/virtualmanc/nerdioscripts
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 2
+    recency: 2
+    track_record: 3
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    Nerdio TAM and Microsoft MVP. His new blog, virtualdesktops.community, couldn't be checked yet. Latest:
+    "Context-Based Redirection in AVD & Windows 365 (guide)".
+- id: dean-cefola
+  name: Dean Cefola (Azure Academy)
+  affiliation: independent
+  status: watch
+  found_via:
+  - maintainer's starting list
+  - awesome-AVD list (YouTube)
+  - AVD Community Newsletter (links his Shorts)
+  links:
+    youtube: https://www.youtube.com/channel/UC-MXgaFhsYU8PkqgKBdnusQ
+    github: DeanCefola
+  latest:
+    date: '2025-10-07'
+    url: https://www.youtube.com/watch?v=bAB_gO8GU0o
+  evidence:
+  - https://github.com/DeanCefola/Azure-WVD
+  - https://www.youtube.com/playlist?list=PLYQGZ_g5Wcenliaau_doy7yN6LH58MycL
+  gates:
+    original: true
+    recent: false
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 3
+    recency: 0
+    track_record: 3
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    Long-running AVD video series. No dated AVD video in the last 12 months was found; YouTube Shorts
+    weren't checked.
+- id: jon-towles
+  name: Mobile Jon
+  affiliation: partner
+  status: watch
+  found_via:
+  - web search (Nerdio AVD blog)
+  - Nerdio NVP page
+  links:
+    blog: https://mobile-jon.com/
+    feed: https://mobile-jon.com/feed/
+    youtube: https://www.youtube.com/channel/UCJBM-j8va7lrwTZBWSXt7vw
+    github: mobilejon
+  latest:
+    date: '2026-01-10'
+    url: https://mobile-jon.com/2026/01/10/building-azure-virtual-desktop-images-powered-by-nerdio/
+  evidence:
+  - https://mobile-jon.com/2026/01/10/building-azure-virtual-desktop-images-powered-by-nerdio/
+  - https://github.com/mobilejon/mobilejonrepo/blob/master/Nerdio/CreateWindows11Image.ps1
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 1
+    depth: 3
+    recency: 1
+    track_record: 2
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: Nerdio NVP. Deep when on topic, but mostly writes about Intune.
+- id: alex-ter-neuzen
+  name: Alex ter Neuzen
+  affiliation: unknown
+  status: tracked
+  found_via:
+  - awesome-AVD list (snowball)
+  links:
+    blog: https://www.gettothe.cloud/
+    feed: https://www.gettothe.cloud/feed/
+    github: GetToThe-Cloud
+  latest:
+    date: '2026-09-24'
+    url: https://www.gettothe.cloud/
+  evidence:
+  - https://www.gettothe.cloud/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 1
+    depth: 3
+    recency: 3
+    track_record: 1
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    AVD monitoring workbooks and KQL. Only the blog is watched, filtered to AVD. Latest: "Azure Virtual
+    Desktop | Sessionhost monitoring 2.0".
+- id: travis-roberts
+  name: Travis Roberts (Ciraltos)
+  affiliation: unknown
+  status: tracked
+  found_via:
+  - awesome-AVD list (blog + YouTube)
+  links:
+    blog: https://www.ciraltos.com/
+    feed: https://www.ciraltos.com/feed/
+    youtube: https://www.youtube.com/channel/UCuB24cID6NnypDWSLe4gfqA
+  latest:
+    date: '2026-09-09'
+    url: https://www.ciraltos.com/
+  evidence:
+  - https://www.ciraltos.com/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 1
+    depth: 2
+    recency: 3
+    track_record: 2
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    AVD explainers. Only the blog is watched, filtered to AVD. Identity: accounts aren't cross-linked,
+    so only one is watched. Latest: "Azure Virtual Desktop Hybrid Is Now GA: 6 Reasons to Use It, and
+    2 Reasons to Reconsider".
+- id: modernworkspacehub
+  name: ModernWorkspaceHub
+  affiliation: unknown
+  status: tracked
+  found_via:
+  - GitHub topic 'azure-virtual-desktop'
+  links:
+    blog: https://modernworkspacehub.com/
+    feed: https://modernworkspacehub.com/feed/
+    github: durrante
+  latest:
+    date: '2026-09-09'
+    url: https://modernworkspacehub.com/
+  evidence:
+  - https://github.com/durrante/AVDMonitoringBaseline
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 2
+    depth: 3
+    recency: 3
+    track_record: 1
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    Maintains an AVD monitoring baseline (a fork of Microsoft's AMBA alerts). Latest: "Azure VM OS disk
+    and C: drive sizes don".
+- id: christiaan-brinkhoff
+  name: Christiaan Brinkhoff
+  affiliation: nerdio
+  status: tracked
+  found_via:
+  - awesome-AVD list
+  - blog
+  links:
+    blog: https://christiaanbrinkhoff.com/
+    feed: https://christiaanbrinkhoff.com/feed/
+    youtube: https://www.youtube.com/channel/UCP894c8_Rgop-qANoVK6Vkg
+  latest:
+    date: '2026-02-26'
+    url: https://christiaanbrinkhoff.com/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 2
+    depth: 1
+    recency: 2
+    track_record: 3
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    Joined Nerdio in 2026 from Microsoft's Windows 365 and AVD team. Mostly overviews. Latest: "Azure
+    Virtual Desktop for hybrid environments".
+- id: nerdio-youtube
+  name: Nerdio (YouTube channel)
+  affiliation: nerdio
+  status: tracked
+  found_via:
+  - maintainer's starting list
+  - YouTube search
+  links:
+    blog: https://getnerdio.com/blog/
+    youtube: https://www.youtube.com/channel/UClzdOrR9o0I05hnnByEKIKA
+    github: Get-Nerdio
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 2
+    recency: 3
+    track_record: 3
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: Webinars and release walkthroughs. Nerdio's blog has no feed.
+- id: microsoft-avd-blog
+  name: Microsoft Azure Virtual Desktop blog
+  affiliation: microsoft
+  status: tracked
+  found_via:
+  - control source for balance
+  links:
+    blog: https://techcommunity.microsoft.com/category/azure/blog/azurevirtualdesktopblog
+    feed: >-
+      https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=AzureVirtualDesktopBlog
+    github: avdaccelerator
+  latest:
+    date: '2026-10-01'
+    url: https://techcommunity.microsoft.com/
+  evidence:
+  - https://github.com/Azure/avdaccelerator
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 1
+    recency: 3
+    track_record: 3
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: >-
+    Official AVD announcements. Latest: "Now generally available: Regional resiliency for Azure Virtual
+    Desktop".
+- id: avd-community-newsletter
+  name: AVD Community Newsletter
+  affiliation: independent
+  status: declined
+  found_via:
+  - awesome-AVD list
+  links:
+    blog: https://avdcommunity.com/category/newsletter/
+    feed: https://avdcommunity.com/feed/
+  latest:
+    date: '2026-10-02'
+    url: https://avdcommunity.com/category/newsletter/
+  gates:
+    original: false
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 3
+    depth: 0
+    recency: 3
+    track_record: 2
+    feedability: 3
+  reviewed: '2026-10-17'
+  notes: A curated roundup, not original content. Used to find new people at each review.
+- id: aresh-sarkari
+  name: Aresh Sarkari
+  affiliation: unknown
+  status: watch
+  found_via:
+  - awesome-AVD list
+  - AVD Community Newsletter author
+  links:
+    blog: https://askaresh.com/
+    feed: https://askaresh.com/feed/
+  latest:
+    date: '2026-10-08'
+    url: https://askaresh.com/
+  evidence:
+  - https://askaresh.com/
+  gates:
+    original: true
+    recent: true
+    feed: true
+    identity: true
+  scores:
+    relevance: 1
+    depth: 3
+    recency: 1
+    track_record: 2
+    feedability: 2
+  reviewed: '2026-10-17'
+  notes: >-
+    Mostly Windows 365 now. Identity: accounts aren't cross-linked, so only one is watched. Latest: "Windows
+    365 Local Admin - Cloud PC Configurations vs User Settings + PowerShell (Graph REST API)".
+- id: shabaz-darr
+  name: Shabaz Darr
+  affiliation: partner
+  status: watch
+  found_via:
+  - Nerdio NVP page
+  - awesome-AVD list (YouTube)
+  - Sessionize
+  links:
+    youtube: https://www.youtube.com/channel/UCt5sNdu14RterwDfEDEJidQ
+  latest:
+    date: '2025-07-22'
+    url: https://www.youtube.com/watch?v=k27nZcv7sew
+  evidence:
+  - https://www.youtube.com/watch?v=k27nZcv7sew
+  gates:
+    original: true
+    recent: false
+    feed: true
+    identity: true
+  scores:
+    relevance: 2
+    depth: 2
+    recency: 0
+    track_record: 3
+    feedability: 1
+  reviewed: '2026-10-17'
+  notes: >-
+    Microsoft MVP and Nerdio NVP. Newest Nerdio video found is from July 2025; the channel moved to a
+    new ID.
+- id: dane-young
+  name: Dane Young
+  affiliation: partner
+  status: declined
+  found_via:
+  - maintainer's starting list
+  - Nerdio NVP page
+  links:
+    blog: https://blog.youngtech.com/
+    feed: https://blog.youngtech.com/feed/
+  gates:
+    original: true
+    recent: false
+    feed: true
+    identity: true
+  scores:
+    relevance: 0
+    depth: 2
+    recency: 0
+    track_record: 2
+    feedability: 1
+  reviewed: '2026-10-17'
+  notes: >-
+    Nerdio NVP. Nothing on Nerdio or AVD in the current feed. Identity: accounts aren't cross-linked,
+    so only one is watched.
+- id: marius-sandbu
+  name: Marius Sandbu
+  affiliation: unknown
+  status: watch
+  found_via:
+  - maintainer's starting list
+  links:
+    blog: https://msandbu.org/
+    feed: https://msandbu.org/feed/
+  gates:
+    original: true
+    recent: false
+    feed: true
+    identity: true
+  scores:
+    relevance: 0
+    depth: 3
+    recency: 0
+    track_record: 3
+    feedability: 1
+  reviewed: '2026-10-17'
+  notes: >-
+    Active, but not on Nerdio or AVD now. Identity: accounts aren't cross-linked, so only one is watched.
+- id: bas-van-kaam
+  name: Bas van Kaam
+  affiliation: nerdio
+  status: watch
+  found_via:
+  - maintainer's starting list
+  links:
+    blog: https://www.basvankaam.com/
+    feed: https://www.basvankaam.com/feed/
+  latest:
+    date: '2023-04-11'
+    url: https://www.basvankaam.com/
+  gates:
+    original: true
+    recent: false
+    feed: true
+    identity: true
+  scores:
+    relevance: 2
+    depth: 2
+    recency: 0
+    track_record: 3
+    feedability: 0
+  reviewed: '2026-10-17'
+  notes: >-
+    No posts since 2023. Latest: "The Azure Virtual Desktop Security Guidelines Cheat Sheet - v1.0".
+- id: sander-rozemuller
+  name: Sander Rozemuller
+  affiliation: unknown
+  status: watch
+  found_via:
+  - awesome-AVD list
+  links:
+    blog: https://rozemuller.com/
+    feed: https://rozemuller.com/index.xml
+    github: srozemuller
+  gates:
+    original: true
+    recent: false
+    feed: true
+    identity: true
+  scores:
+    relevance: 0
+    depth: 3
+    recency: 0
+    track_record: 3
+    feedability: 1
+  reviewed: '2026-10-17'
+  notes: >-
+    Strong AVD automation history; recent posts are all Intune. Identity: accounts aren't cross-linked,
+    so only one is watched.
+- id: patrick-coble
+  name: Patrick Coble
+  affiliation: unknown
+  status: declined
+  found_via:
+  - maintainer's starting list
+  - Nerdio blog (NerdioCon 2025 interview)
+  - Nerdio NVP page
+  links:
+    blog: https://vdihacker.com/
+  gates:
+    original: true
+    recent: false
+    feed: false
+    identity: false
+  scores:
+    relevance: 1
+    depth: 2
+    recency: 0
+    track_record: 3
+    feedability: 0
+  reviewed: '2026-10-17'
+  notes: Nerdio NVP. His site couldn't be read and no feed was confirmed.
+- id: fabian-rodrigues
+  name: Fabian Rodrigues
+  affiliation: unknown
+  status: declined
+  found_via:
+  - maintainer's starting list
+  links: {}
+  gates:
+    original: false
+    recent: false
+    feed: false
+    identity: false
+  scores:
+    relevance: 0
+    depth: 0
+    recency: 0
+    track_record: 0
+    feedability: 0
+  reviewed: '2026-10-17'
+  notes: Couldn't identify a Nerdio or AVD author by this name.

@@ -8,6 +8,7 @@ Checks:
   - every decision record has MADR front matter (schema/decision.schema.json) and the MADR sections
   - known-errors.yaml, upstream.yaml and field-reports.yaml match their schemas, ids are unique,
     and KB paths they reference exist
+  - experts.yaml statuses match their scores, and tracked experts match sources.toml
   - relative links and #anchors in KB pages and llms.txt resolve
   - no email addresses or public IPv4 addresses (the no-leak rule; gitleaks covers secrets)
 
@@ -20,6 +21,7 @@ import ipaddress
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -92,6 +94,7 @@ def check_data() -> None:
         (kblib.KNOWN_ERRORS, "known-errors.schema.json"),
         (kblib.UPSTREAM, "upstream.schema.json"),
         (kblib.FIELD_REPORTS, "field-reports.schema.json"),
+        (kblib.EXPERTS, "experts.schema.json"),
     ]
     for path, schema_name in files:
         data = kblib.load_yaml(path)
@@ -108,6 +111,32 @@ def check_data() -> None:
     for r in (kblib.load_yaml(kblib.FIELD_REPORTS) or {}).get("reports", []):
         if not kb_path_exists(str(r.get("page", ""))):
             error(kblib.FIELD_REPORTS, f"issue {r.get('issue')}: page {r.get('page')!r} doesn't exist")
+
+
+def check_experts() -> None:
+    """Statuses follow the scoring rules, and tracked experts are the ones sources.toml watches."""
+    path = kblib.EXPERTS
+    experts = (kblib.load_yaml(path) or {}).get("experts", [])
+    sources = tomllib.loads(kblib.SOURCES.read_text(encoding="utf-8")).get("source", [])
+    watched = {s["expert"] for s in sources if "expert" in s}
+    by_id = {e["id"]: e for e in experts if "id" in e}
+    for e in experts:
+        if e.get("status") == "nominated":
+            continue
+        missing = [k for k in ("gates", "scores", "reviewed") if k not in e]
+        if missing:
+            error(path, f"{e.get('id')}: scored entries need {', '.join(missing)}")
+            continue
+        tier = kblib.expert_tier(e)
+        if e["status"] != tier:
+            error(path, f"{e['id']}: status is {e['status']} but its gates and scores give {tier} "
+                        f"(total {kblib.expert_total(e)}; see experts.md)")
+        if e["status"] == "tracked" and e["id"] not in watched:
+            error(path, f"{e['id']}: tracked, but no source in sources.toml has expert = \"{e['id']}\"")
+    for s in sources:
+        exp = s.get("expert")
+        if exp and (exp not in by_id or by_id[exp]["status"] != "tracked"):
+            error(kblib.SOURCES, f"source {s['name']!r}: expert {exp!r} isn't a tracked expert in experts.yaml")
 
 
 def check_links(path: Path) -> None:
@@ -149,6 +178,7 @@ def main() -> int:
     check_pages()
     check_decisions()
     check_data()
+    check_experts()
     md_files = sorted(KB_DIR.rglob("*.md")) + [kblib.LLMS_TXT]
     for p in md_files:
         check_links(p)

@@ -40,6 +40,7 @@ belongs to instead of starting a new file.
 | [chatbot-first.md](chatbot-first.md) | Every deployment step, whether the setup chat can drive it today, what blocks it, and the automation fix or workaround | plan |
 | [stack-options.md](stack-options.md) | Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change | plan |
 | [curation.md](curation.md) | How the KB stays current: the weekly source digest, the prior-art check, the feedback loop and the freshness check | verified |
+| [experts.md](experts.md) | How we choose which Nerdio and AVD experts the KB follows: the study method, the scores, and the published list | verified |
 | [decisions/](decisions/README.md) | Decision records (MADR): what was decided and why |  |
 <!-- END GENERATED: kb-index -->
 

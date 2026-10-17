@@ -73,7 +73,7 @@ class TempData(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.patches = []
-        for name in ("KNOWN_ERRORS", "FIELD_REPORTS"):
+        for name in ("KNOWN_ERRORS", "FIELD_REPORTS", "EXPERTS"):
             src = getattr(kblib, name)
             dst = self.tmp / src.name
             shutil.copy(src, dst)
@@ -118,6 +118,67 @@ class FeedbackTests(TempData):
         bad_page = FEEDBACK_BODY.replace("terraform/azurerm-5.md", "../../etc/passwd")
         with self.assertRaises(feedback.FeedbackError):
             feedback.handle({"number": 10, "body": bad_page, "labels": ["kb-feedback"]}, "2026-10-16")
+
+
+NOMINATION_BODY = """### Name
+
+Example Person
+
+### Blog
+
+https://example.com/blog
+
+### YouTube channel
+
+_No response_
+
+### GitHub username
+
+@octocat
+
+### Why follow them
+
+Writes detailed Nerdio scripting posts.
+
+""" + SAFE.replace("tenant and subscription IDs, names, domains, emails, IP addresses and secrets",
+                   "only included public professional links")
+
+
+class NominationTests(TempData):
+    def test_nomination(self):
+        issue = {"number": 12, "body": NOMINATION_BODY, "labels": ["kb-source"]}
+        title, _ = feedback.handle(issue, "2026-10-17")
+        self.assertIn("Example Person", title)
+        entry = kblib.load_yaml(kblib.EXPERTS)["experts"][-1]
+        self.assertEqual(entry["status"], "nominated")
+        self.assertEqual(entry["links"], {"blog": "https://example.com/blog", "github": "octocat"})
+        with self.assertRaises(feedback.FeedbackError):
+            feedback.handle(issue, "2026-10-17")  # same issue twice
+
+    def test_rejects_bad_links(self):
+        bad = NOMINATION_BODY.replace("https://example.com/blog", "javascript:alert(1)")
+        with self.assertRaises(feedback.FeedbackError):
+            feedback.handle({"number": 13, "body": bad, "labels": ["kb-source"]}, "2026-10-17")
+
+
+class ExpertTierTests(unittest.TestCase):
+    def entry(self, total_scores, **gates):
+        g = {"original": True, "recent": True, "feed": True, "identity": True, **gates}
+        names = ["relevance", "depth", "recency", "track_record", "feedability"]
+        return {"gates": g, "scores": dict(zip(names, total_scores))}
+
+    def test_tiers(self):
+        self.assertEqual(kblib.expert_tier(self.entry([2, 2, 2, 2, 2])), "tracked")
+        self.assertEqual(kblib.expert_tier(self.entry([3, 3, 3, 3, 3], feed=False)), "watch")
+        self.assertEqual(kblib.expert_tier(self.entry([2, 1, 1, 1, 1])), "watch")
+        self.assertEqual(kblib.expert_tier(self.entry([1, 1, 1, 1, 1])), "declined")
+        self.assertEqual(kblib.expert_tier(self.entry([3, 3, 3, 3, 3], identity=False)), "declined")
+
+    def test_digest_yield(self):
+        body = "### Blog A → `docs/knowledge/x.md`\n- [x] [one](https://a/1)\n- [ ] [two](https://a/2)\n### Blog B\n- [ ] [b](https://b)\n"
+        counts = freshness.digest_yield([{"createdAt": "2026-10-12T13:00:00Z", "body": body},
+                                         {"createdAt": "2025-01-01T13:00:00Z", "body": body}], date(2026, 9, 1))
+        self.assertEqual(counts, {"Blog A": [1, 2], "Blog B": [0, 1]})
 
 
 class FreshnessTests(TempData):
