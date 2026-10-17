@@ -7,6 +7,7 @@
   ./nerdio show                 the current answers and where each value came from
   ./nerdio preflight            read-only readiness checks (roles, providers, region, quota)
   ./nerdio preflight --regions  find regions where the VM size, quota, App Service and SQL all pass
+  ./nerdio redact --tail 40     the bootstrap's last output with IDs, IPs and tenant names masked, to share
   ./nerdio fix quota            ask Azure Support for App Service quota (shows it, then asks yes)
   ./nerdio fix vcpu --family F --limit N   raise a VM family's vCPU quota (shows it, then asks yes)
   ./nerdio fix roles            activate eligible PIM roles the kit needs (shows them, then asks yes)
@@ -25,11 +26,13 @@ import subprocess
 import sys
 import textwrap
 from dataclasses import asdict
+from pathlib import Path
 
 import engine
 import fix
 import form
 import preflight
+import redact
 import tfcheck
 
 ASKED_PHASES = ["discover", "configure"]
@@ -268,6 +271,24 @@ def scan_regions(values: dict, regions: str, as_json: bool) -> int:
     return 0
 
 
+LAST_LOG = engine.ROOT / ".nerdio" / "logs" / "last.log"
+
+
+def cmd_redact(args) -> int:
+    if args.file:
+        text = Path(args.file).read_text(encoding="utf-8", errors="replace")
+    elif not sys.stdin.isatty():
+        text = sys.stdin.read()
+    elif LAST_LOG.exists():
+        text = LAST_LOG.read_text(encoding="utf-8", errors="replace")
+    else:
+        print("nothing to redact: pipe output in, name a file, or run the bootstrap script first", file=sys.stderr)
+        return 1
+    lines = redact.redact(text, redact.account_terms()).splitlines()
+    print("\n".join(lines[-args.tail:] if args.tail else lines))
+    return 0
+
+
 def cmd_preflight(args) -> int:
     schema = engine.load_schema()
     answers = engine.load_answers()
@@ -441,6 +462,11 @@ def main(argv: list[str]) -> int:
     p.add_argument("--hours", type=int, default=4, help="roles: activation length in hours (default 4)")
     p.add_argument("--yes", action="store_true", help="don't ask before sending (for pipelines)")
     p.set_defaults(func=cmd_fix)
+
+    p = sub.add_parser("redact", help="mask IDs, IPs, emails and tenant names in output before sharing it")
+    p.add_argument("file", nargs="?", help="file to read (default: stdin, else the bootstrap's last log)")
+    p.add_argument("--tail", type=int, metavar="N", help="only the last N lines")
+    p.set_defaults(func=cmd_redact)
 
     p = sub.add_parser("schema", help="check the schema against the Terraform variables")
     p.add_argument("action", choices=["check"])

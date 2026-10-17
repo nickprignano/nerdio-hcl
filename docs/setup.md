@@ -106,6 +106,20 @@ send and does nothing until you type `yes` (`--yes` skips the question, for pipe
 The portal is the last resort: a command prints the portal path only if Azure refuses the request.
 Cloud Shell's storage choice is the one thing with no command; Cloud Shell asks it on first start.
 
+## Sharing output
+
+Plans and errors name your subscription, tenant and object IDs, public IPs and account names.
+To share output for help, in an issue or a chat, mask them first:
+
+```bash
+./nerdio redact --tail 40                 # the bootstrap script's last Terraform run
+terraform plan 2>&1 | ./nerdio redact     # anything else, piped in
+```
+
+The bootstrap script keeps each Terraform run's output in `.nerdio/logs/` (gitignored, readable
+only by you). Masking is best effort, so read what you paste. Secrets never belong in shared output;
+Terraform already hides sensitive values.
+
 ## Chat
 
 The setup chatbot runs in your own tenant and asks the schema's questions in conversation. It

@@ -154,12 +154,21 @@ TFVARS
   echo "Wrote 01-platform/sandbox.auto.tfvars (prefix $prefix, region $location, $install install, admin consent $consent)"
 }
 
+# Terraform's output is also kept (owner-only, gitignored) so it can be shared with IDs masked:
+# ./nerdio redact --tail 40. Plans and errors name subscription, tenant and object IDs.
 run_tf() {
+  local logs="$root/.nerdio/logs" log
+  mkdir -p "$logs" && chmod 700 "$logs"
+  log="$logs/$(basename "$PWD")-${mode#--}-$(date +%Y%m%d-%H%M%S).log"
+  (umask 077; : > "$log")
+  ln -sf "$(basename "$log")" "$logs/last.log"
   if [ "$mode" = --apply ]; then
-    terraform apply
+    terraform apply 2>&1 | tee "$log"
   else
-    terraform plan -input=false
+    terraform plan -input=false 2>&1 | tee "$log"
   fi
+  echo
+  echo "To share this output, run ./nerdio redact --tail 40 and paste that (IDs, IPs and names masked)."
 }
 
 say "Account"
