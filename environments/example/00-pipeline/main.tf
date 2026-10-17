@@ -12,6 +12,5 @@ module "pipeline" {
   subscription_id = var.subscription_id
   environment     = var.environment
   github          = var.github
-  answers_json    = var.answers_file == null ? null : file(var.answers_file)
   tags            = var.tags
 }

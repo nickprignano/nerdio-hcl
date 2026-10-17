@@ -1,7 +1,9 @@
 name: deploy
+# The setup chatbot reads this title to tell runs apart.
+run-name: "${{ inputs.environment }} ${{ inputs.stage }}: ${{ inputs.apply && 'plan and apply' || 'plan' }}"
 
-# Plan, then apply after a reviewer approves (decision 0016). Start it from the Actions tab (or,
-# later, the setup chatbot). The plan job signs in as the read-only plan identity. The apply job
+# Plan, then apply after a reviewer approves (decision 0016). Start it from the Actions tab or
+# the setup chatbot. The plan job signs in as the read-only plan identity. The apply job
 # waits in the <environment>-apply GitHub environment until a named reviewer approves, then
 # applies exactly the saved plan: its hash is checked and Terraform refuses a stale one.
 # One-time setup: scripts/pipeline-bootstrap.sh from Cloud Shell (docs/pipeline.md).
@@ -85,7 +87,6 @@ jobs:
       - name: plan
         id: plan
         env:
-          NERDIO_ANSWERS: ${{ secrets.NERDIO_ANSWERS }}
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/pipeline/stage.sh plan
 

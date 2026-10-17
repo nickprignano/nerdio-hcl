@@ -84,21 +84,8 @@ run "gate_and_identities" {
     error_message = "Storage account names are at most 24 characters."
   }
   assert {
-    condition     = !contains(keys(github_actions_environment_secret.this), "plan/NERDIO_ANSWERS")
-    error_message = "No answers variable unless answers are given."
-  }
-}
-
-run "answers_published_to_plan_only" {
-  command = plan
-
-  variables {
-    answers_json = "{\"environment\":\"sandbox\"}"
-  }
-
-  assert {
-    condition     = contains(keys(github_actions_environment_secret.this), "plan/NERDIO_ANSWERS") && !contains(keys(github_actions_environment_secret.this), "apply/NERDIO_ANSWERS")
-    error_message = "Answers go to the plan environment only; apply uses the saved plan."
+    condition     = keys(azurerm_storage_container.this) == ["answers", "plans", "tfstate"]
+    error_message = "Expected the answers, plans and tfstate containers."
   }
 }
 

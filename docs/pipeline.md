@@ -4,8 +4,9 @@ Plan and apply the kit from GitHub Actions instead of pasting commands into Clou
 apply waits for a named reviewer to approve it in GitHub, and applies exactly the plan they saw.
 Design and trade-offs: [decision 0016](knowledge/decisions/0016-gated-deploy-pipeline.md).
 
-This is the first half of chat-driven deployment. Next, the setup chatbot gets tools to start a
-plan and explain it back to you; it will be able to ask for an apply but never approve one.
+You can drive it from the Actions tab, or from the [setup chatbot](assistant.md): it saves your
+answers, starts a plan and explains it back to you. The chatbot can ask for an apply but never
+approve one ([Connect the chatbot](#connect-the-chatbot)).
 
 ## How it works
 
@@ -14,7 +15,7 @@ plan and explain it back to you; it will be able to ask for an apply but never a
 | `<env>-plan` GitHub environment | Any run from `main` can use it. Its identity is read-only: **Reader** on the subscription, **Directory.Read.All** in Graph, and the state storage |
 | `<env>-apply` GitHub environment | Needs a reviewer's approval, from `main` only, with no admin bypass. Only then does GitHub issue the token its identity trusts |
 | Two managed identities | One per environment, federated to exactly that environment with GitHub OIDC. No client secret exists anywhere |
-| State storage account | Terraform state (container `tfstate`) and saved plans (container `plans`, deleted after 7 days). Entra sign-in only; shared keys are off |
+| State storage account | Terraform state (container `tfstate`), saved plans and their change lists (container `plans`, deleted after 7 days) and the answers each environment plans from (container `answers`, one versioned blob per environment). Entra sign-in only; shared keys are off |
 | `.github/workflows/deploy.yml` | Plans a stage, lists the changes in the run summary, and saves the plan. If you ticked **apply**, the apply job waits for approval, checks the saved plan's hash and applies it |
 
 Tenant, subscription and object IDs are stored as environment secrets so GitHub masks them, and
@@ -38,9 +39,9 @@ gh auth login                        # choose "Login with a web browser"; works 
 ```
 
 It reads your tenant and subscription from `az account show`, the repository from git, and you
-as the approver (set `NME_REVIEWERS=login1,login2` for others). It publishes your `./nerdio`
-answers to the plan environment, with `me` replaced by your object ID, and then moves its own
-state into the new storage account.
+as the approver (set `NME_REVIEWERS=login1,login2` for others). It moves its own state into the
+new storage account, then publishes your `./nerdio` answers there (`answers/<env>.json`), with
+`me` replaced by your object ID.
 
 You need Owner on the subscription (or Contributor plus Role Based Access Control
 Administrator), Privileged Role Administrator or Global Administrator to grant the Graph roles,
@@ -51,7 +52,8 @@ and admin on the repository.
 in progress. The first pipeline plan will move Key Vault roles and app ownership from you to the
 apply identity; add yourself to `entra_app.owner_object_ids` if you want to stay an app owner.
 
-**Changed your answers?** `./scripts/pipeline/bootstrap.sh --answers-only` republishes them.
+**Changed your answers?** `./scripts/pipeline/bootstrap.sh --answers-only` publishes them again,
+or save them from the chatbot. Earlier versions are kept as blob versions.
 
 ## Deploy
 
@@ -59,6 +61,37 @@ Actions > **deploy** > **Run workflow**: pick the environment and stage (platfor
 config), and tick **apply** to apply after the plan. Read the plan in the run summary, then
 approve the `<env>-apply` deployment (GitHub's mobile app works). Nerdio's first-run wizard
 still runs in the browser between the stages, because Nerdio has no API for it yet.
+
+## Connect the chatbot
+
+The chatbot starts runs as a GitHub App that can only use Actions on this repository. Its
+private key lives in Key Vault as a non-exportable, sign-only key: the bot asks Key Vault to sign
+a ten-minute token and never sees the key. The bot's managed identity can write the `answers`
+container, read the `plans` container and use the keys in its own Key Vault, which holds only
+that key, and nothing else in Azure.
+
+1. **Connect the chatbot** (Cloud Shell):
+
+   ```bash
+   ./nerdio assistant --admin-group "AVD Admins" --pipeline
+   ```
+
+   It prints a setup link, `https://<your chat>/setup/github`.
+2. **Create the GitHub App** (in the browser, once): open that link and sign in. It sends GitHub
+   a ready-made app definition (GitHub's [manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest)):
+   private, no webhook, *Actions: read and write* and nothing else. Click **Create GitHub App**,
+   then **Install** on this repository only. GitHub hands the new app's private key straight to
+   the chatbot, which imports it into Key Vault; nobody downloads or pastes a `.pem`.
+
+To replace the app, open `/setup/github?replace=true`, then delete the old app in GitHub.
+
+Now ask the chatbot to deploy. It saves your answers and starts a platform plan, each only after
+you say yes, then reads the plan back to you. When you're happy, it starts a run that asks to
+apply, and you approve that run in GitHub.
+
+A GitHub App can't be an environment reviewer, so the bot can't approve its own run. With
+Actions write it could also re-run or cancel other workflow runs in this repository; the kit's
+code only ever dispatches `deploy.yml`. To cut it off, suspend or uninstall the app in GitHub.
 
 ## Limits, for now
 

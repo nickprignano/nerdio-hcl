@@ -44,7 +44,8 @@ Details: [docs/setup.md](docs/setup.md).
 
 To deploy without pasting commands, run the one-time pipeline bootstrap from Cloud Shell. After
 that, the **deploy** workflow plans each stage and applies it only after you approve it in
-GitHub ([docs/pipeline.md](docs/pipeline.md)).
+GitHub, and the setup chatbot can start and explain those runs for you
+([docs/pipeline.md](docs/pipeline.md)).
 
 ## Layout
 

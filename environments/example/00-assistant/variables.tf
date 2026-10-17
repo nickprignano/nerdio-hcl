@@ -65,3 +65,16 @@ variable "tags" {
     managed-by = "terraform"
   }
 }
+
+variable "pipeline" {
+  description = "Connects the chat to the deploy pipeline (see modules/assistant). ./nerdio assistant --pipeline fills it in."
+  type = object({
+    storage_account_id = string
+    environment        = string
+    github = object({
+      repository = string
+      branch     = optional(string, "main")
+    })
+  })
+  default = null
+}

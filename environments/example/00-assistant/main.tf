@@ -21,4 +21,5 @@ module "assistant" {
   admin_group_object_id = data.azuread_group.admins.object_id
   foundry               = var.foundry
   kit_repo_url          = var.kit_repo_url
+  pipeline              = var.pipeline
 }

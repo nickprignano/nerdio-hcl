@@ -55,6 +55,11 @@ sign-in works the same way as in the browser.
 - **Nothing in your tenant is changed by the chat.** The bot's tools only read the kit's schema
   and knowledge base. When something has to run in your tenant (the readiness check, writing the
   configuration), it gives you one Cloud Shell command to paste, and you paste the output back.
+- **Deploying from the chat** is optional: connect it to the [deploy pipeline](pipeline.md#connect-the-chatbot)
+  with `--pipeline`, then open `/setup/github` once to create its GitHub App in two clicks. Then
+  it can save your answers for the pipeline, start a plan and explain it. It can ask for an apply
+  but can't approve one: that's you, in GitHub. Its identity gets no Azure rights beyond two blob
+  containers and its own Key Vault, which holds only the GitHub App's key.
 - **No IDs or secrets in the conversation.** Tenant and subscription IDs come from your Cloud Shell
   sign-in, and group names are looked up there. The bot never asks for a password, key or secret.
 - **No stored conversations.** The app keeps no state. The conversation lives in your browser, so

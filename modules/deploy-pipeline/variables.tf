@@ -53,12 +53,6 @@ variable "github" {
   }
 }
 
-variable "answers_json" {
-  description = "The ./nerdio answers (JSON) the pipeline renders tfvars from. Published as an environment secret (masked in logs), never committed. Null leaves it unset."
-  type        = string
-  default     = null
-}
-
 variable "plan_graph_roles" {
   description = "Microsoft Graph application roles for the plan identity. Read-only: Terraform refreshes Entra objects and the kit looks up groups by name."
   type        = list(string)
