@@ -8,7 +8,7 @@ resource "azuread_group" "sql_admins" {
   display_name     = local.names.sql_admins
   description      = "Entra admin of the Nerdio Manager SQL server. Members: the Nerdio web app identity and the Nerdio app."
   security_enabled = true
-  owners           = [data.azuread_client_config.current.object_id]
+  owners           = [coalesce(var.deployer_object_id, data.azuread_client_config.current.object_id)]
   members = [
     azurerm_windows_web_app.this.identity[0].principal_id,
     var.entra_app.service_principal_object_id,

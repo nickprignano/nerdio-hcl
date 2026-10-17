@@ -81,3 +81,9 @@ variable "purge_protection_enabled" {
   type        = bool
   default     = false
 }
+
+variable "deployer_object_id" {
+  description = "Object ID of the identity that applies this configuration. Null means whoever runs Terraform. The deploy pipeline sets it, because it plans as a read-only identity and applies as another."
+  type        = string
+  default     = null
+}

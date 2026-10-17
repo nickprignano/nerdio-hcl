@@ -1,0 +1,43 @@
+name: validate-pipeline
+
+# Checks the deploy pipeline's Terraform and scripts. Kept apart from validate.yml only while
+# another open pull request changes that file; fold it in afterwards.
+
+on:
+  pull_request:
+    paths:
+      - modules/deploy-pipeline/**
+      - environments/example/00-pipeline/**
+      - scripts/pipeline/**
+      - .github/workflows/deploy.yml
+      - .github/workflows/validate-pipeline.yml
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+      - name: validate 00-pipeline
+        working-directory: environments/example/00-pipeline
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+      - name: module tests
+        working-directory: modules/deploy-pipeline
+        run: |
+          terraform init -backend=false -input=false
+          terraform test
+      - name: shellcheck
+        run: shellcheck scripts/pipeline/*.sh

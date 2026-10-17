@@ -17,10 +17,11 @@ resource "azurerm_key_vault" "this" {
 }
 
 locals {
+  deployer = coalesce(var.deployer_object_id, data.azurerm_client_config.current.object_id)
   key_vault_roles = {
-    deployer_crypto  = { principal = data.azurerm_client_config.current.object_id, role = "Key Vault Crypto Officer" }
-    deployer_secrets = { principal = data.azurerm_client_config.current.object_id, role = "Key Vault Secrets Officer" }
-    deployer_certs   = { principal = data.azurerm_client_config.current.object_id, role = "Key Vault Certificates Officer" }
+    deployer_crypto  = { principal = local.deployer, role = "Key Vault Crypto Officer" }
+    deployer_secrets = { principal = local.deployer, role = "Key Vault Secrets Officer" }
+    deployer_certs   = { principal = local.deployer, role = "Key Vault Certificates Officer" }
     web_secrets      = { principal = azurerm_windows_web_app.this.identity[0].principal_id, role = "Key Vault Secrets Officer" }
     web_crypto       = { principal = azurerm_windows_web_app.this.identity[0].principal_id, role = "Key Vault Crypto User" }
     web_certs        = { principal = azurerm_windows_web_app.this.identity[0].principal_id, role = "Key Vault Certificate User" }

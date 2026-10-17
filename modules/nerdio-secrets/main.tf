@@ -12,10 +12,11 @@
 data "azurerm_client_config" "current" {}
 
 locals {
+  deployer = coalesce(var.deployer_object_id, data.azurerm_client_config.current.object_id)
   # Static keys, so for_each works before the GitHub identity exists.
   readers = merge(
-    { deployer = data.azurerm_client_config.current.object_id },
-    { for id in distinct(var.reader_object_ids) : id => id if id != data.azurerm_client_config.current.object_id },
+    { deployer = local.deployer },
+    { for id in distinct(var.reader_object_ids) : id => id if id != local.deployer },
     var.github_oidc == null ? {} : { github = azurerm_user_assigned_identity.github[0].principal_id },
   )
 }
@@ -42,7 +43,7 @@ resource "azurerm_key_vault" "this" {
 resource "azurerm_role_assignment" "deployer" {
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = local.deployer
 }
 
 resource "time_sleep" "rbac" {

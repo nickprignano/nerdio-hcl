@@ -207,3 +207,9 @@ variable "openbao" {
   })
   default = null
 }
+
+variable "deployer_object_id" {
+  description = "Object ID of the identity that applies this stage. Leave null in Cloud Shell (it's you). The deploy pipeline sets it to its apply identity, because it plans as a read-only one (decision 0016)."
+  type        = string
+  default     = null
+}

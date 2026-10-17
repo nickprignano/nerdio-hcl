@@ -42,6 +42,10 @@ One set of questions, three ways to answer them. All three read
 
 Details: [docs/setup.md](docs/setup.md).
 
+To deploy without pasting commands, run the one-time pipeline bootstrap from Cloud Shell. After
+that, the **deploy** workflow plans each stage and applies it only after you approve it in
+GitHub ([docs/pipeline.md](docs/pipeline.md)).
+
 ## Layout
 
 ```
@@ -57,8 +61,10 @@ modules/
   nerdio-hardening/  private endpoints and VNet integration for Nerdio's core resources
   image-gallery/     Compute Gallery and image definitions for Packer
   nerdio-config/     Nerdio objects through the nerdio/nme provider
+  deploy-pipeline/   state storage, OIDC deploy identities and the GitHub approval gate
 environments/
   example/
+    00-pipeline/       one-time bootstrap for the deploy pipeline
     01-platform/       stage 1 root: Azure + Entra + Nerdio install
     02-nerdio-config/  stage 2 root: Nerdio configuration via nerdio/nme
 packer/
@@ -70,6 +76,7 @@ docs/
   deployment-runbook.md
   cloud-shell.md
   secrets.md         how stage 2 gets the REST API secret without anyone handling it
+  pipeline.md        plan and apply from GitHub Actions behind an approval
   architecture.md
   knowledge/         the living knowledge base and decision records
 ```

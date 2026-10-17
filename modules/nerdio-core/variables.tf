@@ -104,3 +104,9 @@ variable "web_app_public_network_access_enabled" {
   type        = bool
   default     = true
 }
+
+variable "deployer_object_id" {
+  description = "Object ID of the identity that applies this configuration. Null means whoever runs Terraform. The deploy pipeline sets it, because it plans as a read-only identity and applies as another."
+  type        = string
+  default     = null
+}

@@ -1,0 +1,11 @@
+# scripts/pipeline-bootstrap.sh writes this as backend.tf (gitignored) after the first apply and
+# moves the local state into it. Values here are placeholders.
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "rg-nme-sbx-pipeline"
+    storage_account_name = "stnmesbxtf000000"
+    container_name       = "tfstate"
+    key                  = "nerdio/sandbox/pipeline.tfstate"
+    use_azuread_auth     = true
+  }
+}

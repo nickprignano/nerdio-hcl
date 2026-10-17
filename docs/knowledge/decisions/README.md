@@ -22,4 +22,5 @@ marked *Superseded by NNNN*.
 | [0013](0013-unlicensed-code-reference-only.md) | Unlicensed code is reference only | Accepted |
 | [0014](0014-self-hosted-setup-chatbot.md) | The setup chat is a self-hosted chatbot using Claude on Microsoft Foundry | Accepted |
 | [0015](0015-secrets-key-vault-default-openbao-optional.md) | Secrets: Key Vault by default; OpenBao as the optional Vault-style module | Accepted |
+| [0016](0016-gated-deploy-pipeline.md) | Deploy through GitHub Actions with OIDC and a reviewer gate; chat drives the pipeline | Accepted |
 <!-- END GENERATED: decision-index -->

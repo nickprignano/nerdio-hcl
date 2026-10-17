@@ -60,6 +60,7 @@ module "nerdio_core" {
   database_sku         = var.nerdio_core.database_sku
   package_version      = var.nerdio_core.package_version
   grant_admin_consent  = var.entra_app.grant_admin_consent
+  deployer_object_id   = var.deployer_object_id
 
   entra_app = {
     application_id              = module.nerdio_identity[0].application_id
@@ -100,6 +101,7 @@ module "nerdio_identity" {
   display_name           = var.entra_app.display_name
   app_service_hostname   = local.nerdio_hostname
   owner_object_ids       = var.entra_app.owner_object_ids
+  deployer_object_id     = var.deployer_object_id
   wvd_admin_object_ids   = var.entra_app.wvd_admin_object_ids
   grant_admin_consent    = var.entra_app.grant_admin_consent
   enable_mail_send       = var.entra_app.enable_mail_send
@@ -134,6 +136,7 @@ module "nerdio_secrets" {
   secret_expiration_date = module.nerdio_identity[0].rest_api_client_secret_end_date
   reader_object_ids      = var.nme_secret.reader_object_ids
   github_oidc            = var.nme_secret.github_oidc
+  deployer_object_id     = var.deployer_object_id
 }
 
 # Created here rather than in the module, because it must own the REST API client app before the

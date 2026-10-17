@@ -63,3 +63,21 @@ run "rejects_bad_repository" {
 
   expect_failures = [var.github_oidc]
 }
+
+# The deploy pipeline plans as a read-only identity and applies as another (decision 0016).
+run "deployer_override" {
+  command = plan
+
+  variables {
+    deployer_object_id = "44444444-4444-4444-4444-444444444444"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.deployer.principal_id == "44444444-4444-4444-4444-444444444444"
+    error_message = "The named deployer, not the planning identity, must write the secret."
+  }
+  assert {
+    condition     = azurerm_role_assignment.secret_reader["deployer"].principal_id == "44444444-4444-4444-4444-444444444444"
+    error_message = "The named deployer must read the secret."
+  }
+}

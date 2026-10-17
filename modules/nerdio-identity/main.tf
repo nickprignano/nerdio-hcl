@@ -11,7 +11,7 @@ data "azuread_service_principal" "azure_service_management" {
 }
 
 locals {
-  owners = distinct(concat([data.azuread_client_config.current.object_id], var.owner_object_ids))
+  owners = distinct(concat([coalesce(var.deployer_object_id, data.azuread_client_config.current.object_id)], var.owner_object_ids))
   base   = "https://${var.app_service_hostname}"
 
   # From Nerdio's "Advanced installation: Create Entra ID application". Directory.Read.All
