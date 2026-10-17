@@ -3,7 +3,7 @@ title: "Roadmap: turnkey, maximum-automation Nerdio deployment"
 summary: "Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change"
 topic: roadmap
 status: plan
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-17
 ---
 
 # Roadmap: turnkey, maximum-automation Nerdio deployment
@@ -279,6 +279,29 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 | Turbonomic, Cloudability, Instana | Document only | Turbonomic conflicts with Nerdio auto-scale; Cloudability only needs consistent tags; Instana has no AVD sensor. |
 | Vault Radar | Dropped | Needs HCP credentials; gitleaks plus GitHub secret scanning cover the repo. |
 
+## Beyond AVD in Azure commercial: GovCloud, Intune, Windows 365 and Azure Local
+
+Added 2026-10-17. Nerdio Manager for Enterprise (NME) supports all five of these, but almost all of it
+is console-only today. The table shows what Nerdio supports (its help center), what the `nerdio/nme`
+provider and the Nerdio REST API cover (provider and OpenAPI spec `internal/client/api.json`, commit
+`65e547f`), and how the kit would reach it with HCL first. In Nerdio's console, "hybrid" means AVD
+host pools on Azure Local ("Link Hybrid Network", "Hybrid Host Pools"), so AVD hybrid and Azure Local
+are one item here. Hybrid identity (AD DS and Entra hybrid join) is already a join-model choice in
+[chat setup](chat-assistant.md).
+
+| Item | What Nerdio supports | `nme` provider and REST API | How the kit gets there |
+|---|---|---|---|
+| **Azure Government (GovCloud)** | NME installs in an Azure Government tenant from the Government Marketplace. GCC High counts as Azure Government, GCC as commercial. Gov differences: User Cost Attribution isn't available, only app-credential subscription linking works (no managed-identity or split-identity installs), and license activation needs a commercial or partner tenant. NME in Gov can manage commercial identity; NME in commercial can't manage Gov AVD. | The provider takes any `base_url` and `scope`, but its token endpoint is hard-coded to `login.microsoftonline.com` (`internal/provider/provider_clients.go`). An internal `TokenURL` field exists and isn't exposed, so it can't sign in against `login.microsoftonline.us` from HCL. | Mostly our own work. The kit hard-codes commercial endpoints: `*.azurewebsites.net`, `*.vault.azure.net`, `*.database.windows.net` and the `AzureAd:Instance` login URL in `modules/nerdio-core`, the private DNS zone names in `modules/network` and `scripts/nerdio/preflight.py`, and the Easy Auth issuer in `modules/assistant`. Add one `cloud` parameter to the schema (`public` or `usgovernment`), derive suffixes from it (and from `az cloud show` in Cloud Shell), and pass `environment` to azurerm, azuread and azapi. Upstream: expose the token URL or a cloud setting in the provider. |
+| **Intune managed through Nerdio** | Under Endpoints > Intune: policy management for compliance, configuration profiles, security baselines, Conditional Access, apps and Windows Update; Nerdio templates; a JSON editor with version compare; scheduled and on-change backups (up to 50, kept up to 156 weeks); an optional approval workflow; and physical devices, Cloud PCs and AVD hosts in one view (full set needs NME 7.0+). Turned on in System > Settings > Integrations by a Global Administrator, with admin consent. | Only the hooks: `compliance_enforcement` on host pools and VM deployment profiles, `enroll_with_intune` on the AD config data source, and an Intune device console-connect call. No API for policies, backups, approvals or turning the integration on. | Terraform sets the hooks it already can (Intune enrollment and compliance enforcement on pools). Policies stay owned by Nerdio by default, so its approvals and backups keep working. An optional policy-as-code module (`microsoft365` provider, MPL-2.0, or `msgraph`) is for people who want Git to own a policy; Nerdio's on-change backup still captures edits made outside it, but its approval step is skipped, so one owner per policy. Nerdio's own `intune-policies` JSON is unlicensed: read it for settings, never copy it. Upstream: a policy and approvals API. |
+| **Windows 365** | Cloud Desktops > Windows 365: Azure network connections (AD DS with hybrid sync, or the Microsoft-hosted network), provisioning policies (image, network, region, naming, mapped to Entra groups), user settings, images (Nerdio, gallery or custom) and Cloud PC lifecycle (restart, resize, reprovision, restore, remove). Needs the Intune integration plus Intune and Windows 365 licenses. | Nothing for Cloud PCs; the only trace is `uploadToCloudPc` on the desktop image set-as-image call. | The `microsoft365` provider already has resources for Azure network connections, provisioning policies, user settings, device images and organization settings, and supports GCC High and DoD. The kit creates those in Terraform plus the Entra groups (azuread), and Nerdio picks them up for day-2 work. Must test whether Nerdio adopts policies it didn't create. Upstream: Cloud PC resources in `nme`, or at least a read API, so the two views can't drift. |
+| **Azure Local (AVD hybrid)** | NME 5.7+ supports Azure Local 23H2 and later: link the cluster's subscription, resource group and hybrid network ("Link Hybrid Network"), copy desktop images to custom locations with the set-image process, create or import hybrid host pools and convert them to dynamic for auto-scale. Session hosts must be AD DS or Entra Domain Services joined (Entra join isn't supported) and cost management isn't. | Only `hci_gpu_allocation_mode` on `nme_vm_deployment_profile`. No hybrid network, custom location or hybrid host pool objects in the provider or the API. | The Azure side is Terraform: Arc and Azure Local resources through `azurerm` `stack_hci_*` resources or azapi, AD DS join settings and a local FSLogix share path. Linking the hybrid network and creating hybrid pools waits on Nerdio (console or a restapi stopgap once an endpoint exists). Needs a real Azure Local cluster to test, which neither sandbox has. In Azure Government, AVD on Azure Local is still a Microsoft preview with no portal provisioning. |
+
+**Ordering and why** (directional, after the current window; see the build order below):
+GovCloud comes first because it's mostly our own code, and every module added before it is one more
+place to un-hard-code. Intune hooks come next because the provider already has them. Windows 365
+builds on the Intune integration and on the `microsoft365` provider. Azure Local is last because it
+needs hardware to test and Nerdio's API has nothing for it yet.
+
 ## Build order
 
 **We build (no Nerdio change needed):**
@@ -310,6 +333,20 @@ Suggested sequence: 1 → 4 → 7 (bootstrap and engine) gives a working one-com
 parameter schema and setup skill (9) come next so the guided flow wraps it early. 2, 3, 5, 6 and 8
 harden it, and the MCP server comes last.
 
+**Next windows (directional, after the first window ends 2027-01-14; [decision 0010](decisions/0010-roadmap-horizon.md)):**
+10. **Azure Government.** A `cloud` parameter (`public` or `usgovernment`) in the schema, the CLI and
+    chat; cloud-derived endpoints and private DNS zones in every module; `environment` on azurerm,
+    azuread and azapi; preflight checks for Gov regions and Marketplace availability. Chat asks for
+    the cloud first, since it changes every later answer.
+11. **Intune through Nerdio.** Set Intune enrollment and compliance enforcement on host pools and
+    deployment profiles from the schema; document turning the integration on (a Global
+    Administrator consent step); an optional policy-as-code module with a one-owner-per-policy rule.
+12. **Windows 365.** An optional module for Azure network connections, provisioning policies,
+    user settings and groups with the `microsoft365` provider, handed to Nerdio for day-2 work.
+13. **Azure Local (AVD hybrid).** An optional module for the Azure side (Arc, logical network,
+    images to custom locations, AD DS join, local FSLogix path); Nerdio linking stays manual until
+    it has an API.
+
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.
 2. A first-run and registration completion API.
@@ -318,6 +355,10 @@ harden it, and the MCP server comes last.
 5. Desktop image and image catalog resources in the provider.
 6. Workload identity federation (client assertion) in the `nme` provider. Today it only accepts a
    client secret (`internal/provider/provider.go`), and this change would remove the last secret in the kit.
+7. Sovereign cloud sign-in: a `token_url` or cloud setting in the `nme` provider, so it works in
+   Azure Government.
+8. APIs for Intune policies (with approvals and backups), Windows 365 objects, and Azure Local hybrid
+   networks and host pools, then provider resources for them.
 
 **Dropped or documented only:** Boundary, Turbonomic, Cloudability, Instana, Vault Radar and HCP
 Packer (optional only).
@@ -329,6 +370,11 @@ Packer (optional only).
 - Whether the package API and settings approach (MB-External style) survives Nerdio's self-update.
 - Whether the Playwright selectors work on the current wizard, and how long a saved session stays valid.
 - Whether the Windows App web client can be driven headless to a rendered desktop, and how long that takes.
+- Whether the Terraform-native install works in Azure Government, given Nerdio supports only
+  app-credential linking there, and what the Gov package API and REST API endpoints are.
+- Whether Claude on Foundry is available in Azure Government for the setup chatbot, or the chatbot
+  has to stay in a commercial tenant.
+- Whether Nerdio adopts Windows 365 provisioning policies and Intune policies that Terraform created.
 
 ## Sources
 - Nerdio OpenAPI spec: `internal/client/api.json` in Get-Nerdio/NME-Terraform-Provider (commit 65e547f, 2026-09-21)
@@ -343,3 +389,6 @@ Packer (optional only).
 - Ansible: github.com/ansible-collections/azure ; github.com/ansible/terraform-provider-ansible ; github.com/ansible/terraform-provider-aap
 - IBM: ibm.com/products/turbonomic/pricing ; automation-management.ideas.ibm.com/ideas/TURBO-I-899 ; ibm.com/docs/en/SSE1JP5/src/pages/ecosystem/index.html
 - Microsoft: github.com/microsoft/terraform-provider-msgraph ; github.com/deploymenttheory/terraform-provider-microsoft365
+- Nerdio help (nmehelp.getnerdio.com): Azure Government (40495096260493), AVD for Azure Local (25499377328909), Import Azure Local host pools (40495096378125), Windows 365 Cloud PCs (25499404997901), Intune policies (25499402447373), Intune backups (32612203319693)
+- Microsoft: learn.microsoft.com/azure/virtual-desktop/azure-local-overview (Azure Government preview); learn.microsoft.com/mem/intune/fundamentals/intune-govt-service-description; Windows 365 GCC High GA, Microsoft 365 roadmap ID 93691
+- microsoft365 provider Windows 365 resources and `cloud` setting: docs/resources/graph_beta_windows_365_*.md and docs/index.md (checked 2026-10-17)
