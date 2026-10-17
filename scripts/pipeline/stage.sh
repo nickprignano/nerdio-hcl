@@ -139,7 +139,7 @@ if [ "$action" = plan ]; then
 fi
 
 # apply: exactly the plan the reviewer approved, or nothing.
-[ -n "${PLAN_BLOB:-}" ] && [[ "${PLAN_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || fail "No saved plan to apply"
+if [ -z "${PLAN_BLOB:-}" ] || ! [[ "${PLAN_SHA256:-}" =~ ^[0-9a-f]{64}$ ]]; then fail "No saved plan to apply"; fi
 echo "== Saved plan"
 blob download "$work/plan.tar"
 echo "$PLAN_SHA256  $work/plan.tar" | sha256sum --check --quiet - || fail "The saved plan changed since it was reviewed; not applying"
