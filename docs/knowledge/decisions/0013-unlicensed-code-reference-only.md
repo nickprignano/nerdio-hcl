@@ -41,8 +41,8 @@ Chosen option: "Facts only", because without a license we have no right to copy 
 - Good, because the kit stays clear of copyright problems when it goes public.
 - Bad, because there can be no upstream PRs or hosted provider mirrors until Nerdio licenses the
   provider.
-- Neutral, because our repo should pick its own license before going public (Apache-2.0
-  recommended; not chosen yet).
+- Neutral, because our own repo needed a license before going public: Apache-2.0, chosen in
+  [0018](0018-apache-2-license.md).
 
 ## More Information
 
