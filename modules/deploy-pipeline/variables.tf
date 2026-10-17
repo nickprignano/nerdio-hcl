@@ -56,6 +56,7 @@ variable "github" {
 variable "plan_graph_roles" {
   description = "Microsoft Graph application roles for the plan identity. Read-only: Terraform refreshes Entra objects and the kit looks up groups by name."
   type        = list(string)
+  nullable    = false # null (from the stage) means this default
   default     = ["Directory.Read.All"]
 }
 
@@ -68,6 +69,7 @@ variable "apply_graph_roles" {
     consent yourself (grant_admin_consent = false).
   EOT
   type        = list(string)
+  nullable    = false # null (from the stage) means this default
   default = [
     "Application.ReadWrite.All",
     "AppRoleAssignment.ReadWrite.All",
@@ -80,7 +82,40 @@ variable "apply_graph_roles" {
 variable "apply_roles" {
   description = "Azure roles for the apply identity on the subscription. The kit creates role assignments, so it needs one of the RBAC administrator roles alongside Contributor."
   type        = list(string)
+  nullable    = false # null (from the stage) means this default
   default     = ["Contributor", "Role Based Access Control Administrator"]
+}
+
+variable "apply_assignable_roles" {
+  description = <<-EOT
+    The only roles the apply identity may assign or remove, when apply_roles includes Role Based
+    Access Control Administrator or User Access Administrator. Azure enforces it with a role
+    assignment condition, so the identity can't grant Owner, User Access Administrator or any role
+    the kit doesn't use. These are the roles the kit's stages assign. Add one here if you add a
+    role assignment to the kit; an empty list removes the condition (not recommended).
+  EOT
+  type        = list(string)
+  nullable    = false # null (from the stage) means this default
+  default = [
+    "Contributor",
+    "Reader",
+    "Backup Reader",
+    "Website Contributor",
+    "Key Vault Crypto Officer",
+    "Key Vault Crypto User",
+    "Key Vault Crypto Service Encryption User",
+    "Key Vault Secrets Officer",
+    "Key Vault Secrets User",
+    "Key Vault Certificates Officer",
+    "Key Vault Certificate User",
+    "Storage File Data SMB Share Contributor",
+    "Storage File Data SMB Share Elevated Contributor",
+  ]
+
+  validation {
+    condition     = length(setintersection(var.apply_assignable_roles, ["Owner", "User Access Administrator", "Role Based Access Control Administrator"])) == 0
+    error_message = "The apply identity must not be able to hand out Owner or the role-assignment administrator roles."
+  }
 }
 
 variable "plan_retention_days" {

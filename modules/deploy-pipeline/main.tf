@@ -153,11 +153,48 @@ resource "azurerm_role_assignment" "plan" {
   principal_id         = local.identities.plan.principal_id
 }
 
+# Constrained delegation: the apply identity's role-assignment rights only reach the roles the
+# kit assigns (apply_assignable_roles). Azure checks the condition on every assignment it creates
+# or deletes, so even an approved run can't grant Owner or widen its own access.
+data "azurerm_role_definition" "assignable" {
+  for_each = toset(var.apply_assignable_roles)
+  name     = each.key
+  scope    = local.subscription_scope
+}
+
+locals {
+  role_admin_roles = ["Role Based Access Control Administrator", "User Access Administrator"]
+  assignable_ids   = join(", ", sort([for r in data.azurerm_role_definition.assignable : r.role_definition_id]))
+  assign_condition = <<-EOT
+    (
+     (
+      !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
+     )
+     OR
+     (
+      @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.assignable_ids}}
+     )
+    )
+    AND
+    (
+     (
+      !(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})
+     )
+     OR
+     (
+      @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.assignable_ids}}
+     )
+    )
+  EOT
+}
+
 resource "azurerm_role_assignment" "apply" {
   for_each             = toset(var.apply_roles)
   scope                = local.subscription_scope
   role_definition_name = each.key
   principal_id         = local.identities.apply.principal_id
+  condition            = contains(local.role_admin_roles, each.key) && length(var.apply_assignable_roles) > 0 ? local.assign_condition : null
+  condition_version    = contains(local.role_admin_roles, each.key) && length(var.apply_assignable_roles) > 0 ? "2.0" : null
 }
 
 data "azuread_service_principal" "msgraph" {

@@ -16,3 +16,9 @@ github = {
 #   protect_branch                 = true # ruleset: the branch only changes through pull requests
 #   actions_can_open_pull_requests = true # kb-feedback opens its own pull request
 # }
+
+# Optional, for tenants with strict access rules: narrow what the pipeline's identities may do.
+# Leave a field out to keep the kit's default. See docs/access.md before changing these.
+# access = {
+#   apply_graph_roles = ["Application.ReadWrite.All", "Group.ReadWrite.All", "Directory.Read.All"] # you grant admin consent yourself
+# }

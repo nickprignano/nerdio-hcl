@@ -13,6 +13,11 @@ module "pipeline" {
   environment     = var.environment
   github          = var.github
   tags            = var.tags
+
+  apply_roles            = var.access.apply_roles
+  apply_assignable_roles = var.access.apply_assignable_roles
+  apply_graph_roles      = var.access.apply_graph_roles
+  plan_graph_roles       = var.access.plan_graph_roles
 }
 
 # Repository settings the kit relies on: the kb-* labels, a read-only default workflow token,

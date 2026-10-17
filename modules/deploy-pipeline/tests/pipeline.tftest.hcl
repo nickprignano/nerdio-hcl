@@ -102,3 +102,26 @@ run "needs_a_reviewer" {
 
   expect_failures = [var.github]
 }
+
+run "role_admin_is_constrained" {
+  command = plan
+
+  assert {
+    condition     = azurerm_role_assignment.apply["Role Based Access Control Administrator"].condition_version == "2.0" && strcontains(azurerm_role_assignment.apply["Role Based Access Control Administrator"].condition, "roleAssignments/write")
+    error_message = "The apply identity's RBAC administrator role must carry the constrained-delegation condition."
+  }
+  assert {
+    condition     = azurerm_role_assignment.apply["Contributor"].condition == null
+    error_message = "Only the role-assignment administrator role needs a condition."
+  }
+}
+
+run "assignable_roles_never_include_owner" {
+  command = plan
+
+  variables {
+    apply_assignable_roles = ["Contributor", "Owner"]
+  }
+
+  expect_failures = [var.apply_assignable_roles]
+}

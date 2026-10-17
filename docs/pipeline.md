@@ -26,8 +26,10 @@ The apply identity is powerful: Contributor and Role Based Access Control Admini
 subscription, and the Graph roles stage 1 needs to create Nerdio's app registrations and grant
 admin consent (`Application.ReadWrite.All`, `AppRoleAssignment.ReadWrite.All`,
 `DelegatedPermissionGrant.ReadWrite.All`, `Group.ReadWrite.All`). That's what the approval gate
-protects. If you'd rather grant consent yourself, set `grant_admin_consent = false` and trim
-`apply_graph_roles` in `modules/deploy-pipeline`.
+protects. Its Role Based Access Control Administrator role carries a condition, so it can only
+assign the roles the kit uses (`apply_assignable_roles`), never Owner. To narrow it further, for
+example to grant admin consent yourself, set `access` in `00-pipeline/terraform.tfvars`;
+[access.md](access.md) lists every right and why the kit needs it.
 
 ## Set it up (once, in Cloud Shell)
 

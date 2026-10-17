@@ -55,6 +55,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0016. Deploy through GitHub Actions with OIDC and a reviewer gate; chat drives the pipeline](docs/knowledge/decisions/0016-gated-deploy-pipeline.md): accepted
 - [0017. Every Azure deployment is chatbot-first](docs/knowledge/decisions/0017-chatbot-first-deployment.md): accepted
 - [0018. License the kit under Apache-2.0](docs/knowledge/decisions/0018-apache-2-license.md): accepted
+- [0019. Least privilege, with every access need written down](docs/knowledge/decisions/0019-least-privilege-explicit-access.md): accepted
 
 ## Optional
 
