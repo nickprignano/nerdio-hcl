@@ -113,6 +113,8 @@ resource "azurerm_role_assignment" "nerdio_app" {
 check "nerdio_health" {
   data "http" "ping" {
     url = "https://${local.names.default_hostname}/public/health/ping"
+    # Without a timeout, a half-deleted app can hold a plan at "Still reading" indefinitely.
+    request_timeout_ms = 15000
   }
 
   assert {
