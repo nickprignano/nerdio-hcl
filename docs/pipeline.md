@@ -33,10 +33,30 @@ protects. If you'd rather grant consent yourself, set `grant_admin_consent = fal
 
 ```bash
 cd ~/nerdio-hcl
+./nerdio use trial                   # once: remember this tenant and subscription as "trial"
 ./nerdio init                        # if you haven't answered the setup questions yet
 gh auth login                        # choose "Login with a web browser"; works on an iPad
 ./scripts/pipeline/bootstrap.sh      # review the plan, type yes
 ```
+
+### Enter the tenant and subscription once
+
+Nothing in the kit asks you to type a tenant or subscription ID. They come from your Cloud Shell
+sign-in, and you pin them once per environment:
+
+- **Cloud Shell** signs you in to the directory you open it in. Open
+  `https://shell.azure.com/<tenant domain>` and add it to your home screen, one icon per tenant.
+- **`./nerdio use <env>`** saves the signed-in tenant and subscription for that environment, after
+  you type yes, to `~/.config/nerdio-hcl/profiles/<env>.json` in your Cloud Shell home folder. Only
+  you can read it, and it's never in the repo. After that, `./nerdio` commands and the bootstrap
+  check it: they switch to that subscription if you're signed in to the right tenant, and stop if
+  you're not. `./nerdio use` lists your environments; `--forget` removes one. The bootstrap uses
+  the last environment you picked, or `NME_ENV`, and saves it on its first run if you haven't.
+- **The pipeline** stores them as GitHub environment variables when you bootstrap. The deploy
+  workflow and the setup chat read them from there, so they never come up again.
+
+They aren't secrets (sign-in is OIDC, with no stored password), but they identify the tenant, so
+the kit keeps them out of the repo, the chat and shared output.
 
 It also sets the repository settings the kit relies on (`modules/github-repo`): the `kb-*` issue
 labels, a read-only default workflow token, Actions allowed to open pull requests (for
