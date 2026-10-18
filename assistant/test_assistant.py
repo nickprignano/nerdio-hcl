@@ -14,6 +14,8 @@ from anthropic.types import Message  # noqa: E402
 
 import agent  # noqa: E402
 
+MAKE_CLIENT = agent.make_client  # AppTests swaps in a fake
+
 
 def message(stop_reason: str, *blocks: dict) -> Message:
     return Message.model_validate({
@@ -143,10 +145,72 @@ class AppTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["reply"], "Hi there.")
 
+    def test_not_connected_is_a_readable_503(self):
+        def not_connected():
+            raise agent.NotConnected("The chat isn't connected to the Claude API yet.")
+        self.app.agent.make_client = not_connected
+        res = self.http.post("/api/chat", json={"text": "hello"})
+        self.assertEqual(res.status_code, 503)
+        self.assertIn("isn't connected", res.json()["detail"])
+
     def test_signed_in_name_from_easy_auth(self):
         import base64
         principal = base64.b64encode(json.dumps({"claims": [{"typ": "name", "val": "Ada Admin"}]}).encode()).decode()
         self.assertEqual(self.http.get("/api/me", headers={"x-ms-client-principal": principal}).json()["name"], "Ada Admin")
+
+
+class ClaudeApiClientTests(unittest.TestCase):
+    FEDERATION = {
+        "ANTHROPIC_ORGANIZATION_ID": "00000000-0000-0000-0000-000000000000",
+        "ANTHROPIC_FEDERATION_RULE_ID": "fdrl_test",
+        "ANTHROPIC_SERVICE_ACCOUNT_ID": "svac_test",
+        "NERDIO_CLAUDE_TOKEN_RESOURCE": "api://44444444-4444-4444-4444-444444444444",
+        "AZURE_CLIENT_ID": "77777777-7777-7777-7777-777777777777",
+        "IDENTITY_ENDPOINT": "http://localhost:42356/msi/token",
+    }
+
+    def setUp(self):
+        from unittest import mock
+        self.mock = mock
+        self.provider = mock.patch.object(agent, "PROVIDER", "claude-api")
+        self.provider.start()
+        self.env = mock.patch.dict("os.environ", {}, clear=False)
+        self.env.start()
+        for var in list(self.FEDERATION) + ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_WORKSPACE_ID"]:
+            agent.os.environ.pop(var, None)
+
+    def tearDown(self):
+        self.env.stop()
+        self.provider.stop()
+
+    def test_unconnected_app_says_what_to_run(self):
+        agent.os.environ["IDENTITY_ENDPOINT"] = "http://localhost:42356/msi/token"
+        with self.assertRaises(agent.NotConnected) as err:
+            MAKE_CLIENT()
+        self.assertIn("--connect-claude", str(err.exception))
+
+    def test_federation_uses_the_managed_identity_and_drops_any_key(self):
+        agent.os.environ.update(self.FEDERATION, ANTHROPIC_API_KEY="sk-ant-should-not-be-used")
+        token = self.mock.Mock(token="entra.jwt.token")
+        with self.mock.patch("azure.identity.ManagedIdentityCredential") as cred, \
+                self.mock.patch("anthropic.WorkloadIdentityCredentials") as wif, \
+                self.mock.patch("anthropic.Anthropic") as client:
+            cred.return_value.get_token.return_value = token
+            MAKE_CLIENT()
+        cred.assert_called_once_with(client_id=self.FEDERATION["AZURE_CLIENT_ID"])
+        kwargs = wif.call_args.kwargs
+        self.assertEqual(kwargs["federation_rule_id"], "fdrl_test")
+        self.assertIsNone(kwargs["workspace_id"])
+        self.assertEqual(kwargs["identity_token_provider"](), "entra.jwt.token")
+        cred.return_value.get_token.assert_called_with("api://44444444-4444-4444-4444-444444444444/.default")
+        self.assertEqual(client.call_args.kwargs, {"credentials": wif.return_value})
+        self.assertNotIn("ANTHROPIC_API_KEY", agent.os.environ)
+
+    def test_real_sdk_accepts_the_credentials(self):
+        agent.os.environ.update(self.FEDERATION)
+        with self.mock.patch("azure.identity.ManagedIdentityCredential"):
+            client = MAKE_CLIENT()
+        self.assertEqual(type(client).__name__, "Anthropic")
 
 
 if __name__ == "__main__":

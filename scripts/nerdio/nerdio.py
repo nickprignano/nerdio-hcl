@@ -30,6 +30,7 @@ import textwrap
 from dataclasses import asdict
 from pathlib import Path
 
+import claude_federation
 import engine
 import fix
 import form
@@ -454,6 +455,47 @@ def pipeline_link(pipeline_stage: Path) -> tuple[dict, str]:
             "github": {"repository": m.group(1)}}, ""
 
 
+def _tf_output(stage: Path, name: str):
+    res = subprocess.run(["terraform", f"-chdir={stage}", "output", "-json", name],
+                         capture_output=True, text=True, check=False)
+    try:
+        return json.loads(res.stdout) if res.returncode == 0 else None
+    except ValueError:
+        return None
+
+
+def _write_private(path: Path, data: dict) -> None:
+    old = os.umask(0o077)
+    try:
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    finally:
+        os.umask(old)
+
+
+def _terraform(stage: Path, *action: str) -> int:
+    return subprocess.run(["terraform", f"-chdir={stage}", *action], check=False).returncode
+
+
+def connect_claude(stage: Path, tfvars: dict, console: bool) -> dict | None:
+    """Make (or show) the Claude API side of the chat's federation; returns the claude_api IDs."""
+    federation = _tf_output(stage, "claude_federation")
+    if not federation:
+        print("✗ The chat isn't deployed with the Claude API yet, so there's no identity to trust. "
+              "Run ./nerdio assistant --model-provider claude-api first.", file=sys.stderr)
+        return None
+    name = tfvars.get("name", "nme-assistant")
+    if console:
+        print(claude_federation.console_steps(name, federation))
+        return None
+    print("Connecting the chat to the Claude API (workload identity federation, no API key):")
+    try:
+        ids = claude_federation.connect(claude_federation.Admin(claude_federation.admin_token()), name, federation)
+    except claude_federation.FederationError as exc:
+        print(f"✗ {exc}", file=sys.stderr)
+        return None
+    return ids
+
+
 def cmd_assistant(args) -> int:
     """Deploy the setup chatbot with Terraform. Run it in Azure Cloud Shell; IDs come from az."""
     stage = engine.ROOT / "environments" / args.env / "00-assistant"
@@ -466,11 +508,18 @@ def cmd_assistant(args) -> int:
         print("✗ Not signed in: run az login (Cloud Shell already is), then try again.", file=sys.stderr)
         return 1
     tfvars.update({"tenant_id": sources["tenant"], "subscription_id": sources["subscription"]})
-    for key, value in (("admin_group", args.admin_group), ("location", args.location), ("image", args.image)):
+    for key, value in (("admin_group", args.admin_group), ("location", args.location), ("image", args.image),
+                       ("model_provider", args.model_provider)):
         if value:
             tfvars[key] = value
     if args.foundry_location:
         tfvars.setdefault("foundry", {})["location"] = args.foundry_location
+    if args.claude_ids:
+        try:
+            tfvars.setdefault("claude_api", {}).update(claude_federation.parse_ids(args.claude_ids))
+        except claude_federation.FederationError as exc:
+            print(f"✗ {exc}", file=sys.stderr)
+            return 1
     if args.pipeline:
         link, problem = pipeline_link(stage.parent / "00-pipeline")
         if problem:
@@ -480,22 +529,41 @@ def cmd_assistant(args) -> int:
     if not tfvars.get("admin_group"):
         print('✗ Name the Entra group allowed to use the assistant: --admin-group "AVD Admins"', file=sys.stderr)
         return 1
-    old = os.umask(0o077)
-    try:
-        out.write_text(json.dumps(tfvars, indent=2) + "\n", encoding="utf-8")
-    finally:
-        os.umask(old)
-    print(f"Wrote {out.relative_to(engine.ROOT)} (gitignored). Only members of \"{tfvars['admin_group']}\" will be able to sign in.")
-    if subprocess.run(["terraform", f"-chdir={stage}", "init", "-input=false"], check=False).returncode:
+    if args.connect_claude and args.plan:
+        print("✗ --connect-claude changes your Anthropic organization; run it without --plan.", file=sys.stderr)
         return 1
+    _write_private(out, tfvars)
+    print(f"Wrote {out.relative_to(engine.ROOT)} (gitignored). Only members of \"{tfvars['admin_group']}\" will be able to sign in.")
+    if _terraform(stage, "init", "-input=false"):
+        return 1
+    if args.connect_claude:
+        # The rule needs the chat's identity, so it must exist first; the first apply makes it.
+        if not _tf_output(stage, "claude_federation") and not args.console:
+            print("First, deploy the chat so it has an identity for the Claude API to trust:")
+            if _terraform(stage, "apply"):
+                return 1
+        ids = connect_claude(stage, tfvars, args.console)
+        if ids is None:
+            return 0 if args.console else 1
+        tfvars.setdefault("claude_api", {}).update(ids)
+        _write_private(out, tfvars)
+        print("Saved the Claude API IDs (not secrets). Applying so the chat uses them.")
+        print(f"After this, drop the admin sign-in: ant auth logout --profile {claude_federation.ADMIN_PROFILE}")
     action = ["plan", "-input=false"] if args.plan else ["apply"]
-    code = subprocess.run(["terraform", f"-chdir={stage}", *action], check=False).returncode
+    code = _terraform(stage, *action)
     if code == 0 and not args.plan:
-        subprocess.run(["terraform", f"-chdir={stage}", "output", "url"], check=False)
-        print("Open that URL and sign in. The first visit may take a few seconds while the app wakes up.")
+        _terraform(stage, "output", "url")
+        federation = _tf_output(stage, "claude_federation")
+        if federation and not federation.get("connected"):
+            print("Next, once: connect the chat to the Claude API. As an Anthropic organization admin, run")
+            print(f"  ant auth login --no-browser --profile {claude_federation.ADMIN_PROFILE} --scope org:admin")
+            print("  ./nerdio assistant --connect-claude")
+            print("(or ./nerdio assistant --connect-claude --console for the Claude Console steps).")
+        else:
+            print("Open that URL and sign in. The first visit may take a few seconds while the app wakes up.")
         if tfvars.get("pipeline"):
             print("Then, once, open this to give the chat its GitHub App (one click on GitHub, then install it):")
-            subprocess.run(["terraform", f"-chdir={stage}", "output", "-raw", "github_setup_url"], check=False)
+            _terraform(stage, "output", "-raw", "github_setup_url")
             print()
     return code
 
@@ -569,7 +637,14 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("assistant", help="deploy the setup chatbot into this tenant with Terraform")
     p.add_argument("--admin-group", help="display name of the Entra group allowed to use it")
     p.add_argument("--location", help="region for the app (default eastus2)")
+    p.add_argument("--model-provider", choices=["claude-api", "foundry"],
+                   help="where the chat gets Claude (default claude-api: the Claude API, keyless)")
     p.add_argument("--foundry-location", help="region for Claude on Foundry, if different")
+    p.add_argument("--connect-claude", action="store_true",
+                   help="once: trust the chat's managed identity in your Anthropic organization (needs an org admin sign-in)")
+    p.add_argument("--console", action="store_true", help="with --connect-claude: print the Claude Console steps instead")
+    p.add_argument("--claude-ids", metavar="org=…,rule=…,account=…[,workspace=…]",
+                   help="the Claude API IDs from the Console, if you connected there")
     p.add_argument("--image", help="container image (default: the kit's published image)")
     p.add_argument("--env", default="example", help="environment folder under environments/")
     p.add_argument("--plan", action="store_true", help="show the plan only")

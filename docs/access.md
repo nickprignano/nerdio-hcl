@@ -20,7 +20,8 @@ Two kinds of access:
 |---|---|---|---|---|
 | Intake | The tenant's own process | | | Before anything else ([runbook](deployment-runbook.md)) |
 | Pipeline bootstrap (`scripts/pipeline/bootstrap.sh`) | Subscription admin | **Owner**, or **Contributor** plus **Role Based Access Control Administrator** that can assign *Reader*, *Contributor*, *Role Based Access Control Administrator* and *Storage Blob Data Contributor* | **Privileged Role Administrator** (to grant the identities their Graph roles) | Once per environment |
-| Chat deploy (`./nerdio assistant`) | Subscription admin | Same as above, able to assign *Cognitive Services User*, *Key Vault Crypto Officer*, *Storage Blob Data Contributor* and *Storage Blob Data Reader* | **Application Administrator** or **Cloud Application Administrator** (the chat's sign-in app) | Once, and for chat updates |
+| Chat deploy (`./nerdio assistant`) | Subscription admin | Same as above, able to assign *Key Vault Crypto Officer*, *Storage Blob Data Contributor*, *Storage Blob Data Reader* and, with Foundry, *Cognitive Services User* | **Application Administrator** or **Cloud Application Administrator** (the chat's sign-in app and, with the Claude API, its audience app) | Once, and for chat updates |
+| Connect the chat to the Claude API (`./nerdio assistant --connect-claude`) | Anthropic organization admin | None beyond the chat deploy | None | Once. Signs in with `ant auth login --scope org:admin`; log out after. Or do it in the Claude Console (`--console`) |
 | Admin consent, if the pipeline doesn't grant it (`grant_admin_consent = false`) | Entra admin | | **Privileged Role Administrator** or **Global Administrator** | Once per app |
 | Approve an apply | A named GitHub reviewer | None | None | Per run, in GitHub |
 | Nerdio first-run wizard | Nerdio admin | None beyond what Nerdio asks for | Sign-in only | Once |
@@ -38,7 +39,8 @@ it after.
 |---|---|---|---|---|
 | Pipeline **plan** identity | Bootstrap | **Reader** on the subscription; the state storage | **Directory.Read.All** | Any plan or readiness check from `main` |
 | Pipeline **apply** identity | Bootstrap | **Contributor** and **Role Based Access Control Administrator** on the subscription. Azure only lets it assign or remove the roles in `apply_assignable_roles` (a role assignment condition), so it can't grant Owner or widen its own access | **Application.ReadWrite.All**, **Group.ReadWrite.All**, **Directory.Read.All**, and by default **AppRoleAssignment.ReadWrite.All** and **DelegatedPermissionGrant.ReadWrite.All** so it can grant admin consent (drop both if you consent yourself, below) | Only after a reviewer approves the run in GitHub |
-| Setup chat (managed identity) | Chat deploy | **Cognitive Services User** on its Foundry resource; **Storage Blob Data Contributor** on the `answers` container; **Storage Blob Data Reader** on `plans`; **Key Vault Crypto Officer** on its own vault, which holds only the GitHub App key | None | While someone is chatting |
+| Setup chat (managed identity) | Chat deploy | With Foundry, **Cognitive Services User** on its Foundry resource. With the pipeline, **Storage Blob Data Contributor** on the `answers` container, **Storage Blob Data Reader** on `plans` and **Key Vault Crypto Officer** on its own vault, which holds only the GitHub App key | None. With the Claude API it asks Entra for tokens for its audience app, which has no permissions of its own | While someone is chatting |
+| Setup chat on the Claude side (service account) | `--connect-claude` | None | None. In Anthropic: *developer* organization role, *user* in its own workspace, and a federation rule that accepts only the chat's managed identity (object ID, tenant, audience) and mints 10-minute `workspace:inference` tokens | While someone is chatting |
 | Chat's GitHub App | `/setup/github`, two clicks | None | None. On GitHub: *Actions: read and write* on this repository only | When the chat starts a plan |
 | Nerdio web app (managed identity) | Platform stage | **Contributor** on the Nerdio resource group and the groups it manages; **Reader** and **Backup Reader** on the subscription; Key Vault roles on its own vault | None | Always: it is Nerdio |
 | Nerdio Entra app | Platform stage | Key Vault roles on Nerdio's vault | The delegated and application permissions Nerdio documents for its install (`modules/nerdio-identity`), granted by admin consent | Always: it is Nerdio |
@@ -69,7 +71,8 @@ These are supported switches, not forks of the kit. Set them in `00-pipeline/ter
 
 - **Sovereign clouds (such as Azure Government) and on-premises.** The kit targets Azure public
   cloud. Before using it elsewhere, check at least: the cloud's endpoints for every provider and
-  for Cloud Shell, whether GitHub OIDC federation and Claude on Foundry are offered there, which
+  for Cloud Shell, whether GitHub OIDC federation, Claude on Foundry and the Claude API's federation
+  with that cloud's Entra issuer are offered there, which
   Nerdio edition runs there, and the tenant's own approval rules. The Azure Government and Azure
   Local gaps found so far are in [stack-options.md](knowledge/stack-options.md); the apply
   identity's rights there also depend on Nerdio's app-credential linking in Government.

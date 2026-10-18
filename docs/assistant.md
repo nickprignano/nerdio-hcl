@@ -11,8 +11,8 @@ questions as `./nerdio init` and the Actions form, because all three read
 |---|---|
 | Container App | The chat web app. Scales to zero when nobody is using it |
 | Entra sign-in | Container Apps authentication with an app registration. Only members of the admin group you name can sign in |
-| Claude on Microsoft Foundry | An AI Services resource with a Claude deployment, billed through your Azure subscription |
-| Managed identity | How the app calls the model. Key-based access is turned off on the Foundry resource, so there's no API key to store or leak |
+| Claude | The [Claude API](#claude-api) by default, or [Claude on Microsoft Foundry](#claude-on-foundry), billed through your Azure subscription. Pick with `--model-provider` |
+| Managed identity | How the app calls Claude, either way. There's no API key to store or leak |
 | Log Analytics | App logs, kept 30 days |
 
 All of it is Terraform: `modules/assistant`, deployed by `environments/example/00-assistant`.
@@ -31,18 +31,71 @@ you've [pinned an environment](pipeline.md#enter-the-tenant-and-subscription-onc
 `00-assistant/assistant.auto.tfvars.json` (gitignored), and runs `terraform apply`. Review the plan
 and type `yes`. When it finishes, it prints the URL. Open it and sign in.
 
-Options: `--location` (the app's region, default `eastus2`), `--foundry-location` (a region that
-offers Claude on Foundry, if different), `--image` (your own build), and `--plan` to only plan.
+With the Claude API (the default), connect it once afterwards, as described under
+[Claude API](#claude-api). Until then the chat opens but says it isn't connected yet.
 
-**You need:**
-- Owner on the subscription, or Contributor plus User Access Administrator, because the app's
-  identity gets a role on the Foundry resource.
-- Rights to create an app registration and assign a group to it (Application Administrator or
+Options: `--model-provider claude-api|foundry`, `--location` (the app's region, default
+`eastus2`), `--foundry-location` (a region that offers Claude on Foundry, if different), `--image`
+(your own build), and `--plan` to only plan.
+
+**You need** (the full list, with reasons, is in [access.md](access.md)):
+- On the subscription, rights to create the resources and the app's role assignments: Owner, or
+  Contributor plus Role Based Access Control Administrator.
+- Rights to create app registrations and assign a group to one (Application Administrator or
   Cloud Application Administrator).
 - An existing Entra security group for the admins who'll use the chat.
-- Access to Claude models in Microsoft Foundry for your subscription and region. If Terraform can't
-  create the model deployment, create it in the Foundry portal and set
-  `foundry = { create_deployment = false, deployment_name = "<its name>" }` in the tfvars.
+- For the Claude API: an admin of your Anthropic organization, once. For Foundry: access to
+  Claude models in Microsoft Foundry for your subscription and region.
+
+## Claude API
+
+The default for now, while Foundry quota requests are pending. The chat signs in to the Claude
+API with **workload identity federation**: its managed identity gets a token from Entra for an
+audience app the kit creates, and the Claude API trades that for an access token that lasts ten
+minutes and can only call the model. No API key is created, stored or passed around, and the
+Claude side trusts exactly one identity: this app's, by object ID, in this tenant.
+
+Connect it once, in Cloud Shell, as an admin of your Anthropic organization:
+
+```bash
+./scripts/install-ant-cli.sh                     # Anthropic's CLI, into ~/.local/bin
+ant auth login --no-browser --profile nerdio-admin --scope org:admin
+./nerdio assistant --connect-claude
+ant auth logout --profile nerdio-admin           # drop the admin sign-in when done
+```
+
+`ant auth login` prints a link; open it, approve, and paste the code back. Then
+`--connect-claude` reads what the rule must match from Terraform's `claude_federation` output and,
+through Anthropic's Admin API, creates or reuses:
+
+| On the Claude side | Settings |
+|---|---|
+| Workspace named after the chat (`nme-assistant`) | Its own usage and spend limits |
+| Federation issuer for your tenant | `https://login.microsoftonline.com/<tenant>/v2.0`, keys from Entra's discovery document, accepts Entra tokens up to 24 hours old (Azure issues managed identity tokens that long) |
+| Service account `nme-assistant-chat` | Developer organization role, *user* role in that workspace |
+| Federation rule `nme-assistant-chat` | Matches the token's audience, the app's exact object ID and your tenant ID; scope `workspace:inference`; 10-minute tokens |
+
+It saves the resulting IDs (none are secrets) in the gitignored tfvars and applies again so the app
+uses them. Rerunning it is safe: it finds everything by name, and repoints the rule if the app's
+identity was recreated. The admin token is read from the `ant` CLI, sent only to
+`api.anthropic.com`, and never printed or written by the kit.
+
+If your organization doesn't allow admin tokens in a shell, run
+`./nerdio assistant --connect-claude --console` instead. It prints the same values for the
+Claude Console's **Connect workload** wizard, then you pass the IDs it shows with
+`./nerdio assistant --claude-ids org=…,rule=fdrl_…,account=svac_…,workspace=wrkspc_…`.
+
+To revoke access, archive the rule in the Claude Console (or delete the chat's managed identity).
+To switch to Foundry later, run `./nerdio assistant --model-provider foundry`; the audience app
+goes away and the rule simply stops matching anything.
+
+## Claude on Foundry
+
+With `--model-provider foundry`, Terraform creates an AI Services resource with a Claude
+deployment and gives the app's identity **Cognitive Services User** on it. Key-based access is
+turned off on the resource. If Terraform can't create the model deployment, create it in the
+Foundry portal and set `foundry = { create_deployment = false, deployment_name = "<its name>" }`
+in the tfvars.
 
 ## Put it on your home screen
 
@@ -73,7 +126,8 @@ sign-in works the same way as in the browser.
 ## Cost
 
 The Container App costs nothing while idle (it scales to zero) and a little while you chat. Model
-use is billed per token through Azure. Log Analytics bills per GB ingested, which is small here.
+use is billed per token: by Anthropic to your organization's workspace with the Claude API, or
+through Azure with Foundry. Log Analytics bills per GB ingested, which is small here.
 Remove it all with `terraform -chdir=environments/example/00-assistant destroy`.
 
 ## The image
@@ -84,6 +138,11 @@ For production, pin a digest with `--image ghcr.io/…@sha256:…`. To build you
 without Docker, use `az acr build` into your own registry and pass its image with `--image`.
 
 ## Not yet verified on a live tenant
+
+- The Claude API path end to end: the managed identity token exchange, the `workspace:inference`
+  scope with a *user* workspace role, and the Admin API calls `--connect-claude` makes (issuer
+  lifetime, rule update). If the chat gets a 403 from the Claude API, give the service account the
+  *developer* role in its workspace in the Claude Console.
 
 - That Terraform's `azurerm_cognitive_deployment` with model format `Anthropic` creates the Claude
   deployment. The fallback is the portal plus `create_deployment = false`.

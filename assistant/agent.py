@@ -27,7 +27,8 @@ import tfcheck  # noqa: E402
 from pipeline import Pipeline, PipelineError  # noqa: E402
 
 PROMPT = (Path(__file__).resolve().parent / "prompt.md").read_text(encoding="utf-8")
-MODEL = os.environ.get("NERDIO_MODEL", "claude-opus-5-5")  # the Foundry deployment name
+PROVIDER = os.environ.get("NERDIO_MODEL_PROVIDER", "foundry")
+MODEL = os.environ.get("NERDIO_MODEL", "claude-opus-5-5")  # the Foundry deployment name, or the Claude API model
 EFFORT = os.environ.get("NERDIO_EFFORT", "medium")
 REPO_URL = os.environ.get("NERDIO_KIT_REPO", "https://github.com/nickprignano/nerdio-hcl")
 MAX_STEPS = 12
@@ -291,8 +292,17 @@ def _as_text(value) -> str:
     return "" if value is None else str(value)
 
 
+class NotConnected(RuntimeError):
+    """The chat is deployed but can't reach Claude yet; the message says what to run."""
+
+
+FEDERATION_VARS = ("ANTHROPIC_ORGANIZATION_ID", "ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_SERVICE_ACCOUNT_ID")
+
+
 def make_client():
-    """Claude on Microsoft Foundry. The app's managed identity gets a token; no API key is stored."""
+    """Claude for the chat, with no stored key: Foundry or the Claude API, both via the app's managed identity."""
+    if PROVIDER == "claude-api":
+        return _claude_api_client()
     from anthropic import AnthropicFoundry
 
     resource = os.environ["NERDIO_FOUNDRY_RESOURCE"]
@@ -302,6 +312,38 @@ def make_client():
 
     provider = get_bearer_token_provider(DefaultAzureCredential(), "https://ai.azure.com/.default")
     return AnthropicFoundry(azure_ad_token_provider=provider, resource=resource)
+
+
+def _claude_api_client():
+    """The Claude API through workload identity federation (docs/assistant.md#claude-api).
+
+    Entra gives the app's managed identity a token for the kit's audience app; the SDK trades it
+    for a short-lived Claude API token and trades again before that expires. The rule on the
+    Claude side accepts only this identity's object ID in this tenant.
+    """
+    from anthropic import Anthropic, WorkloadIdentityCredentials
+
+    missing = [v for v in FEDERATION_VARS if not os.environ.get(v)]
+    resource = os.environ.get("NERDIO_CLAUDE_TOKEN_RESOURCE", "")
+    if missing or not resource:
+        if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("IDENTITY_ENDPOINT"):
+            return Anthropic()  # local development only; never set in Azure
+        raise NotConnected("The chat isn't connected to the Claude API yet. In Cloud Shell, run "
+                           "./nerdio assistant --connect-claude, then reload this page.")
+    # Either variable would quietly win over federation, so they never apply in Azure.
+    for var in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        os.environ.pop(var, None)
+    from azure.identity import ManagedIdentityCredential
+
+    identity = ManagedIdentityCredential(client_id=os.environ.get("AZURE_CLIENT_ID"))
+    scope = resource.rstrip("/") + "/.default"
+    return Anthropic(credentials=WorkloadIdentityCredentials(
+        identity_token_provider=lambda: identity.get_token(scope).token,
+        federation_rule_id=os.environ["ANTHROPIC_FEDERATION_RULE_ID"],
+        organization_id=os.environ["ANTHROPIC_ORGANIZATION_ID"],
+        service_account_id=os.environ["ANTHROPIC_SERVICE_ACCOUNT_ID"],
+        workspace_id=os.environ.get("ANTHROPIC_WORKSPACE_ID") or None,
+    ))
 
 
 def chat_turn(client, messages: list, answers: dict, text: str, user_object_id: str = "",

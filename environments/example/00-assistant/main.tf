@@ -19,7 +19,9 @@ module "assistant" {
   tags                  = var.tags
   image                 = var.image
   admin_group_object_id = data.azuread_group.admins.object_id
-  foundry               = var.foundry
+  model_provider        = var.model_provider
+  foundry               = var.model_provider == "foundry" ? var.foundry : null
+  claude_api            = var.claude_api
   kit_repo_url          = var.kit_repo_url
   pipeline              = var.pipeline
 }

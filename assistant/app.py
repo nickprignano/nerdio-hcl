@@ -112,6 +112,8 @@ def chat(turn: Turn, request: Request):
     try:
         return agent.chat_turn(client(), turn.messages, turn.answers, turn.text,
                                signed_in_object_id(request), Pipeline())
+    except agent.NotConnected as exc:
+        raise HTTPException(503, str(exc)) from exc
     except Exception as exc:  # surface a readable error; details go to the log only
         log.exception("chat turn failed")
         name = type(exc).__name__

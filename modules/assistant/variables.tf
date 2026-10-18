@@ -38,10 +38,25 @@ variable "admin_group_object_id" {
   type        = string
 }
 
+variable "model_provider" {
+  description = <<-EOT
+    Where the chat gets Claude: "foundry" (Claude on Microsoft Foundry in this subscription) or
+    "claude-api" (the Claude API, signed in with the app's managed identity through workload
+    identity federation; no API key). Both are keyless.
+  EOT
+  type        = string
+  default     = "foundry"
+  validation {
+    condition     = contains(["foundry", "claude-api"], var.model_provider)
+    error_message = "model_provider must be foundry or claude-api."
+  }
+}
+
 variable "foundry" {
   description = <<-EOT
-    Microsoft Foundry resource that serves Claude. location must be a region that offers Claude.
-    With create_deployment = false, deploy the model in the Foundry portal and set deployment_name to it.
+    Microsoft Foundry resource that serves Claude, for model_provider = "foundry". location must be
+    a region that offers Claude. With create_deployment = false, deploy the model in the Foundry
+    portal and set deployment_name to it.
   EOT
   type = object({
     location          = string
@@ -52,6 +67,39 @@ variable "foundry" {
     sku_name          = optional(string, "GlobalStandard")
     capacity          = optional(number, 50)
   })
+  default = null
+  validation {
+    condition     = var.model_provider != "foundry" || var.foundry != null
+    error_message = "Set foundry (at least its location) when model_provider is foundry."
+  }
+}
+
+variable "claude_api" {
+  description = <<-EOT
+    The Claude API, for model_provider = "claude-api". None of these are secrets: they name the
+    Anthropic organization, the federation rule and the service account the app's identity is
+    trusted as. `./nerdio assistant --connect-claude` creates them and fills them in; until then
+    the app deploys but the chat says it isn't connected yet. workspace_id is needed only when the
+    rule covers more than one workspace.
+  EOT
+  type = object({
+    model              = optional(string, "claude-opus-5-5")
+    organization_id    = optional(string)
+    federation_rule_id = optional(string)
+    service_account_id = optional(string)
+    workspace_id       = optional(string)
+  })
+  default  = {}
+  nullable = false
+  validation {
+    condition = (
+      (var.claude_api.federation_rule_id == null || can(regex("^fdrl_[A-Za-z0-9]+$", var.claude_api.federation_rule_id))) &&
+      (var.claude_api.service_account_id == null || can(regex("^svac_[A-Za-z0-9]+$", var.claude_api.service_account_id))) &&
+      (var.claude_api.workspace_id == null || can(regex("^wrkspc_[A-Za-z0-9]+$", var.claude_api.workspace_id))) &&
+      (var.claude_api.organization_id == null || can(regex("^[0-9a-fA-F-]{36}$", var.claude_api.organization_id)))
+    )
+    error_message = "claude_api IDs look like fdrl_..., svac_..., wrkspc_... and a UUID for the organization."
+  }
 }
 
 variable "effort" {
