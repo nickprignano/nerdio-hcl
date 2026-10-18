@@ -20,6 +20,7 @@ KNOWN_ERRORS = KB_DIR / "troubleshooting" / "known-errors.yaml"
 UPSTREAM = KB_DIR / "nerdio" / "upstream.yaml"
 FIELD_REPORTS = KB_DIR / "field-reports.yaml"
 EXPERTS = KB_DIR / "experts.yaml"
+FAMILY = KB_DIR / "family.yaml"
 SOURCES = KB_DIR / "sources.toml"
 
 # The experts study (experts.md): five scores of 0-3, plus pass/fail gates.

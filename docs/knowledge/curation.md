@@ -86,6 +86,26 @@ around $1 a month either way. That's cheap, but it adds a third-party account an
 the simpler fit because it returns raw posts that the deterministic curator can filter. The Grok
 route adds an AI step to a pipeline that otherwise uses no LLM.
 
+## Knowledge base family
+
+Four projects keep knowledge bases in this format: this kit, AI (the hub for how all of them use
+AI), AVD and Liquidware. [family.yaml](family.yaml) lists them, what each one is the source of
+truth for, and the format version each follows. `build.py` turns it into the "Related knowledge
+bases" table in the [README](README.md#related-knowledge-bases) and a section in `llms.txt`.
+
+- **Watch each other:** once a sibling's repo is in `family.yaml`, add two `github_commits`
+  sources for it here, one with `path = "docs/knowledge/decisions"` and one with
+  `path = "docs/knowledge"`, both pointing at this page. A private sibling repo may not be
+  readable with the built-in token; keep the sources anyway.
+- **Link, don't copy:** a fact that belongs to a sibling's topic is linked, not duplicated. If we
+  learn something a sibling needs, open an issue or PR on their repo with the evidence.
+- **Shared format:** schemas, scripts, checks, workflows and guardrails stay the same in all four.
+  A change to them is proposed as a "Family format" decision, made in all four, and the
+  `format_version` is bumped everywhere once all have merged.
+- **AI knowledge:** general findings about the Claude API, Foundry, model choice, keyless sign-in
+  for AI APIs, prompts and evaluations go to the AI hub. Decisions about how this kit uses AI stay
+  here and link to it.
+
 ## Feedback loop (`kb-feedback`)
 
 Real results flow back into the KB through two issue forms:

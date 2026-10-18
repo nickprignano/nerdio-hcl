@@ -95,6 +95,7 @@ def check_data() -> None:
         (kblib.UPSTREAM, "upstream.schema.json"),
         (kblib.FIELD_REPORTS, "field-reports.schema.json"),
         (kblib.EXPERTS, "experts.schema.json"),
+        (kblib.FAMILY, "family.schema.json"),
     ]
     for path, schema_name in files:
         data = kblib.load_yaml(path)
@@ -139,6 +140,12 @@ def check_experts() -> None:
             error(kblib.SOURCES, f"source {s['name']!r}: expert {exp!r} isn't a tracked expert in experts.yaml")
 
 
+def check_family() -> None:
+    projects = (kblib.load_yaml(kblib.FAMILY) or {}).get("projects", [])
+    if sum(1 for p in projects if p.get("self")) != 1:
+        error(kblib.FAMILY, "exactly one project must have self: true")
+
+
 def check_links(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     _, body = kblib.split_front_matter(text)
@@ -179,6 +186,7 @@ def main() -> int:
     check_decisions()
     check_data()
     check_experts()
+    check_family()
     md_files = sorted(KB_DIR.rglob("*.md")) + [kblib.LLMS_TXT]
     for p in md_files:
         check_links(p)

@@ -59,6 +59,13 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0018. License the kit under Apache-2.0](docs/knowledge/decisions/0018-apache-2-license.md): accepted
 - [0019. Least privilege, with every access need written down](docs/knowledge/decisions/0019-least-privilege-explicit-access.md): accepted
 - [0020. The setup chat can use the Claude API, signed in by workload identity federation](docs/knowledge/decisions/0020-claude-api-federation-for-the-chat.md): accepted
+- [0021. This KB is one of a family of four, with the AI project as the hub for AI knowledge](docs/knowledge/decisions/0021-knowledge-base-family.md): proposed
+
+## Related knowledge bases
+
+- AI (repo not linked yet): The AI research behind all four projects. Source of truth for: Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family
+- AVD (repo not linked yet): Azure Virtual Desktop itself. Source of truth for: Azure Virtual Desktop platform; FSLogix; session host images in general
+- Liquidware (repo not linked yet): Liquidware products on virtual desktops. Source of truth for: Liquidware products
 
 ## Optional
 

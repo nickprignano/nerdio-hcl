@@ -1,0 +1,31 @@
+# The knowledge base family: sibling KBs that share this KB's format and know about each other.
+# Schema: schema/family.schema.json. How it works: curation.md#knowledge-base-family
+# Add a sibling's repo once it's known, then add sources for it in sources.toml.
+
+format_version: 1
+projects:
+- id: nerdio-hcl
+  name: Nerdio HCL kit
+  self: true
+  repo: nickprignano/nerdio-hcl
+  kb_path: docs/knowledge
+  role: reference
+  focus: Nerdio Manager on Azure Virtual Desktop, deployed with Terraform and Packer
+  owns: [Nerdio Manager, the nerdio/nme provider, this kit's Terraform and Packer]
+  format_version: 1
+- id: ai
+  name: AI
+  role: hub
+  focus: The AI research behind all four projects
+  owns: [Claude API and Microsoft Foundry use, model choices, keyless sign-in for AI APIs, prompts and evaluations,
+    AI tooling shared by the family]
+- id: avd
+  name: AVD
+  role: member
+  focus: Azure Virtual Desktop itself
+  owns: [Azure Virtual Desktop platform, FSLogix, session host images in general]
+- id: liquidware
+  name: Liquidware
+  role: member
+  focus: Liquidware products on virtual desktops
+  owns: [Liquidware products]

@@ -2,7 +2,7 @@
 """Regenerate the knowledge base's generated parts from front matter and YAML data.
 
 Generated:
-  - the index table in docs/knowledge/README.md (from page front matter)
+  - the index table in docs/knowledge/README.md (from page front matter) and its family table
   - the list in docs/knowledge/decisions/README.md (from decision records)
   - the tables in troubleshooting/README.md, nerdio/upstream-contributions.md and experts.md (from YAML)
   - llms.txt at the repo root (from all of the above)
@@ -161,6 +161,22 @@ def render_expert_balance() -> str:
             f"{by_status['nominated']} nominated and waiting to be scored.\n")
 
 
+def family_rows() -> list[dict]:
+    return [p for p in kblib.load_yaml(kblib.FAMILY)["projects"] if not p.get("self")]
+
+
+def family_link(p: dict) -> str:
+    if not p.get("repo"):
+        return f"{p['name']} (repo not linked yet)"
+    path = p.get("kb_path", "docs/knowledge").strip("/")
+    return f"[{p['name']}](https://github.com/{p['repo']}/tree/main/{path})"
+
+
+def render_family() -> str:
+    rows = [[family_link(p), p.get("role", "member"), p["focus"], "; ".join(p["owns"])] for p in family_rows()]
+    return table(["Knowledge base", "Role", "Focus", "Source of truth for"], rows)
+
+
 def render_llms_txt() -> str:
     lines = [
         "# Nerdio HCL deployment kit",
@@ -193,6 +209,9 @@ def render_llms_txt() -> str:
     ]
     for p, fm, title in decisions():
         lines.append(f"- [{title}](docs/knowledge/decisions/{p.name}): {fm.get('status', '')}")
+    lines += ["", "## Related knowledge bases", ""]
+    for p in family_rows():
+        lines.append(f"- {family_link(p)}: {p['focus']}. Source of truth for: {'; '.join(p['owns'])}")
     lines += [
         "",
         "## Optional",
@@ -216,7 +235,7 @@ def targets() -> dict[Path, str]:
     """Every generated file and its desired content."""
     out = {}
     jobs = {
-        KB_DIR / "README.md": {"kb-index": render_kb_index},
+        KB_DIR / "README.md": {"kb-index": render_kb_index, "family": render_family},
         KB_DIR / "decisions" / "README.md": {"decision-index": render_decision_index},
         KB_DIR / "troubleshooting" / "README.md": {"known-errors": render_known_errors},
         KB_DIR / "experts.md": {
