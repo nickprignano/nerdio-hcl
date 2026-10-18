@@ -202,6 +202,43 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(build.link_from(page_dir, "https://example.com"), "https://example.com")
 
 
+class FamilyTests(unittest.TestCase):
+    FAMILY = {"format_version": 1, "projects": [
+        {"id": "us", "name": "Us", "self": True, "focus": "x", "owns": ["x"]},
+        {"id": "sib", "name": "Sib", "repo": "octo/sib", "kb_path": "kb", "focus": "y", "owns": ["y"]},
+        {"id": "later", "name": "Later", "focus": "z", "owns": ["z"]},
+    ]}
+
+    def setUp(self):
+        p = mock.patch.object(kblib, "family", lambda: self.FAMILY)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_siblings_need_a_repo(self):
+        self.assertEqual([p["name"] for p in kblib.siblings()], ["Sib"])
+
+    def test_family_items(self):
+        def private(project):
+            raise OSError("404")
+
+        self.assertEqual(freshness.family_items(lambda p: {"format_version": 1}),
+                         ["Later: repo not linked yet; add it to family.yaml, then its sources"])
+        self.assertTrue(any("family format 2" in i for i in freshness.family_items(lambda p: {"format_version": 2})))
+        self.assertTrue(any("couldn't read" in i for i in freshness.family_items(private)))
+
+    def test_validate_wants_sibling_sources(self):
+        import validate
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        (tmp / "sources.toml").write_text('[[source]]\nname = "a"\nkind = "github_commits"\nrepo = "octo/sib"\npath = "kb"\n')
+        validate.errors.clear()
+        with mock.patch.object(kblib, "SOURCES", tmp / "sources.toml"), mock.patch.object(validate, "ROOT", Path("/")):
+            validate.check_family()
+        self.assertEqual(len(validate.errors), 1)
+        self.assertIn("kb/decisions", validate.errors[0])
+        validate.errors.clear()
+
+
 class AnchorTests(unittest.TestCase):
     def test_github_slugs(self):
         body = "# A\n## Post-deployment checks with Playwright\n## 8. Deployment troubleshooting\n## A\n"

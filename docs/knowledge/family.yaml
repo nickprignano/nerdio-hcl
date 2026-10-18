@@ -15,7 +15,10 @@ projects:
   format_version: 1
 - id: ai
   name: AI
+  repo: nickprignano/ai-brain
+  kb_path: docs/knowledge
   role: hub
+  format_version: 1
   focus: The AI research behind all four projects
   owns: [Claude API and Microsoft Foundry use, model choices, keyless sign-in for AI APIs, prompts and evaluations,
     AI tooling shared by the family]

@@ -297,3 +297,21 @@ name = "Repos: avd terraform packer"
 kind = "github_search"
 query = "avd packer terraform in:name,description,readme"
 kb_page = "nerdio/community-projects.md"
+
+# --- Sibling knowledge bases (family.yaml) -----------------------------------
+# Two sources per linked sibling: new decisions, and every other KB change. validate.py checks
+# both exist for each sibling with a repo in family.yaml.
+
+[[source]]
+name = "Sibling KB: AI decisions"
+kind = "github_commits"
+repo = "nickprignano/ai-brain"
+path = "docs/knowledge/decisions"
+kb_page = "curation.md"
+
+[[source]]
+name = "Sibling KB: AI"
+kind = "github_commits"
+repo = "nickprignano/ai-brain"
+path = "docs/knowledge"
+kb_page = "curation.md"

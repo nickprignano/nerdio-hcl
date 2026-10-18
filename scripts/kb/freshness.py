@@ -12,6 +12,7 @@ Flags:
   - known errors whose fix is still unverified
   - experts not re-scored in --max-age-days, and nominations waiting to be scored
   - with --digests, each tracked expert's yield: digest items ticked as worth adding (experts.md)
+  - with --family, siblings on a different family format version, unreadable, or not linked yet
 
 Writes a Markdown checklist and, under GitHub Actions, items=<count> to GITHUB_OUTPUT.
 """
@@ -19,6 +20,7 @@ Writes a Markdown checklist and, under GitHub Actions, items=<count> to GITHUB_O
 from __future__ import annotations
 
 import argparse
+import base64
 import os
 import json
 import re
@@ -26,6 +28,8 @@ import sys
 import tomllib
 from datetime import date
 from pathlib import Path
+
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import kblib  # noqa: E402
@@ -80,7 +84,37 @@ def expert_items(max_age_days: int, today: date, digests: list[dict] | None) -> 
     return out
 
 
-def collect(max_age_days: int, today: date, digests: list[dict] | None = None) -> dict[str, list[str]]:
+def read_sibling_family(project: dict) -> dict:
+    """A sibling's own family.yaml, read through the GitHub contents API."""
+    from sources import github
+    data = github(f"/repos/{project['repo']}/contents/{kblib.kb_path(project)}/family.yaml")
+    return yaml.safe_load(base64.b64decode(data["content"]).decode("utf-8")) or {}
+
+
+def family_items(fetch=read_sibling_family) -> list[str]:
+    """Siblings on a different format version, that can't be read, or that aren't linked yet."""
+    data = kblib.family()
+    ours = data.get("format_version")
+    out = []
+    for p in data.get("projects", []):
+        if p.get("self"):
+            continue
+        if not p.get("repo"):
+            out.append(f"{p['name']}: repo not linked yet; add it to family.yaml, then its sources")
+            continue
+        try:
+            theirs = fetch(p).get("format_version")
+        except Exception as exc:
+            out.append(f"{p['name']}: couldn't read its family.yaml ({type(exc).__name__}); "
+                       "private repo, or not set up yet")
+            continue
+        if theirs != ours:
+            out.append(f"{p['name']}: follows family format {theirs or 'none'}, this KB follows {ours}")
+    return out
+
+
+def collect(max_age_days: int, today: date, digests: list[dict] | None = None,
+            fetch_family=None) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {"Reported broken or outdated": [], "Stale": [],
                                       "Unverified claims": [], "Unverified known-error fixes": []}
     reports = (kblib.load_yaml(kblib.FIELD_REPORTS) or {}).get("reports", [])
@@ -110,6 +144,8 @@ def collect(max_age_days: int, today: date, digests: list[dict] | None = None) -
         if e["status"] == "unverified":
             sections["Unverified known-error fixes"].append(f"`{e['id']}`: {e['symptom'][:80]}")
     sections.update(expert_items(max_age_days, today, digests))
+    if fetch_family:
+        sections["Family alignment"] = family_items(fetch_family)
     return sections
 
 
@@ -136,12 +172,15 @@ def main() -> int:
     ap.add_argument("--max-age-days", type=int, default=90)
     ap.add_argument("--today", help="override today's date (YYYY-MM-DD), for testing")
     ap.add_argument("--output", help="write the report here instead of stdout")
+    ap.add_argument("--family", action="store_true",
+                    help="read each sibling's family.yaml from GitHub and compare format versions")
     ap.add_argument("--digests", help="JSON from gh issue list --label kb-digest (createdAt, body), for expert yield")
     args = ap.parse_args()
 
     today = date.fromisoformat(args.today) if args.today else date.today()
     digests = json.loads(Path(args.digests).read_text(encoding="utf-8")) if args.digests else None
-    sections = collect(args.max_age_days, today, digests)
+    sections = collect(args.max_age_days, today, digests,
+                       fetch_family=read_sibling_family if args.family else None)
     report = render(sections, args.max_age_days)
     if args.output:
         Path(args.output).write_text(report, encoding="utf-8")

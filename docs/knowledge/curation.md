@@ -97,6 +97,10 @@ bases" table in the [README](README.md#related-knowledge-bases) and a section in
   sources for it here, one with `path = "docs/knowledge/decisions"` and one with
   `path = "docs/knowledge"`, both pointing at this page. A private sibling repo may not be
   readable with the built-in token; keep the sources anyway.
+- **Checked, not just agreed:** `validate.py` fails if a sibling with a repo in `family.yaml` is
+  missing either source. The monthly freshness check (`--family`) reads each sibling's own
+  `family.yaml` and flags one on a different `format_version`, one it can't read, and one whose
+  repo isn't linked yet. The prior-art check searches each linked sibling's KB before GitHub.
 - **Link, don't copy:** a fact that belongs to a sibling's topic is linked, not duplicated. If we
   learn something a sibling needs, open an issue or PR on their repo with the evidence.
 - **Shared format:** schemas, scripts, checks, workflows and guardrails stay the same in all four.

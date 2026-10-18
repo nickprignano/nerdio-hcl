@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Check for prior art before starting new work.
 
-Searches this repo's knowledge base, then GitHub repositories, Terraform/HCL code and issues for
-a topic, and prints a Markdown report. Run it before building something so you can reuse what
+Searches this repo's knowledge base, then the sibling KBs in family.yaml, then GitHub repositories,
+Terraform/HCL code and issues for a topic, and prints a Markdown report. Run it before building something so you can reuse what
 others have already figured out, and record anything useful in docs/knowledge/.
 
     GITHUB_TOKEN=$(gh auth token) python3 scripts/kb/prior_art.py "nerdio host pool"
 
-Code search needs a token; repository and issue search work without one (at a lower rate limit).
+Code search (and so the sibling search) needs a token; repository and issue search work without one (at a lower rate limit).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import kblib  # noqa: E402
 from sources import github  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,6 +64,13 @@ def code(query: str, limit: int) -> list[str]:
     return rows
 
 
+def sibling(project: dict, query: str, limit: int) -> list[str]:
+    if not (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")):
+        return ["_Skipped: searching sibling KBs needs GITHUB_TOKEN._"]
+    q = f"{query} repo:{project['repo']} path:{kblib.kb_path(project)}"
+    return [f"- [{i['path']}]({i['html_url']})" for i in github("/search/code", {"q": q, "per_page": limit}).get("items", [])]
+
+
 def issues(query: str, limit: int) -> list[str]:
     data = github("/search/issues", {"q": query, "sort": "updated", "per_page": limit})
     return [
@@ -79,6 +87,8 @@ def main() -> int:
 
     out = [f"## Prior art: {args.query}", ""]
     out += ["### Already in our knowledge base", *(search_kb(args.query.split()) or ["_Nothing yet._"]), ""]
+    for p in kblib.siblings():
+        out += section(f"Sibling KB: {p['name']}", lambda p=p: sibling(p, args.query, args.limit))
     out += section("GitHub repositories", lambda: repos(args.query, args.limit))
     out += section("Terraform / HCL code", lambda: code(args.query, args.limit))
     out += section("Issues and pull requests", lambda: issues(args.query, args.limit))
