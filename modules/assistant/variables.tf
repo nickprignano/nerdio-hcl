@@ -104,12 +104,12 @@ variable "claude_api" {
 }
 
 variable "effort" {
-  description = "Model effort: low, medium or high. Medium suits a guided interview."
+  description = "Model effort: low, medium, high, xhigh or max. Medium suits a guided interview (decision 0022); raise it before changing the model."
   type        = string
   default     = "medium"
   validation {
-    condition     = contains(["low", "medium", "high"], var.effort)
-    error_message = "effort must be low, medium or high."
+    condition     = contains(["low", "medium", "high", "xhigh", "max"], var.effort)
+    error_message = "effort must be low, medium, high, xhigh or max."
   }
 }
 

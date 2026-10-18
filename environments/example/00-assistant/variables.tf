@@ -47,6 +47,12 @@ variable "model_provider" {
   default     = "claude-api"
 }
 
+variable "effort" {
+  description = "Model effort for the chat: low, medium, high, xhigh or max (see modules/assistant)."
+  type        = string
+  default     = "medium"
+}
+
 variable "claude_api" {
   description = "The Claude API's federation IDs (see modules/assistant). ./nerdio assistant --connect-claude fills them in."
   type = object({

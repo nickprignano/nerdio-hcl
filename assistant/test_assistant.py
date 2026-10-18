@@ -109,6 +109,20 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(second_call["output_config"], {"effort": agent.EFFORT})
         self.assertEqual(len(second_call["messages"]), 3)
 
+    def test_each_model_call_logs_usage_but_no_content(self):
+        client = FakeClient([message("end_turn", {"type": "text", "text": "secret-looking reply"})])
+        with self.assertLogs("nerdio-assistant.usage", "INFO") as logs:
+            agent.chat_turn(client, [], {}, "my private question")
+        self.assertEqual(len(logs.records), 1)
+        record = json.loads(logs.records[0].getMessage())
+        self.assertEqual({k: record[k] for k in ("event", "model", "effort", "stop_reason", "input_tokens", "output_tokens")},
+                         {"event": "model_call", "model": agent.MODEL, "effort": agent.EFFORT, "stop_reason": "end_turn",
+                          "input_tokens": 1, "output_tokens": 1})
+        self.assertEqual(record["cache_read_input_tokens"], 0)
+        self.assertIsInstance(record["latency_ms"], int)
+        self.assertNotIn("private", logs.output[0])
+        self.assertNotIn("secret-looking", logs.output[0])
+
     def test_transcript_is_append_only(self):
         earlier = [{"role": "user", "content": "hi"},
                    {"role": "assistant", "content": [{"type": "text", "text": "Hello"}]}]

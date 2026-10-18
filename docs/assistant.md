@@ -131,6 +131,19 @@ use is billed per token: by Anthropic to your organization's workspace with the 
 through Azure with Foundry. Log Analytics bills per GB ingested, which is small here.
 Remove it all with `terraform -chdir=environments/example/00-assistant destroy`.
 
+The model defaults to `claude-opus-5-5` at `medium` effort ([decision 0022](knowledge/decisions/0022-family-model-selection-convention.md)).
+Change them with `effort` and `claude_api.model` in the stage's tfvars; raise effort before changing the model.
+Every model call writes one JSON line to the app's log with the model, effort, step, `stop_reason`,
+latency and token counts (input, output, cache read and cache write). It never logs the
+conversation, answers or credentials. To see what setups cost, from Cloud Shell:
+
+```bash
+az monitor log-analytics query -w "$(az monitor log-analytics workspace list -g rg-nme-assistant --query '[0].customerId' -o tsv)" \
+  --analytics-query 'ContainerAppConsoleLogs_CL | where Log_s has "\"model_call\"" | extend r = parse_json(Log_s)
+  | summarize calls = count(), input = sum(toint(r.input_tokens)), output = sum(toint(r.output_tokens)),
+    cache_read = sum(toint(r.cache_read_input_tokens)), p50_ms = percentile(toint(r.latency_ms), 50) by tostring(r.model), bin(TimeGenerated, 1d)'
+```
+
 ## The image
 
 GitHub Actions builds the app from `assistant/Dockerfile` and publishes it to

@@ -13,9 +13,11 @@ so the app can scale to zero, and the transcript is only ever appended to.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shlex
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(os.environ.get("NERDIO_KIT_ROOT", Path(__file__).resolve().parents[1]))
@@ -35,6 +37,16 @@ MAX_STEPS = 12
 KB_ALLOWED = [ROOT / "docs" / "knowledge", ROOT / "docs" / "deployment-runbook.md", ROOT / "docs" / "setup.md",
               ROOT / "docs" / "pipeline.md"]
 KB_MAX_CHARS = 40_000
+
+# One JSON line per model call on stdout, which Container Apps sends to Log Analytics. Counts and
+# timings only: no prompt, transcript, answers or credentials (decision 0022's pilot measures).
+usage_log = logging.getLogger("nerdio-assistant.usage")
+if not usage_log.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    usage_log.addHandler(_handler)
+    usage_log.setLevel(logging.INFO)
+    usage_log.propagate = False
 
 TOOLS = [
     {
@@ -346,13 +358,23 @@ def _claude_api_client():
     ))
 
 
+def _log_usage(response, step: int, seconds: float) -> None:
+    usage = getattr(response, "usage", None)
+    record = {"event": "model_call", "provider": PROVIDER, "model": MODEL, "served_model": getattr(response, "model", None),
+              "effort": EFFORT, "step": step, "stop_reason": response.stop_reason, "latency_ms": round(seconds * 1000)}
+    for field in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
+        record[field] = getattr(usage, field, None) or 0
+    usage_log.info(json.dumps(record))
+
+
 def chat_turn(client, messages: list, answers: dict, text: str, user_object_id: str = "",
               pipeline: Pipeline | None = None) -> dict:
     """Run one user turn to completion. Returns the appended transcript, the answers and the reply text."""
     session = Session(answers, user_object_id, pipeline)
     messages = list(messages) + [{"role": "user", "content": text}]
     reply = ""
-    for _ in range(MAX_STEPS):
+    for step in range(MAX_STEPS):
+        started = time.monotonic()
         response = client.messages.create(
             model=MODEL,
             max_tokens=16000,
@@ -361,6 +383,7 @@ def chat_turn(client, messages: list, answers: dict, text: str, user_object_id: 
             messages=messages,
             output_config={"effort": EFFORT},
         )
+        _log_usage(response, step, time.monotonic() - started)
         content = [b.model_dump(mode="json", exclude_none=True) for b in response.content]
         messages.append({"role": "assistant", "content": content})
         reply = "\n\n".join(b["text"] for b in content if b.get("type") == "text").strip()

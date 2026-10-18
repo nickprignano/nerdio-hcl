@@ -6,6 +6,7 @@ location        = "eastus2"
 
 # Claude: the Claude API through workload identity federation (default), or Claude on Foundry.
 # model_provider = "claude-api"
+# effort         = "medium"          # low, medium, high, xhigh or max; raise it before changing the model
 # claude_api = {                     # ./nerdio assistant --connect-claude fills these in
 #   organization_id    = "00000000-0000-0000-0000-000000000000"
 #   federation_rule_id = "fdrl_..."
