@@ -58,4 +58,5 @@ stands: chat is the guided front door, and the engine stays deterministic and us
 
 Design: `docs/assistant.md` (pull request #5).
 [0020](0020-claude-api-federation-for-the-chat.md) adds the Claude API, signed in by workload
-identity federation, as a second keyless model option, for tenants still waiting on Foundry quota.
+identity federation, as a second keyless model option. Since Microsoft denied the first trial tenant's Foundry
+quota, the Claude API is the main path and Foundry is optional.

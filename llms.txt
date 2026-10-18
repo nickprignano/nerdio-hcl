@@ -12,6 +12,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 
 - [Knowledge base](docs/knowledge/README.md): What this knowledge base is, how it's organised, and how to add to it safely (status: verified)
 - [Workbenches: Cloud Shell and Codespaces](docs/knowledge/workbenches.md): Where to run the kit from a browser: Azure Cloud Shell (baseline) or GitHub Codespaces (optional), with their limits (status: partial)
+- [Nerdio Manager's AI features](docs/knowledge/nerdio/ai-features.md): Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat (status: partial)
 - [Community projects](docs/knowledge/nerdio/community-projects.md): Other Nerdio + Terraform projects worth knowing about (status: partial)
 - [Nerdio Entra app (`nerdio-nmw-app`)](docs/knowledge/nerdio/entra-app.md): The nerdio-nmw-app registration, permissions, app roles and the REST API client (status: partial)
 - [Nerdio Manager platform](docs/knowledge/nerdio/platform.md): What the Marketplace deployment creates, the install step, setup wizard, roles and hardening (status: partial)

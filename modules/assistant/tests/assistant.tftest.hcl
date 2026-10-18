@@ -49,16 +49,26 @@ variables {
   admin_group_object_id = "11111111-1111-1111-1111-111111111111"
 }
 
-run "foundry_by_default" {
+run "claude_api_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_cognitive_account.foundry) == 0 && length(azuread_application.claude_audience) == 1
+    error_message = "The Claude API should be the default, with no Foundry resource."
+  }
+}
+
+run "foundry_when_chosen" {
   command = plan
 
   variables {
-    foundry = { location = "eastus2" }
+    model_provider = "foundry"
+    foundry        = { location = "eastus2" }
   }
 
   assert {
     condition     = length(azurerm_cognitive_account.foundry) == 1 && length(azuread_application.claude_audience) == 0
-    error_message = "Foundry should be the default, with no Claude API audience app."
+    error_message = "Foundry should create its resource and no Claude API audience app."
   }
 
   assert {

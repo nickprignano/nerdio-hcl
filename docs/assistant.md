@@ -11,7 +11,7 @@ questions as `./nerdio init` and the Actions form, because all three read
 |---|---|
 | Container App | The chat web app. Scales to zero when nobody is using it |
 | Entra sign-in | Container Apps authentication with an app registration. Only members of the admin group you name can sign in |
-| Claude | The [Claude API](#claude-api) by default, or [Claude on Microsoft Foundry](#claude-on-foundry), billed through your Azure subscription. Pick with `--model-provider` |
+| Claude | The [Claude API](#claude-api), billed to your Anthropic organization. [Claude on Microsoft Foundry](#claude-on-foundry), billed through Azure, is optional if Microsoft grants you quota. Pick with `--model-provider` |
 | Managed identity | How the app calls Claude, either way. There's no API key to store or leak |
 | Log Analytics | App logs, kept 30 days |
 
@@ -49,7 +49,7 @@ Options: `--model-provider claude-api|foundry`, `--location` (the app's region, 
 
 ## Claude API
 
-The default for now, while Foundry quota requests are pending. The chat signs in to the Claude
+The main path. The chat signs in to the Claude
 API with **workload identity federation**: its managed identity gets a token from Entra for an
 audience app the kit creates, and the Claude API trades that for an access token that lasts ten
 minutes and can only call the model. No API key is created, stored or passed around, and the
@@ -86,12 +86,13 @@ Claude Console's **Connect workload** wizard, then you pass the IDs it shows wit
 `./nerdio assistant --claude-ids org=…,rule=fdrl_…,account=svac_…,workspace=wrkspc_…`.
 
 To revoke access, archive the rule in the Claude Console (or delete the chat's managed identity).
-To switch to Foundry later, run `./nerdio assistant --model-provider foundry`; the audience app
+To switch to Foundry, run `./nerdio assistant --model-provider foundry`; the audience app
 goes away and the rule simply stops matching anything.
 
 ## Claude on Foundry
 
-With `--model-provider foundry`, Terraform creates an AI Services resource with a Claude
+Optional. Microsoft grants Claude-on-Foundry quota per request and can deny it (it did for the
+kit's first trial tenant), so plan on the Claude API unless you already have quota. With `--model-provider foundry`, Terraform creates an AI Services resource with a Claude
 deployment and gives the app's identity **Cognitive Services User** on it. Key-based access is
 turned off on the resource. If Terraform can't create the model deployment, create it in the
 Foundry portal and set `foundry = { create_deployment = false, deployment_name = "<its name>" }`
