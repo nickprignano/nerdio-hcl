@@ -14,8 +14,17 @@ resource "azurerm_user_assigned_identity" "app" {
   tags                = var.tags
 }
 
-# --- Claude on Microsoft Foundry ---------------------------------------------------------
+# --- Which Claude: Microsoft Foundry, or the Claude API (claude_api.tf) ------------------
 
+locals {
+  use_foundry = var.model_provider == "foundry"
+  model_env = local.use_foundry ? {
+    NERDIO_FOUNDRY_RESOURCE = azurerm_cognitive_account.foundry[0].custom_subdomain_name
+    NERDIO_MODEL            = var.foundry.deployment_name
+  } : local.claude_api_env
+}
+
+# Also names the GitHub key vault (pipeline.tf), so it stays whichever Claude is used.
 resource "random_string" "foundry" {
   length  = 6
   special = false
@@ -23,6 +32,7 @@ resource "random_string" "foundry" {
 }
 
 resource "azurerm_cognitive_account" "foundry" {
+  count                 = local.use_foundry ? 1 : 0
   name                  = "ais-${var.name}-${random_string.foundry.result}"
   location              = var.foundry.location
   resource_group_name   = var.resource_group_name
@@ -35,9 +45,9 @@ resource "azurerm_cognitive_account" "foundry" {
 }
 
 resource "azurerm_cognitive_deployment" "claude" {
-  count                = var.foundry.create_deployment ? 1 : 0
+  count                = local.use_foundry && try(var.foundry.create_deployment, false) ? 1 : 0
   name                 = var.foundry.deployment_name
-  cognitive_account_id = azurerm_cognitive_account.foundry.id
+  cognitive_account_id = azurerm_cognitive_account.foundry[0].id
 
   model {
     format  = "Anthropic"
@@ -52,10 +62,21 @@ resource "azurerm_cognitive_deployment" "claude" {
 }
 
 resource "azurerm_role_assignment" "app_uses_model" {
-  scope                = azurerm_cognitive_account.foundry.id
+  count                = local.use_foundry ? 1 : 0
+  scope                = azurerm_cognitive_account.foundry[0].id
   role_definition_name = "Cognitive Services User"
   principal_id         = azurerm_user_assigned_identity.app.principal_id
   principal_type       = "ServicePrincipal"
+}
+
+moved {
+  from = azurerm_cognitive_account.foundry
+  to   = azurerm_cognitive_account.foundry[0]
+}
+
+moved {
+  from = azurerm_role_assignment.app_uses_model
+  to   = azurerm_role_assignment.app_uses_model[0]
 }
 
 # --- The app ---------------------------------------------------------------------------
@@ -105,12 +126,15 @@ resource "azurerm_container_app" "this" {
         value = azurerm_user_assigned_identity.app.client_id
       }
       env {
-        name  = "NERDIO_FOUNDRY_RESOURCE"
-        value = azurerm_cognitive_account.foundry.custom_subdomain_name
+        name  = "NERDIO_MODEL_PROVIDER"
+        value = var.model_provider
       }
-      env {
-        name  = "NERDIO_MODEL"
-        value = var.foundry.deployment_name
+      dynamic "env" {
+        for_each = local.model_env
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       env {
         name  = "NERDIO_EFFORT"
@@ -136,7 +160,8 @@ resource "azurerm_container_app" "this" {
     }
   }
 
-  depends_on = [azurerm_role_assignment.app_uses_model]
+  # The model access must exist before the first revision starts taking chats.
+  depends_on = [azurerm_role_assignment.app_uses_model, azuread_service_principal.claude_audience]
 }
 
 # --- Sign-in: Entra ID, admin group only -------------------------------------------------

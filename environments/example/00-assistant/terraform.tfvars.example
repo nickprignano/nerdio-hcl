@@ -4,6 +4,16 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 admin_group     = "AVD Admins"
 location        = "eastus2"
 
+# Claude: the Claude API through workload identity federation (default), or Claude on Foundry.
+# model_provider = "claude-api"
+# claude_api = {                     # ./nerdio assistant --connect-claude fills these in
+#   organization_id    = "00000000-0000-0000-0000-000000000000"
+#   federation_rule_id = "fdrl_..."
+#   service_account_id = "svac_..."
+#   workspace_id       = "wrkspc_..."
+# }
+
+# model_provider = "foundry"
 # foundry = {
 #   location = "eastus2"             # a region that offers Claude on Foundry
 #   create_deployment = false        # if you deployed the model in the Foundry portal yourself

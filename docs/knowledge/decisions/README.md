@@ -26,4 +26,5 @@ marked *Superseded by NNNN*.
 | [0017](0017-chatbot-first-deployment.md) | Every Azure deployment is chatbot-first | Accepted |
 | [0018](0018-apache-2-license.md) | License the kit under Apache-2.0 | Accepted |
 | [0019](0019-least-privilege-explicit-access.md) | Least privilege, with every access need written down | Accepted |
+| [0020](0020-claude-api-federation-for-the-chat.md) | The setup chat can use the Claude API, signed in by workload identity federation | Accepted |
 <!-- END GENERATED: decision-index -->

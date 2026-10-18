@@ -57,3 +57,5 @@ stands: chat is the guided front door, and the engine stays deterministic and us
 ## More Information
 
 Design: `docs/assistant.md` (pull request #5).
+[0020](0020-claude-api-federation-for-the-chat.md) adds the Claude API, signed in by workload
+identity federation, as a second keyless model option, for tenants still waiting on Foundry quota.

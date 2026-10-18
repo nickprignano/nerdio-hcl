@@ -37,8 +37,31 @@ variable "image" {
   default     = "ghcr.io/nickprignano/nerdio-hcl-assistant:main"
 }
 
+variable "model_provider" {
+  description = <<-EOT
+    Where the chat gets Claude: "claude-api" (the Claude API through workload identity federation,
+    the default while Foundry quota is pending) or "foundry" (Claude on Microsoft Foundry).
+    ./nerdio assistant --model-provider sets it.
+  EOT
+  type        = string
+  default     = "claude-api"
+}
+
+variable "claude_api" {
+  description = "The Claude API's federation IDs (see modules/assistant). ./nerdio assistant --connect-claude fills them in."
+  type = object({
+    model              = optional(string, "claude-opus-5-5")
+    organization_id    = optional(string)
+    federation_rule_id = optional(string)
+    service_account_id = optional(string)
+    workspace_id       = optional(string)
+  })
+  default  = {}
+  nullable = false
+}
+
 variable "foundry" {
-  description = "Claude on Microsoft Foundry (see modules/assistant)."
+  description = "Claude on Microsoft Foundry, for model_provider = \"foundry\" (see modules/assistant)."
   type = object({
     location          = optional(string, "eastus2")
     create_deployment = optional(bool, true)
