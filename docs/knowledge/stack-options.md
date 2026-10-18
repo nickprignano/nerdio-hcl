@@ -372,8 +372,9 @@ Packer (optional only).
 - Whether the Windows App web client can be driven headless to a rendered desktop, and how long that takes.
 - Whether the Terraform-native install works in Azure Government, given Nerdio supports only
   app-credential linking there, and what the Gov package API and REST API endpoints are.
-- Whether Claude on Foundry is available in Azure Government for the setup chatbot, or the chatbot
-  has to stay in a commercial tenant.
+- Whether the Claude API's workload identity federation accepts Azure Government's Entra issuer for
+  the setup chatbot (its main model path, decision 0020), and whether Claude on Foundry is offered
+  there, or the chatbot has to stay in a commercial tenant.
 - Whether Nerdio adopts Windows 365 provisioning policies and Intune policies that Terraform created.
 
 ## Sources

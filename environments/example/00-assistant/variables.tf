@@ -40,7 +40,7 @@ variable "image" {
 variable "model_provider" {
   description = <<-EOT
     Where the chat gets Claude: "claude-api" (the Claude API through workload identity federation,
-    the default while Foundry quota is pending) or "foundry" (Claude on Microsoft Foundry).
+    the main path) or "foundry" (Claude on Microsoft Foundry, if Microsoft grants you quota).
     ./nerdio assistant --model-provider sets it.
   EOT
   type        = string

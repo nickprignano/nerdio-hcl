@@ -26,8 +26,8 @@ stored secret?
 Chosen option: "The Claude API with workload identity federation", because it needs no secret
 at all, and the trust can be narrowed to one identity.
 
-- `model_provider` in `modules/assistant` picks `claude-api` or `foundry`. The 00-assistant stage
-  defaults to `claude-api` until Foundry quota is the norm; Foundry stays one flag away.
+- `model_provider` in `modules/assistant` picks `claude-api` or `foundry`. `claude-api` is the
+  default and the main path; Foundry stays one flag away for tenants that have quota.
 - Terraform creates an Entra audience app (v2.0 tokens, no permissions, no secret). The app asks
   Entra for a token for it with its managed identity, and the Anthropic SDK exchanges that for a
   10-minute Claude API token.
@@ -52,5 +52,9 @@ at all, and the trust can be narrowed to one identity.
 ## More Information
 
 Anthropic's docs: Workload Identity Federation, its Microsoft Entra ID guide and the WIF Admin
-API. Revisit when Foundry quota arrives for the first tenants, or if an Anthropic Terraform
-provider covers federation.
+API.
+
+Update, 2026-10-18: Microsoft denied the kit's Foundry quota requests for the first trial tenant,
+so the Claude API is the main path, not a fallback, and the module's default changed to match.
+Revisit if Foundry quota becomes routine to get, or if an Anthropic Terraform provider covers
+federation.

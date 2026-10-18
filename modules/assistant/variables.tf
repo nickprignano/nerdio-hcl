@@ -40,12 +40,13 @@ variable "admin_group_object_id" {
 
 variable "model_provider" {
   description = <<-EOT
-    Where the chat gets Claude: "foundry" (Claude on Microsoft Foundry in this subscription) or
-    "claude-api" (the Claude API, signed in with the app's managed identity through workload
-    identity federation; no API key). Both are keyless.
+    Where the chat gets Claude: "claude-api" (the main path: the Claude API, signed in with the
+    app's managed identity through workload identity federation; no API key) or "foundry"
+    (Claude on Microsoft Foundry in this subscription, which needs Microsoft to grant quota).
+    Both are keyless.
   EOT
   type        = string
-  default     = "foundry"
+  default     = "claude-api"
   validation {
     condition     = contains(["foundry", "claude-api"], var.model_provider)
     error_message = "model_provider must be foundry or claude-api."

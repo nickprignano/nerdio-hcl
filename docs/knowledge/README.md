@@ -25,6 +25,7 @@ belongs to instead of starting a new file.
 | Page | What's in it | Status |
 |---|---|---|
 | [workbenches.md](workbenches.md) | Where to run the kit from a browser: Azure Cloud Shell (baseline) or GitHub Codespaces (optional), with their limits | partial |
+| [nerdio/ai-features.md](nerdio/ai-features.md) | Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat | partial |
 | [nerdio/community-projects.md](nerdio/community-projects.md) | Other Nerdio + Terraform projects worth knowing about | partial |
 | [nerdio/entra-app.md](nerdio/entra-app.md) | The nerdio-nmw-app registration, permissions, app roles and the REST API client | partial |
 | [nerdio/platform.md](nerdio/platform.md) | What the Marketplace deployment creates, the install step, setup wizard, roles and hardening | partial |
