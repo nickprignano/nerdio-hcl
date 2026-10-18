@@ -44,7 +44,9 @@ jobs:
         run: gh issue list --label kb-digest --state all --limit 30 --json createdAt,body > "$RUNNER_TEMP/digests.json"
       - name: Collect
         id: collect
-        run: python3 scripts/kb/freshness.py --max-age-days "${{ inputs.max_age_days || '90' }}" --digests "$RUNNER_TEMP/digests.json" --output freshness.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/kb/freshness.py --max-age-days "${{ inputs.max_age_days || '90' }}" --digests "$RUNNER_TEMP/digests.json" --family --output freshness.md
       - name: Job summary
         run: cat freshness.md >> "$GITHUB_STEP_SUMMARY"
       - name: Open or update the freshness issue

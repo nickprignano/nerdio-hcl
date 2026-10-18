@@ -9,6 +9,7 @@ Checks:
   - known-errors.yaml, upstream.yaml and field-reports.yaml match their schemas, ids are unique,
     and KB paths they reference exist
   - experts.yaml statuses match their scores, and tracked experts match sources.toml
+  - family.yaml has one self entry, and sources.toml watches each linked sibling's decisions and KB
   - relative links and #anchors in KB pages and llms.txt resolve
   - no email addresses or public IPv4 addresses (the no-leak rule; gitleaks covers secrets)
 
@@ -141,9 +142,17 @@ def check_experts() -> None:
 
 
 def check_family() -> None:
-    projects = (kblib.load_yaml(kblib.FAMILY) or {}).get("projects", [])
-    if sum(1 for p in projects if p.get("self")) != 1:
+    """One self entry, and each linked sibling is watched by the two commit sources (curation.md)."""
+    data = kblib.family()
+    if sum(1 for p in data.get("projects", []) if p.get("self")) != 1:
         error(kblib.FAMILY, "exactly one project must have self: true")
+    sources = tomllib.loads(kblib.SOURCES.read_text(encoding="utf-8")).get("source", [])
+    watched = {(s.get("repo"), s.get("path")) for s in sources if s.get("kind") == "github_commits"}
+    for p in kblib.siblings(data):
+        for path in (f"{kblib.kb_path(p)}/decisions", kblib.kb_path(p)):
+            if (p["repo"], path) not in watched:
+                error(kblib.SOURCES, f"sibling {p['name']}: add a github_commits source for "
+                                     f"{p['repo']} with path = \"{path}\" (see curation.md)")
 
 
 def check_links(path: Path) -> None:

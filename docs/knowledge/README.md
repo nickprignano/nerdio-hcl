@@ -59,7 +59,7 @@ knowledge. The list is in [family.yaml](family.yaml); see
 <!-- BEGIN GENERATED: family (from family.yaml; run scripts/kb/build.py) -->
 | Knowledge base | Role | Focus | Source of truth for |
 |---|---|---|---|
-| AI (repo not linked yet) | hub | The AI research behind all four projects | Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family |
+| [AI](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge) | hub | The AI research behind all four projects | Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family |
 | AVD (repo not linked yet) | member | Azure Virtual Desktop itself | Azure Virtual Desktop platform; FSLogix; session host images in general |
 | Liquidware (repo not linked yet) | member | Liquidware products on virtual desktops | Liquidware products |
 <!-- END GENERATED: family -->

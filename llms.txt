@@ -64,7 +64,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 
 ## Related knowledge bases
 
-- AI (repo not linked yet): The AI research behind all four projects. Source of truth for: Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family
+- [AI](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge): The AI research behind all four projects. Source of truth for: Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family
 - AVD (repo not linked yet): Azure Virtual Desktop itself. Source of truth for: Azure Virtual Desktop platform; FSLogix; session host images in general
 - Liquidware (repo not linked yet): Liquidware products on virtual desktops. Source of truth for: Liquidware products
 

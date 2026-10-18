@@ -131,6 +131,20 @@ _Dumper.add_representer(
 )
 
 
+def family() -> dict:
+    return load_yaml(FAMILY) or {}
+
+
+def siblings(data: dict | None = None) -> list[dict]:
+    """Sibling KBs whose repo is known; a row without a repo isn't linked yet."""
+    data = family() if data is None else data
+    return [p for p in data.get("projects", []) if not p.get("self") and p.get("repo")]
+
+
+def kb_path(project: dict) -> str:
+    return project.get("kb_path", "docs/knowledge").strip("/")
+
+
 def expert_total(e: dict) -> int:
     return sum((e.get("scores") or {}).values())
 
