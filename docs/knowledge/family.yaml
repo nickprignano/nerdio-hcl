@@ -19,7 +19,7 @@ projects:
   kb_path: docs/knowledge
   role: hub
   format_version: 1
-  focus: The AI research behind all four projects
+  focus: The AI research behind the family's projects
   owns: [Claude API and Microsoft Foundry use, model choices, keyless sign-in for AI APIs, prompts and evaluations,
     AI tooling shared by the family]
 - id: avd
@@ -27,8 +27,3 @@ projects:
   role: member
   focus: Azure Virtual Desktop itself
   owns: [Azure Virtual Desktop platform, FSLogix, session host images in general]
-- id: liquidware
-  name: Liquidware
-  role: member
-  focus: Liquidware products on virtual desktops
-  owns: [Liquidware products]

@@ -4,12 +4,12 @@ date: 2026-10-18
 decision-makers: [maintainers]
 ---
 
-# 0022. Follow the family's model-selection convention, as one of its four pilot projects
+# 0022. Follow the family's model-selection convention, as one of its pilot projects
 
 ## Context and Problem Statement
 
 The setup chat picks its model and effort in this kit's own config, and nothing measures whether
-the pick is right. The family is piloting one model-selection convention across its four
+the pick is right. The family is piloting one model-selection convention across its pilot
 projects, and model choices are the AI KB's topic ([0021](0021-knowledge-base-family.md)). Does
 this kit follow it, and what does that change here?
 
