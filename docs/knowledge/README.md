@@ -44,6 +44,25 @@ belongs to instead of starting a new file.
 | [decisions/](decisions/README.md) | Decision records (MADR): what was decided and why |  |
 <!-- END GENERATED: kb-index -->
 
+## Related knowledge bases
+
+This KB is one of a family of four that share the same format and link to each other instead of
+copying facts ([decision 0021](decisions/0021-knowledge-base-family.md)). When a topic belongs to
+a sibling, its KB is the source of truth. The AI knowledge base is the hub for how the family uses
+AI, for example the Claude API, Microsoft Foundry and keyless sign-in, so this kit's chat
+decisions ([0014](decisions/0014-self-hosted-setup-chatbot.md),
+[0020](decisions/0020-claude-api-federation-for-the-chat.md)) link there for the general
+knowledge. The list is in [family.yaml](family.yaml); see
+[curation.md](curation.md#knowledge-base-family).
+
+<!-- BEGIN GENERATED: family (from family.yaml; run scripts/kb/build.py) -->
+| Knowledge base | Role | Focus | Source of truth for |
+|---|---|---|---|
+| AI (repo not linked yet) | hub | The AI research behind all four projects | Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family |
+| AVD (repo not linked yet) | member | Azure Virtual Desktop itself | Azure Virtual Desktop platform; FSLogix; session host images in general |
+| Liquidware (repo not linked yet) | member | Liquidware products on virtual desktops | Liquidware products |
+<!-- END GENERATED: family -->
+
 ## Before you build something
 
 Every change follows the project's [guardrails](../guardrails.md): security over convenience, HCL

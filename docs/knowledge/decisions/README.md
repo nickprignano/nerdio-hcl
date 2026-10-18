@@ -27,4 +27,5 @@ marked *Superseded by NNNN*.
 | [0018](0018-apache-2-license.md) | License the kit under Apache-2.0 | Accepted |
 | [0019](0019-least-privilege-explicit-access.md) | Least privilege, with every access need written down | Accepted |
 | [0020](0020-claude-api-federation-for-the-chat.md) | The setup chat can use the Claude API, signed in by workload identity federation | Accepted |
+| [0021](0021-knowledge-base-family.md) | This KB is one of a family of four, with the AI project as the hub for AI knowledge | Proposed |
 <!-- END GENERATED: decision-index -->
