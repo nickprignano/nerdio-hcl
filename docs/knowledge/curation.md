@@ -88,8 +88,7 @@ route adds an AI step to a pipeline that otherwise uses no LLM.
 
 ## Knowledge base family
 
-Four projects keep knowledge bases in this format: this kit, AI (the hub for how all of them use
-AI), AVD and Liquidware. [family.yaml](family.yaml) lists them, what each one is the source of
+This kit, AI (the hub for how the family uses AI) and AVD keep knowledge bases in this format. [family.yaml](family.yaml) lists them, what each one is the source of
 truth for, and the format version each follows. `build.py` turns it into the "Related knowledge
 bases" table in the [README](README.md#related-knowledge-bases) and a section in `llms.txt`.
 
@@ -103,8 +102,8 @@ bases" table in the [README](README.md#related-knowledge-bases) and a section in
   repo isn't linked yet. The prior-art check searches each linked sibling's KB before GitHub.
 - **Link, don't copy:** a fact that belongs to a sibling's topic is linked, not duplicated. If we
   learn something a sibling needs, open an issue or PR on their repo with the evidence.
-- **Shared format:** schemas, scripts, checks, workflows and guardrails stay the same in all four.
-  A change to them is proposed as a "Family format" decision, made in all four, and the
+- **Shared format:** schemas, scripts, checks, workflows and guardrails stay the same across the family.
+  A change to them is proposed as a "Family format" decision, made in each KB, and the
   `format_version` is bumped everywhere once all have merged.
 - **AI knowledge:** general findings about the Claude API, Foundry, model choice, keyless sign-in
   for AI APIs, prompts and evaluations go to the AI hub. Decisions about how this kit uses AI stay
