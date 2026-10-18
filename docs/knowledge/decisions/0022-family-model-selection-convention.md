@@ -33,7 +33,8 @@ the source of truth for the defaults, fallbacks, measures and pilot dates. The f
 For the pilot this kit:
 
 - Logs, per chat request, the model, effort, `usage`, `stop_reason` and latency, so tokens per
-  completed setup turn and the failure rate can be measured. Not built yet.
+  completed setup turn and the failure rate can be measured: one JSON line per model call in the
+  app's log, counts and timings only ([docs/assistant.md](../../assistant.md#cost)).
 - Keeps the Claude API with workload identity federation as the main path and Foundry as the
   fallback where a tenant has quota ([0020](0020-claude-api-federation-for-the-chat.md)), which
   matches the convention's fallback rules.
@@ -42,7 +43,7 @@ For the pilot this kit:
 ### Consequences
 
 - Good, because a model change for the chat follows evidence and the family's rules.
-- Bad, because the chat needs usage logging before the pilot can measure it.
+- Bad, because nothing is measured until the chat has real setups behind it.
 - Neutral, because no default changes today.
 
 ## More Information
