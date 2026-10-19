@@ -207,7 +207,10 @@ class Pipeline:
         if summary.get("status") == "failed":
             return {"found": True, "status": "failed", "error": summary.get("error"), "log_tail": summary.get("log_tail")}
         if stage == "preflight":
-            return {"found": True, "status": summary.get("status"), "results": summary.get("results", [])}
+            # readiness.json results (nerdio-readiness/1): id, status, title, detail, fix, kb, needs.
+            results = [r for r in summary.get("results", []) if r.get("status") != "skipped"]
+            return {"found": True, "status": summary.get("status"), "verdict": summary.get("verdict"),
+                    "counts": summary.get("counts", {}), "results": results}
         changes = summary.get("changes", [])
         out = {"found": True, "status": summary.get("status", "planned"), "summary": summary.get("summary"),
                "adopted": summary.get("adopted", []), "change_count": len(changes),

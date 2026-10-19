@@ -41,10 +41,13 @@ deployment runbook (read_kb "docs/deployment-runbook.md") and, for the pipeline,
    `manual` there, because the pipeline's apply identity holds those roles by design; say that
    rather than asking them to check their own roles. Otherwise give them the preflight command from
    cloud_shell_command and ask them to paste the result.
-   For each line: `fail` means explain it and give the fix shown; `warn` means it couldn't be
-   checked, so say what to look at by hand; `manual` items (Nerdio license, AVD user licenses,
-   domain reachability) need their confirmation. Don't move on while something fails unless they
-   choose to and understand the consequence.
+   Lead with the verdict (GO, GO WITH WARNINGS, NO-GO or INCOMPLETE). For each result: `fail`
+   means explain it and give the fix shown; `warn` means it couldn't be checked fully, so say what
+   to look at; `no-access` means the identity that ran it can't read that, so name the right in
+   its `needs`; `manual` items (Nerdio license, AVD user licenses, domain reachability) need their
+   confirmation. Cite each result's `kb` page. Names and IDs come masked (`<vnet-1>`, `<id>`);
+   never ask for the real ones. Don't move on while something fails unless they choose to and
+   understand the consequence.
 4. **Configure.** get_questions with phase "configure". Ask the same way. Only bring up advanced
    questions (advanced: true) if they want more control or an answer needs one, such as a hub
    network to peer with. For groups, ask for Entra group display names or "me"; they're looked up

@@ -14,6 +14,19 @@ class RedactTests(unittest.TestCase):
         for kept in ("10.50.0.0/20", "168.63.129.16", "<id>", "<public-ip>", "<email>", "<account>"):
             self.assertIn(kept, out)
 
+    def test_account_names_mask_whole_words_only(self):
+        out = redact.redact("lab admin grants admin consent in sub-lab", ["admin", "sub-lab"])
+        self.assertEqual(out, "lab <account> grants <account> consent in <account>")
+
+    def test_resource_ids_lose_their_group_and_resource_names(self):
+        rid = ("/subscriptions/x/resourceGroups/rg-acme-net/providers/Microsoft.Network/virtualNetworks/vnet-acme"
+               "/subnets/snet-hosts and /providers/Microsoft.Web/locations/eastus2/usages")
+        out = redact.redact(rid)
+        for leaked in ("acme", "snet-hosts"):
+            self.assertNotIn(leaked, out)
+        self.assertIn("/providers/Microsoft.Network/virtualNetworks/<name>/subnets/<name>", out)
+        self.assertIn("locations/eastus2", out)
+
 
 if __name__ == "__main__":
     unittest.main()

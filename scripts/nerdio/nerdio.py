@@ -8,6 +8,7 @@
   ./nerdio questions --phase discover   the questions as JSON, for the setup chatbot
   ./nerdio show                 the current answers and where each value came from
   ./nerdio preflight            read-only readiness checks (roles, providers, region, quota)
+  ./nerdio preflight --list     the check catalogue; --stage, --features, --only and --skip pick checks
   ./nerdio preflight --regions  find regions where the VM size, quota, App Service and SQL all pass
   ./nerdio redact --tail 40     the bootstrap's last output with IDs, IPs and tenant names masked, to share
   ./nerdio fix quota            ask Azure Support for App Service quota (shows it, then asks yes)
@@ -27,7 +28,6 @@ import re
 import subprocess
 import sys
 import textwrap
-from dataclasses import asdict
 from pathlib import Path
 
 import claude_federation
@@ -38,6 +38,12 @@ import preflight
 import profiles
 import redact
 import tfcheck
+from readiness import catalogue as readiness_catalogue
+from readiness import main as readiness_main
+from readiness import report as readiness_report
+from readiness import runner as readiness_runner
+from readiness.model import FEATURES as READINESS_FEATURES
+from readiness.model import STAGES as READINESS_STAGES
 
 ASKED_PHASES = ["discover", "configure"]
 GUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
@@ -294,7 +300,7 @@ def scan_regions(values: dict, regions: str, as_json: bool) -> int:
     found = preflight.scan_regions(values, sub, names, None if as_json else
                                    lambda r: print(f"checking {r} ...", file=sys.stderr))
     if as_json:
-        print(json.dumps({r: [asdict(x) for x in res] for r, res in found.items()}, indent=2))
+        print(json.dumps({r: readiness_report.legacy(res) for r, res in found.items()}, indent=2))
     else:
         print(f"\n{values['vm_size']}, {values.get('app_service_plan_sku') or 'B3'} App Service, Azure SQL:\n")
         for region, res in found.items():
@@ -339,6 +345,24 @@ def cmd_redact(args) -> int:
 
 
 def cmd_preflight(args) -> int:
+    try:
+        features = readiness_runner.parse_features(args.features)
+        only = readiness_runner.parse_ids(args.only)
+        skip = readiness_runner.parse_ids(args.skip)
+    except readiness_runner.UsageError as exc:
+        print(f"stopped: {exc}", file=sys.stderr)
+        return readiness_report.USAGE
+    fmt = "json" if args.json else args.format
+    if args.list:
+        if args.write:
+            readiness_catalogue.write_page()
+            print(f"Wrote the catalogue into {readiness_catalogue.KB_PAGE.relative_to(engine.ROOT)}")
+            return 0
+        print(readiness_catalogue.as_text(fmt))
+        return 0
+    if args.no_redact and not (args.out or args.save):
+        print("stopped: --no-redact writes only to a private file; add --out FILE or --save DIR", file=sys.stderr)
+        return readiness_report.USAGE
     if not check_profile():
         return 1
     schema = engine.load_schema()
@@ -347,23 +371,30 @@ def cmd_preflight(args) -> int:
     problems = apply_sets(schema, answers, args.set or [])  # tried for this run only, not saved
     if problems:
         print("\n".join(problems), file=sys.stderr)
-        return 2
+        return readiness_report.USAGE
     resolved = engine.resolve(schema, answers, {"tenant": "", "subscription": ""})
     if args.regions is not None:
         return scan_regions(resolved.values, args.regions, args.json)
-    results = preflight.run(resolved.values)
-    if args.json:
-        print(preflight.as_json(results))
-    else:
-        icon = {"pass": "✓", "warn": "!", "fail": "✗", "manual": "?"}
-        for r in results:
-            print(f"{icon[r.status]} {r.check}: {r.detail}")
-            if r.fix and r.status != "pass":
-                print(f"    fix: {r.fix}")
-        fails = sum(r.status == "fail" for r in results)
-        manual = sum(r.status == "manual" for r in results)
-        print(f"\n{'NO-GO' if fails else 'GO'}: {fails} to fix, {manual} to confirm yourself.")
-    return 1 if any(r.status == "fail" for r in results) else 0
+    ctx, results, started = readiness_main.evaluate(
+        resolved.values, az=engine.az_json, stage=args.stage, features=features, only=only, skip=skip,
+        show_names=args.names)
+    version = str(schema.get("version", ""))
+    redact_on = not args.no_redact
+
+    def text(kind: str) -> str:
+        return readiness_main.render(ctx, results, started, kind, redact=redact_on, parameters_version=version)
+
+    if args.save:
+        out_dir = Path(args.save)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for name, kind in (("readiness.json", "json"), ("readiness.md", "md")):
+            readiness_report.write_private(str(out_dir / name), text(kind))
+    if args.out:
+        readiness_report.write_private(args.out, text(fmt))
+    elif not args.no_redact:
+        print(text(fmt))
+    doc = readiness_report.document(ctx, results, started=started)
+    return readiness_report.exit_code(doc["verdict"], results, args.strict)
 
 
 def cmd_fix(args) -> int:
@@ -415,6 +446,8 @@ def cmd_schema(args) -> int:
                 problems.append(f"{example.name}: {message}")
     if not form.in_sync(schema):
         problems.append("the Actions form is out of date; run ./nerdio form --write")
+    if not readiness_catalogue.page_in_sync():
+        problems.append("the readiness catalogue in the KB is out of date; run ./nerdio preflight --list --write")
     for p in problems:
         print("✗ " + p)
     if not problems:
@@ -599,7 +632,23 @@ def main(argv: list[str]) -> int:
     p.set_defaults(func=cmd_show)
 
     p = sub.add_parser("preflight", help="read-only readiness checks")
-    p.add_argument("--json", action="store_true")
+    p.add_argument("--stage", choices=READINESS_STAGES, default="pre-install",
+                   help="when you are: before the install (default), after it, or after Nerdio's wizard")
+    p.add_argument("--features", default="", metavar="A,B,...",
+                   help="also check these features: " + ", ".join(READINESS_FEATURES) + ", or all")
+    p.add_argument("--format", choices=["console", "json", "md", "legacy"], default="console",
+                   help="json: readiness.json (nerdio-readiness/1); md: a report to paste; legacy: the old bare list")
+    p.add_argument("--json", action="store_true", help="same as --format json")
+    p.add_argument("--strict", action="store_true", help="exit 1 on warnings too (the pipeline uses this)")
+    p.add_argument("--save", metavar="DIR", help="also write readiness.json and readiness.md here (mode 600)")
+    p.add_argument("--out", metavar="FILE", help="write the chosen format to this file (mode 600) instead of the screen")
+    p.add_argument("--names", action="store_true", help="show resource, group and network names instead of masking them")
+    p.add_argument("--no-redact", action="store_true",
+                   help="keep IDs, emails and names; only with --out or --save, to a mode-600 file")
+    p.add_argument("--list", action="store_true", help="print the check catalogue (add --write to update its KB page)")
+    p.add_argument("--write", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--only", default="", metavar="ID,...", help="run only these checks")
+    p.add_argument("--skip", default="", metavar="ID,...", help="leave these checks out")
     p.add_argument("--set", action="append", metavar="NAME=VALUE", help="try a different answer for this run (not saved)")
     p.add_argument("--regions", nargs="?", const="", metavar="A,B,...",
                    help="check the region-specific items across regions (default: the configured region's geography)")

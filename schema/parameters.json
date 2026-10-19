@@ -116,6 +116,7 @@
     {
       "id": "identity_model",
       "phase": "discover",
+      "readiness": ["pre-install"],
       "type": "enum",
       "question": "How will the session hosts join a directory?",
       "help": "Entra-joined needs no domain controllers and uses Entra Kerberos for the FSLogix share. Entra Domain Services and AD DS need DNS servers that resolve the domain, and the domain join itself is set in Nerdio's directory profile (a wizard step with no API yet).",
@@ -148,6 +149,7 @@
     {
       "id": "user_count",
       "phase": "discover",
+      "readiness": ["pre-install"],
       "type": "int",
       "min": 1,
       "max": 5000,
@@ -159,6 +161,7 @@
     {
       "id": "workload",
       "phase": "discover",
+      "readiness": ["pre-install"],
       "type": "enum",
       "question": "What kind of work will they do?",
       "help": "Picks the VM size and how many sessions share a host. These are conservative starting points, below Microsoft's per-vCPU guidance for multi-session hosts; tune them after a real load test.",
@@ -185,6 +188,7 @@
     {
       "id": "location",
       "phase": "discover",
+      "readiness": ["pre-install"],
       "type": "string",
       "pattern": "^[a-z][a-z0-9]{2,30}$",
       "question": "Which Azure region? Pick one close to most users.",
@@ -267,6 +271,7 @@
     {
       "id": "address_space",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "cidr",
       "min_prefix": 16,
       "max_prefix": 22,
@@ -359,6 +364,7 @@
     {
       "id": "hub_vnet_id",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "string",
       "ask": "advanced",
       "pattern": "^$|^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+$",
@@ -584,6 +590,7 @@
     {
       "id": "nerdio_install",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "enum",
       "ask": "advanced",
       "question": "How should Nerdio Manager be installed?",
@@ -612,6 +619,7 @@
     {
       "id": "create_entra_app",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "bool",
       "ask": "advanced",
       "question": "Create Nerdio's Entra app in Terraform?",
@@ -633,6 +641,7 @@
     {
       "id": "grant_admin_consent",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "bool",
       "question": "Grant admin consent for Nerdio's app from Terraform?",
       "help": "Removes the wizard's consent clicks. The person running the apply needs Global Administrator, or Privileged Role Administrator plus Cloud Application Administrator. Preflight checks this.",
@@ -840,6 +849,7 @@
     {
       "id": "vm_size",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "string",
       "pattern": "^Standard_[A-Za-z0-9_]+$",
       "question": "Session host VM size?",
@@ -865,6 +875,7 @@
     {
       "id": "max_sessions_per_host",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "int",
       "min": 1,
       "max": 999,
@@ -893,6 +904,7 @@
     {
       "id": "host_pool_capacity",
       "phase": "configure",
+      "readiness": ["pre-install"],
       "type": "int",
       "min": 1,
       "max": 500,

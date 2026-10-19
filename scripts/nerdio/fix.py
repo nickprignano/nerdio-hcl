@@ -18,11 +18,11 @@ import shutil
 import subprocess
 import uuid
 
+from readiness import cloud
+
 SUPPORT_API = "2024-04-01"
 PIM_ARM_API = "2020-10-01"
 QUOTA_API = "2023-02-01"
-ARM = "https://management.azure.com"
-GRAPH = "https://graph.microsoft.com/v1.0"
 QUOTA_SERVICE = "service and subscription limits (quotas)"
 TICKET_PREFIX = "Nerdio kit:"
 # usageLocation in Entra is ISO 3166-1 alpha-2; Azure Support wants alpha-3.
@@ -36,6 +36,14 @@ GLOBAL_ADMIN = "Global Administrator"
 
 class FixError(Exception):
     pass
+
+
+def _arm() -> str:
+    return cloud.current().arm
+
+
+def _graph() -> str:
+    return cloud.current().graph_v1
 
 
 def az(args: list[str]):
@@ -118,23 +126,23 @@ def quota_ticket(service_id: str, classification_id: str, contact: dict, sku: st
 
 def fix_quota(subscription_id: str, location: str, sku: str, limit: int, country: str | None,
               email: str | None, timezone: str, assume_yes: bool) -> int:
-    services = rest("get", f"{ARM}/providers/Microsoft.Support/services?api-version={SUPPORT_API}") or {}
+    services = rest("get", f"{_arm()}/providers/Microsoft.Support/services?api-version={SUPPORT_API}") or {}
     svc = next((s for s in services.get("value", [])
                 if (s.get("properties", {}).get("displayName") or "").lower() == QUOTA_SERVICE), None)
     if not svc:
         raise FixError("Azure Support didn't list the quota service for this account")
-    classes = rest("get", f"{ARM}{svc['id']}/problemClassifications?api-version={SUPPORT_API}") or {}
+    classes = rest("get", f"{_arm()}{svc['id']}/problemClassifications?api-version={SUPPORT_API}") or {}
     pc = pick_classification(classes.get("value", []))
     if not pc:
         names = sorted(c.get("properties", {}).get("displayName", "") for c in classes.get("value", []))
         raise FixError("no App Service entry under the quota service; it lists: " + ", ".join(names))
-    me = rest("get", f"{GRAPH}/me?$select=givenName,surname,mail,userPrincipalName,usageLocation") or {}
+    me = rest("get", f"{_graph()}/me?$select=givenName,surname,mail,userPrincipalName,usageLocation") or {}
     if email:
         me["mail"] = email
     contact = contact_from_me(me, country, timezone)
     current = "unknown"
     try:
-        usages = rest("get", f"{ARM}/subscriptions/{subscription_id}/providers/Microsoft.Web/locations/{location}"
+        usages = rest("get", f"{_arm()}/subscriptions/{subscription_id}/providers/Microsoft.Web/locations/{location}"
                              f"/usages?api-version=2024-11-01") or {}
         row = next((u for u in usages.get("value", []) if sku.lower() in json.dumps(u.get("name", {})).lower()), None)
         if row:
@@ -150,7 +158,7 @@ def fix_quota(subscription_id: str, location: str, sku: str, limit: int, country
         print("Nothing sent.")
         return 1
     name = f"nerdio-kit-quota-{dt.datetime.now(dt.timezone.utc):%Y%m%d%H%M%S}"
-    url = f"{ARM}/subscriptions/{subscription_id}/providers/Microsoft.Support/supportTickets/{name}?api-version={SUPPORT_API}"
+    url = f"{_arm()}/subscriptions/{subscription_id}/providers/Microsoft.Support/supportTickets/{name}?api-version={SUPPORT_API}"
     try:
         made = rest("put", url, body) or {}
     except FixError as exc:
@@ -163,7 +171,7 @@ def fix_quota(subscription_id: str, location: str, sku: str, limit: int, country
 
 
 def quota_status(subscription_id: str) -> int:
-    rows = rest("get", f"{ARM}/subscriptions/{subscription_id}/providers/Microsoft.Support/supportTickets"
+    rows = rest("get", f"{_arm()}/subscriptions/{subscription_id}/providers/Microsoft.Support/supportTickets"
                        f"?api-version={SUPPORT_API}") or {}
     mine = [r["properties"] for r in rows.get("value", []) if (r.get("properties", {}).get("title") or "").startswith(TICKET_PREFIX)]
     if not mine:
@@ -176,7 +184,7 @@ def quota_status(subscription_id: str) -> int:
 # --- VM vCPU quota (Azure Quota API; usually approved in minutes, no ticket) ----------------------
 
 def fix_vcpu(subscription_id: str, location: str, family: str, limit: int, assume_yes: bool) -> int:
-    scope = f"{ARM}/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}"
+    scope = f"{_arm()}/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}"
     url = f"{scope}/providers/Microsoft.Quota/quotas/{family}?api-version={QUOTA_API}"
     try:
         current = (rest("get", url) or {}).get("properties", {}).get("limit", {}).get("value", "unknown")
@@ -225,14 +233,14 @@ def _entra_via_pwsh(roles: list[str], hours: int) -> bool:
 
 def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes: bool) -> int:
     me = az(["ad", "signed-in-user", "show", "--query", "id"])
-    roles = rest("get", f"{GRAPH}/me/transitiveMemberOf/microsoft.graph.directoryRole?$select=displayName") or {}
+    roles = rest("get", f"{_graph()}/me/transitiveMemberOf/microsoft.graph.directoryRole?$select=displayName") or {}
     active = {r.get("displayName") for r in roles.get("value", [])}
     needed = ENTRA_NEEDED if needs_consent else ENTRA_NEEDED[:1]
     missing = [] if GLOBAL_ADMIN in active else [r for r in needed if r not in active]
     entra, entra_pwsh = [], []
     if missing:
         try:
-            elig = rest("get", f"{GRAPH}/roleManagement/directory/roleEligibilityScheduleInstances"
+            elig = rest("get", f"{_graph()}/roleManagement/directory/roleEligibilityScheduleInstances"
                                f"?$filter=principalId eq '{me}'&$expand=roleDefinition") or {}
             eligible = {e["roleDefinition"]["displayName"]: e["roleDefinitionId"] for e in elig.get("value", [])
                         if e.get("roleDefinition") and e.get("directoryScopeId") == "/"}
@@ -249,7 +257,7 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
     azure = []
     if not owner_active:
         try:
-            rows = rest("get", f"{ARM}{scope}/providers/Microsoft.Authorization/roleEligibilityScheduleInstances"
+            rows = rest("get", f"{_arm()}{scope}/providers/Microsoft.Authorization/roleEligibilityScheduleInstances"
                                f"?api-version={PIM_ARM_API}&$filter=asTarget()") or {}
         except FixError as exc:
             print(f"  couldn't read Azure PIM eligibility: {exc}")
@@ -281,7 +289,7 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
     failed = []
     for name, role_id in entra:
         try:
-            rest("post", f"{GRAPH}/roleManagement/directory/roleAssignmentScheduleRequests", {
+            rest("post", f"{_graph()}/roleManagement/directory/roleAssignmentScheduleRequests", {
                 "action": "selfActivate", "principalId": me, "roleDefinitionId": role_id, "directoryScopeId": "/",
                 "justification": "Deploying Nerdio Manager with the nerdio-hcl kit", "scheduleInfo": when})
             print(f"  activated {name}")
@@ -291,7 +299,7 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
         failed.append("Entra roles: see the lines above")
     for sc, role_id, sched in azure:
         try:
-            rest("put", f"{ARM}{sc}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{uuid.uuid4()}"
+            rest("put", f"{_arm()}{sc}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{uuid.uuid4()}"
                         f"?api-version={PIM_ARM_API}", {"properties": {
                             "principalId": me, "roleDefinitionId": role_id, "requestType": "SelfActivate",
                             "linkedRoleEligibilityScheduleId": sched,

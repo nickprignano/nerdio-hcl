@@ -106,19 +106,20 @@ if [ "$action" = plan ]; then
     # the apply identity holds those roles by design. Everything else is checked for real.
     log="$work/preflight.log"
     set +e
-    "$root/nerdio" preflight --json > "$work/preflight.json" 2> "$log"
+    "$root/nerdio" preflight --json --strict > "$work/preflight.json" 2> "$log"
     code=$?
     set -e
-    jq -e 'type == "array"' "$work/preflight.json" >/dev/null 2>&1 || fail "The readiness check didn't finish"
+    jq -e '.schema == "nerdio-readiness/1"' "$work/preflight.json" >/dev/null 2>&1 || fail "The readiness check didn't finish"
+    # The engine masks its own output; the second pass is belt and braces for anything new.
     redact < "$work/preflight.json" | jq --arg stage preflight \
-      '{stage: $stage, status: (if any(.[]; .status == "fail") then "no-go" else "go" end), results: .}' > "$work/result.json"
+      '{stage: $stage, status: (.verdict | ascii_downcase | gsub(" "; "-")), verdict, counts, results}' > "$work/result.json"
     blob upload plans "$result_blob" "$work/result.json" --overwrite
     {
-      echo "## $NERDIO_ENV / readiness check: $(jq -r '.status | ascii_upcase' "$work/result.json")"
+      echo "## $NERDIO_ENV / readiness check: $(jq -r '.verdict' "$work/result.json")"
       echo
       echo "| Result | Check | Detail |"
       echo "|---|---|---|"
-      jq -r '.results[] | "| \(.status) | \(.check) | \(.detail | gsub("\\|"; "/")) |"' "$work/result.json"
+      jq -r '.results[] | select(.status != "skipped") | "| \(.status) | `\(.id)` \(.title) | \(.detail | gsub("\\|"; "/")) |"' "$work/result.json"
     } | summary
     echo "Readiness check: $(jq -r .status "$work/result.json") (exit $code)"
     echo "changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"

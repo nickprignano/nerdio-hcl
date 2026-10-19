@@ -143,7 +143,7 @@ PIPELINE_TOOLS = [
     },
     {
         "name": "pipeline_plan",
-        "description": "One run's result. preflight: each readiness check's status, detail and fix. platform or "
+        "description": "One run's result. preflight: the verdict and each readiness check's id, status, title, detail, fix, KB page and the right it needs. platform or "
                        "config: the plan's change list (each resource address and what happens to it: create, "
                        "update, delete, or delete then create), the variables adopted from an earlier Cloud Shell "
                        "run, and, once applied, the apply's result; after a platform apply that includes the names "
