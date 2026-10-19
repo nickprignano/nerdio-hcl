@@ -26,6 +26,7 @@ ASK = {"always", "advanced", "never"}
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 TEMPLATE_RE = re.compile(r"\{([a-z0-9_]+)(?:\|([a-z_]+)(?::(\d+))?)?\}")
 ROLES = ["nerdio", "network", "hostpools", "storage", "monitoring"]
+READINESS_STAGES = ("pre-install", "post-install", "post-wizard")
 
 
 class SchemaError(Exception):
@@ -409,6 +410,11 @@ def write_tfvars(schema: dict, rendered: dict, env: str) -> list[Path]:
 # Schema self-check (run in CI)
 
 
+def readiness_ids(schema: dict, stage: str) -> list[str]:
+    """Parameters a readiness stage reads, so standalone mode resolves only these (decision 0026)."""
+    return [p["id"] for p in schema["parameters"] if stage in p.get("readiness", [])]
+
+
 def check_schema(schema: dict) -> list[str]:
     problems = []
     ids = set()
@@ -442,6 +448,9 @@ def check_schema(schema: dict) -> list[str]:
         for ref in p.get("kb", []):
             if not (ROOT / ref.split("#")[0]).exists():
                 problems.append(f"{pid}: KB page {ref} doesn't exist")
+        for stage in p.get("readiness", []):
+            if stage not in READINESS_STAGES:
+                problems.append(f"{pid}: readiness stage {stage} must be one of {', '.join(READINESS_STAGES)}")
     form_count = sum(1 for p in schema["parameters"] if p.get("form"))
     if form_count > 10:
         problems.append(f"{form_count} form inputs; keep workflow_dispatch forms to 10 or fewer")

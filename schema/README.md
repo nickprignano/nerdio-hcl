@@ -36,6 +36,7 @@ variable in a stage. Change a question, default or rule here, never in one front
 | `form` | Show it on the Actions form. Keep the form to 10 inputs |
 | `kb`, `sources` | What the chatbot cites: pages under `docs/knowledge/`, and external docs |
 | `checks` | Cross-field checks, e.g. `subnets_in_address_space` |
+| `readiness` | Readiness stages (`pre-install`, `post-install`, `post-wizard`) whose checks read this value. The standalone readiness check resolves only tagged parameters, because kit-only ones like `prefix` have no answer there |
 
 Top level: `phases` (all eight, for the chatbot), `stages` (folder per stage), `output_file`,
 `roots` (objects rendered as `null` when a feature is off) and `constants` (fixed tfvars such as tags).

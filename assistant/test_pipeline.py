@@ -168,10 +168,13 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(out["apply_requested"])
         self.assertEqual(http.calls[-1][3]["inputs"], {"environment": "sandbox", "stage": "preflight", "apply": "false"})
         url = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/9-1/preflight.json"
-        p, _ = pipeline({("GET", url): (200, {"status": "no-go", "results": [{"status": "fail", "check": "SQL region"}]})})
+        p, _ = pipeline({("GET", url): (200, {"status": "no-go", "verdict": "NO-GO", "results": [
+            {"id": "sub.sql", "status": "fail", "title": "Azure SQL region"},
+            {"id": "net.hub", "status": "skipped", "title": "Hub network"}]})})
         out = p.plan(9, "preflight")
         self.assertEqual(out["status"], "no-go")
-        self.assertEqual(out["results"][0]["check"], "SQL region")
+        self.assertEqual(out["verdict"], "NO-GO")
+        self.assertEqual([r["id"] for r in out["results"]], ["sub.sql"])
         with self.assertRaises(PipelineError):
             p.start("destroy", False)
 
