@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from .. import cloud as cloudmod
 from ..model import check
@@ -37,9 +38,12 @@ def azure_cloud(ctx, c):
     return c.fail(f"{found.name} isn't a cloud these checks support", "az cloud set --name AzureCloud")
 
 
-@check("op.tools", "Tools", needs="none", kb=KB, account=False, reads=["PATH"], modes=["kit"],
-       source=CLOUD_SHELL_TOOLS)
+@check("op.tools", "Tools", needs="none", kb=KB, account=False, reads=["PATH"], source=CLOUD_SHELL_TOOLS)
 def tools(ctx, c):
+    """Kit mode: terraform 1.11+, az, jq, git. Standalone: az, python3 3.9+ and git only (jq isn't on
+    Cloud Shell's documented tool list, and nothing standalone needs terraform)."""
+    if ctx.mode == "standalone":
+        return standalone_tools(ctx, c)
     out = []
     if not ctx.which("terraform"):
         out.append(c.fail("terraform isn't on PATH",
@@ -57,6 +61,17 @@ def tools(ctx, c):
                               "Install a newer one to ~/bin, e.g. NME_TF_VERSION=1.16.6 with the Cloud Shell bootstrap script",
                               title="Terraform"))
     for tool in ("az", "jq", "git"):
+        out.append(c.ok("found", title=tool) if ctx.which(tool)
+                   else c.fail("not on PATH", f"Install {tool}; Azure Cloud Shell already has it", title=tool))
+    return out
+
+
+def standalone_tools(ctx, c):
+    have = ctx.python_version or sys.version_info[:2]
+    out = [c.ok(f"{have[0]}.{have[1]}", title="python3") if tuple(have) >= (3, 9)
+           else c.fail(f"{have[0]}.{have[1]} is older than 3.9", "Run it from Azure Cloud Shell, which has 3.9 or later",
+                       title="python3")]
+    for tool in ("az", "git"):
         out.append(c.ok("found", title=tool) if ctx.which(tool)
                    else c.fail("not on PATH", f"Install {tool}; Azure Cloud Shell already has it", title=tool))
     return out

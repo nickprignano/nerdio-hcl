@@ -41,3 +41,6 @@ openbao-ca.pem
 .env
 .env.*
 !.env.example
+
+# Built release assets (scripts/build-preflight-pyz.py)
+dist/

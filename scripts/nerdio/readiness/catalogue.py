@@ -44,7 +44,7 @@ def console() -> str:
     for e in sorted(entries(), key=lambda e: e["id"]):
         stages = "".join(STAGE_LETTER[s] for s in e["stages"])
         feat = ",".join((["core"] if e["core"] else []) + e["features"])
-        lines.append(f"{e['id']:<26} {stages:<4} {feat:<12} {e['title']} (needs {e['needs']})")
+        lines.append(f"{e['id']:<26} {stages:<4} {feat:<16} {e['title']} (needs {e['needs']})")
     return "\n".join(lines)
 
 
