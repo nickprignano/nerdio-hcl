@@ -23,7 +23,13 @@ EXPLICIT_ONLY = {"address_space", "hub_vnet_id"}
 STANDALONE_DEFAULTS = {"nerdio_install": "marketplace"}
 IDENTITY_ALIASES = {"entra": "entra_joined", "entra_joined": "entra_joined", "ad_ds": "ad_ds", "entra_ds": "entra_ds"}
 FLAG_KEYS = {"location": "location", "identity_model": "identity_model", "users": "user_count", "vm_size": "vm_size",
-             "nerdio_url": "nerdio_url", "resource_group": "resource_group"}
+             "nerdio_url": "nerdio_url", "resource_group": "resource_group", "vnet_id": "vnet_id",
+             "hosts_subnet": "hosts_subnet", "pe_subnet": "pe_subnet", "app_subnet": "app_subnet", "ai_model": "ai_model",
+             "host_pool_subscriptions": "host_pool_subscriptions", "intune_devices": "intune_devices"}
+# Inputs only the standalone check has: a Marketplace install into an existing network has no kit
+# answers for them. Everything else uses schema/parameters.json's keys.
+EXTRA_INPUTS = {"nerdio_url", "resource_group", "vnet_id", "hosts_subnet", "pe_subnet", "app_subnet", "ai_model",
+                "host_pool_subscriptions", "intune_devices"}
 
 
 def load_schema() -> Dict:
@@ -79,8 +85,8 @@ def resolve(schema: Dict, answers: Dict, stage: str):
     resolved = engine.resolve(schema, merged, engine.read_sources(placeholders=True))
     ids = {p["id"] for p in tagged(schema, stage)} | set(FLAG_KEYS.values())
     values = {k: v for k, v in resolved.values.items() if k in ids and (k not in EXPLICIT_ONLY or k in answers)}
-    for k in ("nerdio_url", "resource_group"):
-        if answers.get(k):
+    for k in EXTRA_INPUTS:
+        if answers.get(k) not in (None, "", []):
             values[k] = answers[k]
     params = engine.params_by_id(schema)
     problems = [f"{k}: {v}" for k, v in resolved.errors.items()
@@ -104,7 +110,15 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--users", type=int, help="how many people will use AVD")
     p.add_argument("--vm-size", help="session host size, e.g. Standard_D8s_v5")
     p.add_argument("--nerdio-url", help="after the install: Nerdio Manager's URL")
-    p.add_argument("--resource-group", help="after the install: the resource group Nerdio Manager is in")
+    p.add_argument("--resource-group", help="the resource group Nerdio Manager goes in (or is in, after the install)")
+    p.add_argument("--vnet-id", help="installing into an existing VNet: its resource ID")
+    p.add_argument("--hosts-subnet", help="with --vnet-id: the session host subnet's name")
+    p.add_argument("--pe-subnet", help="with --vnet-id: the private endpoint subnet's name")
+    p.add_argument("--app-subnet", help="with --vnet-id: the App Service integration subnet's name")
+    p.add_argument("--host-pool-subscriptions", type=lambda t: [x.strip() for x in t.split(",") if x.strip()],
+                   metavar="ID,...", help="other subscriptions host pools will live in")
+    p.add_argument("--ai-model", help="with --features ai: the Azure OpenAI model Nerdio's Copilot uses (see its docs)")
+    p.add_argument("--intune-devices", type=int, help="with --features insights: how many Intune devices")
     p.add_argument("--answers", metavar="FILE", help="answers in the kit's format (same keys as schema/parameters.json)")
     p.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", help="answer one question (repeatable)")
     p.add_argument("--no-input", action="store_true", help="never ask; missing inputs make their checks skipped")
@@ -131,6 +145,11 @@ def collect_answers(args, schema: Dict) -> Dict:
     params = engine.params_by_id(schema)
     for item in args.set:
         key, sep, raw = item.partition("=")
+        if sep and key.strip() in EXTRA_INPUTS:
+            raw = raw.strip()
+            answers[key.strip()] = [x.strip() for x in raw.split(",") if x.strip()] \
+                if key.strip() == "host_pool_subscriptions" else int(raw) if key.strip() == "intune_devices" else raw
+            continue
         if not sep or key.strip() not in params:
             raise runner.UsageError(f"--set {item}: unknown parameter")
         try:

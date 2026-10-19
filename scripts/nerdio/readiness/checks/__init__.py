@@ -1,3 +1,3 @@
 """Every check, registered on import. Import order is run order."""
 
-from . import op, identity, subscription, network, avd, manual  # noqa: F401
+from . import op, identity, subscription, network, avd, ai, manual  # noqa: F401

@@ -29,9 +29,15 @@ class Cloud:
     def private_dns_zones(self) -> List[str]:
         """The privatelink zones Nerdio Manager's private endpoints use in this cloud."""
         web = WEB_SUFFIX.get(self.name, "azurewebsites.net")
+        automation = AUTOMATION_SUFFIX.get(self.name, "azure-automation.net")
         return [f"privatelink.blob.{self.storage}", f"privatelink.file.{self.storage}",
                 f"privatelink.{self.sql}", "privatelink.vaultcore." + self.keyvault.split(".", 1)[1],
-                f"privatelink.{web}"]
+                f"privatelink.{web}", f"privatelink.{automation}"]
+
+    def winget_zones(self) -> List[str]:
+        """Extra zones private WinGet's endpoints need: queue, table and Cosmos DB."""
+        cosmos = COSMOS_SUFFIX.get(self.name, "documents.azure.com")
+        return [f"privatelink.queue.{self.storage}", f"privatelink.table.{self.storage}", f"privatelink.{cosmos}"]
 
 
 COMMERCIAL = Cloud("AzureCloud", "https://management.azure.com", "https://graph.microsoft.com",
@@ -40,6 +46,10 @@ COMMERCIAL = Cloud("AzureCloud", "https://management.azure.com", "https://graph.
 # `az cloud show` has no App Service suffix, so these come from Microsoft's private endpoint DNS table.
 WEB_SUFFIX = {"AzureCloud": "azurewebsites.net", "AzureUSGovernment": "azurewebsites.us",
               "AzureChinaCloud": "chinacloudsites.cn"}
+AUTOMATION_SUFFIX = {"AzureCloud": "azure-automation.net", "AzureUSGovernment": "azure-automation.us",
+                     "AzureChinaCloud": "azure-automation.cn"}
+COSMOS_SUFFIX = {"AzureCloud": "documents.azure.com", "AzureUSGovernment": "documents.azure.us",
+                 "AzureChinaCloud": "documents.azure.cn"}
 KNOWN = set(WEB_SUFFIX)
 
 

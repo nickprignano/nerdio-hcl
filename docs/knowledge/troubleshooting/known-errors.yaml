@@ -59,3 +59,31 @@ errors:
   source: chatbot-first.md
   status: verified
   added: '2026-10-17'
+- id: app-service-quota-zero
+  symptom: '`Operation cannot be completed without additional quota` on the App Service plan; readiness check `sub.app_service` fails'
+  cause: The subscription's App Service quota for the plan's tier (B3 by default; more with Insights) is 0 or used up in that region, common on trial and sandbox subscriptions
+  fix: '`./nerdio fix quota --sku B3 --location <region> --limit <n>`, or pick a region where `./nerdio preflight --regions` passes'
+  source: nerdio/readiness.md
+  status: unverified
+  added: '2026-10-19'
+- id: sql-region-does-not-allow-provisioning
+  symptom: '`RegionDoesNotAllowProvisioning` creating the SQL server; readiness check `sub.sql` fails'
+  cause: The region doesn't accept new SQL servers for this subscription
+  fix: Pick another region, or ask Azure Support for region access (Service and subscription limits)
+  source: nerdio/readiness.md
+  status: unverified
+  added: '2026-10-19'
+- id: app-integration-subnet-not-delegated
+  symptom: App Service VNet integration fails on an existing subnet; readiness check `net.subnets` fails
+  cause: The integration subnet isn't delegated to Microsoft.Web/serverFarms
+  fix: '`az network vnet subnet update --ids <subnet id> --delegations Microsoft.Web/serverFarms`'
+  source: nerdio/readiness.md
+  status: unverified
+  added: '2026-10-19'
+- id: session-hosts-no-outbound
+  symptom: Session hosts never register with AVD; readiness check `net.outbound` fails
+  cause: The subnet has no NAT gateway, firewall route or default outbound access (VNets created after 31 March 2026 get none)
+  fix: Attach a NAT gateway, or route 0.0.0.0/0 to your firewall
+  source: nerdio/readiness.md
+  status: unverified
+  added: '2026-10-19'
