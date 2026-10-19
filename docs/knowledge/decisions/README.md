@@ -29,4 +29,5 @@ marked *Superseded by NNNN*.
 | [0020](0020-claude-api-federation-for-the-chat.md) | The setup chat can use the Claude API, signed in by workload identity federation | Accepted |
 | [0021](0021-knowledge-base-family.md) | This KB is one of a family of knowledge bases, with the AI project as the hub for AI knowledge | Proposed |
 | [0022](0022-family-model-selection-convention.md) | Follow the family's model-selection convention, as one of its pilot projects | Proposed |
+| [0023](0023-ai-brain-is-the-family-format-source.md) | The AI hub owns the family's KB format, and this kit follows it as a member | Proposed |
 <!-- END GENERATED: decision-index -->

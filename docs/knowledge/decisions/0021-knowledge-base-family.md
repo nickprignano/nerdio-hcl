@@ -30,6 +30,8 @@ keeps its own reviewed KB next to its code while the family stays consistent and
   sibling's page instead of copying it.
 - The format (schemas, scripts, checks, workflows, guardrails) changes only through a "Family
   format" decision made across the family. This kit is the reference implementation, at version 1.
+  (Changed by [0023](0023-ai-brain-is-the-family-format-source.md): the AI hub now owns the
+  format and this kit is a member.)
 - General AI knowledge (Claude API and Foundry use, model choices, keyless sign-in for AI APIs,
   prompts and evaluations) lives in the AI KB. How a project uses AI stays in that project, for
   example [0014](0014-self-hosted-setup-chatbot.md) and [0020](0020-claude-api-federation-for-the-chat.md)
