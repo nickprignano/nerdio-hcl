@@ -80,6 +80,7 @@ docs/
   secrets.md         how stage 2 gets the REST API secret without anyone handling it
   pipeline.md        plan and apply from GitHub Actions behind an approval
   architecture.md
+  model-pilot.md     measuring and reporting the model-selection pilot
   knowledge/         the living knowledge base and decision records
 ```
 

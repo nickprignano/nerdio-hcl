@@ -32,13 +32,17 @@ the source of truth for the defaults, fallbacks, measures and pilot dates. The f
 
 For the pilot this kit:
 
-- Logs, per chat request, the model, effort, `usage`, `stop_reason` and latency, so tokens per
-  completed setup turn and the failure rate can be measured: one JSON line per model call in the
-  app's log, counts and timings only ([docs/assistant.md](../../assistant.md#cost)).
+- Logs, per chat request, the model, effort, `usage`, `stop_reason` and latency, and one line per
+  chat turn with its outcome, so tokens per completed setup turn and the failure rate can be
+  measured: counts and timings only ([docs/assistant.md](../../assistant.md#cost)).
+- Pins Claude Code sessions in this repo to the thread default, `claude-opus-5-5` at `medium`,
+  in `.claude/settings.json`. The project chat's `claude-sonnet-5-5` at `low` lives in the
+  project's instructions.
 - Keeps the Claude API with workload identity federation as the main path and Foundry as the
   fallback where a tenant has quota ([0020](0020-claude-api-federation-for-the-chat.md)), which
   matches the convention's fallback rules.
-- Files its pilot numbers as feedback on the AI KB's Claude API page.
+- Files its pilot numbers as feedback on the AI KB's Claude API page, as
+  [docs/model-pilot.md](../../model-pilot.md) describes.
 
 ### Consequences
 
@@ -47,5 +51,8 @@ For the pilot this kit:
 - Neutral, because no default changes today.
 
 ## More Information
+
+Confirmed on 2026-10-19: the setup chat stays on `claude-opus-5-5` at `medium`, the convention's
+default for an app with tools that change things, so it needs no "Model override" decision.
 
 Revisit at the family's pilot review on 2026-12-01.

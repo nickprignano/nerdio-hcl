@@ -18,6 +18,7 @@ import os
 import shlex
 import sys
 import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(os.environ.get("NERDIO_KIT_ROOT", Path(__file__).resolve().parents[1]))
@@ -174,6 +175,7 @@ class Session:
         engine.ensure_seed(self.answers)
         self.user_object_id = user_object_id
         self.pipeline = pipeline if pipeline is not None and pipeline.configured else None
+        self.tool_errors = 0  # tool calls that came back with an error, for the usage log
 
     # -- tools ---------------------------------------------------------------
 
@@ -293,6 +295,8 @@ class Session:
             result = {"error": str(exc)}
         except (KeyError, TypeError, ValueError, engine.SchemaError) as exc:
             result = {"error": f"{type(exc).__name__}: {exc}"}
+        if isinstance(result, dict) and "error" in result:
+            self.tool_errors += 1
         return json.dumps(result, default=str)
 
 
@@ -358,12 +362,28 @@ def _claude_api_client():
     ))
 
 
-def _log_usage(response, step: int, seconds: float) -> None:
+TOKEN_FIELDS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+
+
+def _log_usage(response, turn: str, step: int, seconds: float) -> dict:
     usage = getattr(response, "usage", None)
-    record = {"event": "model_call", "provider": PROVIDER, "model": MODEL, "served_model": getattr(response, "model", None),
-              "effort": EFFORT, "step": step, "stop_reason": response.stop_reason, "latency_ms": round(seconds * 1000)}
-    for field in ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"):
+    record = {"event": "model_call", "turn": turn, "provider": PROVIDER, "model": MODEL,
+              "served_model": getattr(response, "model", None), "effort": EFFORT, "step": step,
+              "stop_reason": response.stop_reason, "latency_ms": round(seconds * 1000)}
+    for field in TOKEN_FIELDS:
         record[field] = getattr(usage, field, None) or 0
+    usage_log.info(json.dumps(record))
+    return record
+
+
+def _log_turn(turn: str, outcome: str, calls: list, tool_errors: int, seconds: float, error: str = "") -> None:
+    """One line per chat turn (the pilot's task), so tokens per completed task and the failure rate add up."""
+    record = {"event": "chat_turn", "turn": turn, "provider": PROVIDER, "model": MODEL, "effort": EFFORT,
+              "outcome": outcome, "calls": len(calls), "tool_errors": tool_errors, "latency_ms": round(seconds * 1000)}
+    for field in TOKEN_FIELDS:
+        record[field] = sum(c[field] for c in calls)
+    if error:
+        record["error"] = error  # the exception's type name only
     usage_log.info(json.dumps(record))
 
 
@@ -373,31 +393,41 @@ def chat_turn(client, messages: list, answers: dict, text: str, user_object_id: 
     session = Session(answers, user_object_id, pipeline)
     messages = list(messages) + [{"role": "user", "content": text}]
     reply = ""
+    turn, calls, turn_started = uuid.uuid4().hex, [], time.monotonic()
+    outcome = "step_limit"
     for step in range(MAX_STEPS):
         started = time.monotonic()
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=16000,
-            system=[{"type": "text", "text": PROMPT, "cache_control": {"type": "ephemeral"}}],
-            tools=tools_for(session.pipeline),
-            messages=messages,
-            output_config={"effort": EFFORT},
-        )
-        _log_usage(response, step, time.monotonic() - started)
+        try:
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=16000,
+                system=[{"type": "text", "text": PROMPT, "cache_control": {"type": "ephemeral"}}],
+                tools=tools_for(session.pipeline),
+                messages=messages,
+                output_config={"effort": EFFORT},
+            )
+        except Exception as exc:
+            _log_turn(turn, "error", calls, session.tool_errors, time.monotonic() - turn_started, type(exc).__name__)
+            raise
+        calls.append(_log_usage(response, turn, step, time.monotonic() - started))
         content = [b.model_dump(mode="json", exclude_none=True) for b in response.content]
         messages.append({"role": "assistant", "content": content})
         reply = "\n\n".join(b["text"] for b in content if b.get("type") == "text").strip()
         if response.stop_reason == "refusal":
             reply = reply or "I can't help with that one. Try rephrasing, or ask about the setup questions."
+            outcome = "refusal"
             break
         if response.stop_reason == "max_tokens":
             reply = (reply + "\n\n(That answer was cut off. Ask me to continue.)").strip()
+            outcome = "max_tokens"
             break
         if response.stop_reason != "tool_use":
+            outcome = "completed"
             break
         results = [{"type": "tool_result", "tool_use_id": b["id"], "content": session.run_tool(b["name"], b.get("input") or {})}
                    for b in content if b.get("type") == "tool_use"]
         messages.append({"role": "user", "content": results})
     else:
         reply = (reply + "\n\n(I stopped after too many steps. Ask me to continue.)").strip()
+    _log_turn(turn, outcome, calls, session.tool_errors, time.monotonic() - turn_started)
     return {"messages": messages, "answers": session.answers, "reply": reply}

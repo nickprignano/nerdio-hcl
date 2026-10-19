@@ -113,15 +113,43 @@ class LoopTests(unittest.TestCase):
         client = FakeClient([message("end_turn", {"type": "text", "text": "secret-looking reply"})])
         with self.assertLogs("nerdio-assistant.usage", "INFO") as logs:
             agent.chat_turn(client, [], {}, "my private question")
-        self.assertEqual(len(logs.records), 1)
+        self.assertEqual(len(logs.records), 2)  # the call, then the turn
         record = json.loads(logs.records[0].getMessage())
         self.assertEqual({k: record[k] for k in ("event", "model", "effort", "stop_reason", "input_tokens", "output_tokens")},
                          {"event": "model_call", "model": agent.MODEL, "effort": agent.EFFORT, "stop_reason": "end_turn",
                           "input_tokens": 1, "output_tokens": 1})
         self.assertEqual(record["cache_read_input_tokens"], 0)
         self.assertIsInstance(record["latency_ms"], int)
-        self.assertNotIn("private", logs.output[0])
-        self.assertNotIn("secret-looking", logs.output[0])
+        for line in logs.output:
+            self.assertNotIn("private", line)
+            self.assertNotIn("secret-looking", line)
+        turn = json.loads(logs.records[1].getMessage())
+        self.assertEqual({k: turn[k] for k in ("event", "turn", "outcome", "calls", "tool_errors", "input_tokens")},
+                         {"event": "chat_turn", "turn": record["turn"], "outcome": "completed", "calls": 1,
+                          "tool_errors": 0, "input_tokens": 1})
+
+    def test_turn_log_sums_calls_and_counts_tool_errors(self):
+        client = FakeClient([
+            message("tool_use", {"type": "tool_use", "id": "toolu_1", "name": "no_such_tool", "input": {}}),
+            message("max_tokens", {"type": "text", "text": "partial"}),
+        ])
+        with self.assertLogs("nerdio-assistant.usage", "INFO") as logs:
+            agent.chat_turn(client, [], {}, "hi")
+        turn = json.loads(logs.records[-1].getMessage())
+        self.assertEqual((turn["outcome"], turn["calls"], turn["tool_errors"], turn["output_tokens"]),
+                         ("max_tokens", 2, 1, 2))
+
+    def test_failed_model_call_still_logs_the_turn(self):
+        class Boom:
+            class messages:
+                @staticmethod
+                def create(**kwargs):
+                    raise TimeoutError("upstream detail that must not be logged")
+        with self.assertLogs("nerdio-assistant.usage", "INFO") as logs, self.assertRaises(TimeoutError):
+            agent.chat_turn(Boom(), [], {}, "hi")
+        turn = json.loads(logs.records[-1].getMessage())
+        self.assertEqual((turn["outcome"], turn["error"], turn["calls"]), ("error", "TimeoutError", 0))
+        self.assertNotIn("upstream detail", logs.output[-1])
 
     def test_transcript_is_append_only(self):
         earlier = [{"role": "user", "content": "hi"},

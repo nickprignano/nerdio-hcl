@@ -133,16 +133,23 @@ Remove it all with `terraform -chdir=environments/example/00-assistant destroy`.
 
 The model defaults to `claude-opus-5-5` at `medium` effort ([decision 0022](knowledge/decisions/0022-family-model-selection-convention.md)).
 Change them with `effort` and `claude_api.model` in the stage's tfvars; raise effort before changing the model.
-Every model call writes one JSON line to the app's log with the model, effort, step, `stop_reason`,
-latency and token counts (input, output, cache read and cache write). It never logs the
-conversation, answers or credentials. To see what setups cost, from Cloud Shell:
+Every model call writes one `model_call` JSON line to the app's log with the model, effort, step,
+`stop_reason`, latency and token counts (input, output, cache read and cache write). Each chat turn
+then writes one `chat_turn` line with the same `turn` ID, its outcome (`completed`, `refusal`,
+`max_tokens`, `step_limit` or `error`), the number of model calls and tool errors, the turn's total
+latency and summed tokens. A turn is the pilot's task, so the turn lines give tokens per completed
+task and the failure rate. These lines never hold the conversation, answers, error text or
+credentials. To see what setups cost, from Cloud Shell:
 
 ```bash
 az monitor log-analytics query -w "$(az monitor log-analytics workspace list -g rg-nme-assistant --query '[0].customerId' -o tsv)" \
   --analytics-query 'ContainerAppConsoleLogs_CL | where Log_s has "\"model_call\"" | extend r = parse_json(Log_s)
   | summarize calls = count(), input = sum(toint(r.input_tokens)), output = sum(toint(r.output_tokens)),
-    cache_read = sum(toint(r.cache_read_input_tokens)), p50_ms = percentile(toint(r.latency_ms), 50) by tostring(r.model), bin(TimeGenerated, 1d)'
+    cache_read = sum(toint(r.cache_read_input_tokens)), cache_write = sum(toint(r.cache_creation_input_tokens)),
+    p50_ms = percentile(toint(r.latency_ms), 50) by tostring(r.model), tostring(r.effort), bin(TimeGenerated, 1d)'
 ```
+
+The pilot's per-turn numbers and how to report them are in [model-pilot.md](model-pilot.md).
 
 ## The image
 
