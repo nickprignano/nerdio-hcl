@@ -46,7 +46,8 @@ jobs:
         id: collect
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/kb/freshness.py --max-age-days "${{ inputs.max_age_days || '90' }}" --digests "$RUNNER_TEMP/digests.json" --family --output freshness.md
+          MAX_AGE_DAYS: ${{ inputs.max_age_days || '90' }}
+        run: python3 scripts/kb/freshness.py --max-age-days "$MAX_AGE_DAYS" --digests "$RUNNER_TEMP/digests.json" --family --output freshness.md
       - name: Job summary
         run: cat freshness.md >> "$GITHUB_STEP_SUMMARY"
       - name: Open or update the freshness issue

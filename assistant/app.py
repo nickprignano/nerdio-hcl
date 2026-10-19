@@ -128,7 +128,7 @@ def _base_url(request: Request) -> str:
 
 def _setup_error(exc: Exception) -> HTMLResponse:
     log.warning("GitHub setup: %s", type(exc).__name__)
-    return HTMLResponse(github_setup.page("GitHub setup didn't finish", f"<p>{exc}</p>"), status_code=400)
+    return HTMLResponse(github_setup.page("GitHub setup didn't finish", f"<p>{html.escape(str(exc))}</p>"), status_code=400)
 
 
 @app.get("/setup/github")

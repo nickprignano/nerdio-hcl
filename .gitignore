@@ -13,6 +13,8 @@ override.tf.json
 backend.tf
 .terraformrc
 terraform.rc
+*.tfplan
+*.plan
 
 # Packer
 packer_cache/
@@ -30,3 +32,12 @@ __pycache__/
 
 # OpenBao CA certificate for stage 2 (public, but names your deployment)
 openbao-ca.pem
+
+# Keys, certificates and environment files never belong in the repo (docs/guardrails.md, rule 4)
+*.pem
+*.pfx
+*.p12
+*.key
+.env
+.env.*
+!.env.example

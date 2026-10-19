@@ -129,8 +129,11 @@ if [ "$action" = plan ]; then
   # over the answers, so the pipeline plans the names that already exist instead of replacements.
   adopted=()
   if blob download answers "$NERDIO_ENV.$STAGE.adopted.tfvars.json" "$work/adopted.json" 2>/dev/null; then
-    cp "$work/adopted.json" "$stage_dir/zz-adopted.auto.tfvars.json"
-    mapfile -t adopted < <(jq -r 'keys[]' "$work/adopted.json")
+    # The pipeline sets the identity and target itself (ARM_* and TF_VAR_deployer_object_id); an
+    # adopted file must never override them, whoever wrote it.
+    jq 'del(.deployer_object_id, .tenant_id, .subscription_id)' "$work/adopted.json" \
+      > "$stage_dir/zz-adopted.auto.tfvars.json"
+    mapfile -t adopted < <(jq -r 'keys[]' "$stage_dir/zz-adopted.auto.tfvars.json")
     echo "Using ${#adopted[@]} values adopted from Cloud Shell: ${adopted[*]}"
   fi
 
