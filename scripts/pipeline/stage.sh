@@ -3,7 +3,8 @@
 #
 #   scripts/pipeline/stage.sh plan    render tfvars from the answers, plan, save the plan
 #                                     and a change summary the setup chatbot can read
-#                                     (STAGE=preflight runs the read-only readiness check instead)
+#                                     (STAGE=preflight runs the read-only readiness check instead,
+#                                     and STAGE=verify the same check after Nerdio's wizard)
 #   scripts/pipeline/stage.sh apply   fetch the saved plan, check its hash, apply exactly it
 #
 # Every run leaves a result in the plans container for the setup chatbot, failures included
@@ -16,7 +17,7 @@
 # repository's Actions logs are public.
 #
 # Inputs (set by the workflow from the GitHub environment's variables):
-#   STAGE                    platform | config | preflight
+#   STAGE                    platform | config | preflight | verify
 #   NERDIO_ENV               sandbox | dev | prod
 #   ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID
 #   TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT
@@ -30,10 +31,11 @@ case "$action" in plan | apply) ;; *) echo "usage: $0 plan|apply" >&2; exit 64 ;
 case "${STAGE:-}" in
   platform) dir_name=01-platform ;;
   config) dir_name=02-nerdio-config ;;
-  preflight) dir_name="" ;;
-  *) echo "STAGE must be platform, config or preflight" >&2; exit 64 ;;
+  preflight) dir_name="" readiness_stage=pre-install ;;
+  verify) dir_name="" readiness_stage=post-wizard ;;
+  *) echo "STAGE must be platform, config, preflight or verify" >&2; exit 64 ;;
 esac
-[ "$STAGE" != preflight ] || [ "$action" = plan ] || { echo "preflight only plans" >&2; exit 64; }
+[ -z "${readiness_stage:-}" ] || [ "$action" = plan ] || { echo "$STAGE only checks; it never applies" >&2; exit 64; }
 [[ "${NERDIO_ENV:-}" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "NERDIO_ENV is missing or malformed" >&2; exit 64; }
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT; do
   [ -n "${!v:-}" ] || { echo "$v isn't set: run scripts/pipeline-bootstrap.sh for the $NERDIO_ENV environment first" >&2; exit 2; }
@@ -100,22 +102,24 @@ if [ "$action" = plan ]; then
   "$root/nerdio" init --non-interactive > "$log" 2>&1 || { redact < "$log"; fail "./nerdio init rejected the answers"; }
   grep -E '^(✓|✗|Wrote)' "$log" | redact || true
 
-  if [ "$STAGE" = preflight ]; then
-    echo "== Readiness check (read-only)"
+  if [ -n "${readiness_stage:-}" ]; then
+    echo "== Readiness check, $readiness_stage (read-only)"
     # Signed in as the plan identity, so the checks of a person's roles come back as "manual":
     # the apply identity holds those roles by design. Everything else is checked for real.
+    # After the install, the platform state also carries the kit's own Terraform checks.
+    if [ "$STAGE" = verify ]; then init_stage "$platform" platform; fi
     log="$work/preflight.log"
     set +e
-    "$root/nerdio" preflight --json --strict > "$work/preflight.json" 2> "$log"
+    "$root/nerdio" preflight --stage "$readiness_stage" --json --strict > "$work/preflight.json" 2> "$log"
     code=$?
     set -e
     jq -e '.schema == "nerdio-readiness/1"' "$work/preflight.json" >/dev/null 2>&1 || fail "The readiness check didn't finish"
     # The engine masks its own output; the second pass is belt and braces for anything new.
-    redact < "$work/preflight.json" | jq --arg stage preflight \
+    redact < "$work/preflight.json" | jq --arg stage "$STAGE" \
       '{stage: $stage, status: (.verdict | ascii_downcase | gsub(" "; "-")), verdict, counts, results}' > "$work/result.json"
     blob upload plans "$result_blob" "$work/result.json" --overwrite
     {
-      echo "## $NERDIO_ENV / readiness check: $(jq -r '.verdict' "$work/result.json")"
+      echo "## $NERDIO_ENV / readiness check ($readiness_stage): $(jq -r '.verdict' "$work/result.json")"
       echo
       echo "| Result | Check | Detail |"
       echo "|---|---|---|"

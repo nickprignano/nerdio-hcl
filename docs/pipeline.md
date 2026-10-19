@@ -103,7 +103,8 @@ Actions > **deploy** > **Run workflow**: pick the environment and stage (platfor
 config), and tick **apply** to apply after the plan. Stage **preflight** runs the read-only
 readiness check (`./nerdio preflight`) from the saved answers as the plan identity, and never
 applies. Its checks of a person's roles come back as "manual", because the apply identity holds
-those roles by design. Read the plan in the run summary, then
+those roles by design. Stage **verify** runs the same check after Nerdio's wizard
+(`--stage post-wizard`), including the kit's own Terraform checks from the platform state. Read the plan in the run summary, then
 approve the `<env>-apply` deployment (GitHub's mobile app works). Nerdio's first-run wizard
 still runs in the browser between the stages, because Nerdio has no API for it yet.
 
@@ -144,7 +145,7 @@ Each run leaves its result in the `plans` container, under `<env>/<run id>-<atte
 
 | Blob | What's in it |
 |---|---|
-| `preflight.json` | Each readiness check's status, detail and fix, IDs masked |
+| `preflight.json`, `verify.json` | Each readiness check's status, detail and fix, IDs masked |
 | `<stage>.json` | The plan's change list, and which values were adopted from Cloud Shell |
 | `<stage>-apply.json` | The apply's result. After the platform stage it includes the names Nerdio's first-run wizard asks for: the console URL, the AVD network and the resource groups |
 | either, on failure | The error and the last 30 lines of the log, IDs masked |

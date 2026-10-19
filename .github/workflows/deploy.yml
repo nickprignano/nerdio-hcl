@@ -1,6 +1,6 @@
 name: deploy
 # The setup chatbot reads this title to tell runs apart.
-run-name: "${{ inputs.environment }} ${{ inputs.stage }}: ${{ inputs.stage == 'preflight' && 'readiness check' || inputs.apply && 'plan and apply' || 'plan' }}"
+run-name: "${{ inputs.environment }} ${{ inputs.stage }}: ${{ (inputs.stage == 'preflight' || inputs.stage == 'verify') && 'readiness check' || inputs.apply && 'plan and apply' || 'plan' }}"
 
 # Plan, then apply after a reviewer approves (decision 0016). Start it from the Actions tab or
 # the setup chatbot. The plan job signs in as the read-only plan identity. The apply job
@@ -21,13 +21,14 @@ on:
           - prod
         default: sandbox
       stage:
-        description: "Which stage? platform (01) first, then config (02). preflight only checks readiness."
+        description: "Which stage? platform (01) first, then config (02). preflight checks readiness before, verify after Nerdio's wizard."
         required: true
         type: choice
         options:
           - platform
           - config
           - preflight
+          - verify
         default: platform
       apply:
         description: "Apply after the plan? A reviewer still has to approve it."

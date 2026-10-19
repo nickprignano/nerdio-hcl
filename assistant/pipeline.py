@@ -30,7 +30,8 @@ import urllib.request
 GITHUB_API = "https://api.github.com"
 WORKFLOW = "deploy.yml"
 STAGES = ("platform", "config")
-RUNNABLE = STAGES + ("preflight",)
+CHECKS = ("preflight", "verify")  # read-only readiness runs: before the install, and after the wizard
+RUNNABLE = STAGES + CHECKS
 TIMEOUT = 30
 
 
@@ -163,7 +164,7 @@ class Pipeline:
     def start(self, stage: str, apply: bool) -> dict:
         if stage not in RUNNABLE:
             raise PipelineError(f"stage must be one of {', '.join(RUNNABLE)}")
-        apply = apply and stage != "preflight"  # the readiness check never applies
+        apply = apply and stage not in CHECKS  # the readiness check never applies
         status, data = self._github("POST", f"/actions/workflows/{WORKFLOW}/dispatches", {
             "ref": self.branch,
             "inputs": {"environment": self.environment, "stage": stage, "apply": "true" if apply else "false"},
@@ -206,7 +207,7 @@ class Pipeline:
             return {"found": False, "note": "No result for that run yet. Its first job may still be running."}
         if summary.get("status") == "failed":
             return {"found": True, "status": "failed", "error": summary.get("error"), "log_tail": summary.get("log_tail")}
-        if stage == "preflight":
+        if stage in CHECKS:
             # readiness.json results (nerdio-readiness/1): id, status, title, detail, fix, kb, needs.
             results = [r for r in summary.get("results", []) if r.get("status") != "skipped"]
             return {"found": True, "status": summary.get("status"), "verdict": summary.get("verdict"),

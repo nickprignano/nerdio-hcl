@@ -125,11 +125,11 @@ PIPELINE_TOOLS = [
         "description": "Start the deploy workflow for one stage: platform (Azure, Entra and Nerdio Manager) first, "
                        "then config (Nerdio's own settings). With apply true, the run asks to apply after the "
                        "plan, but the apply waits until a reviewer approves it in GitHub; you can't approve it. "
-                       "Stage preflight runs the read-only readiness check from the saved answers instead "
-                       "(apply must be false). Only after the user said yes to this exact stage and apply choice.",
+                       "Stage preflight runs the read-only readiness check from the saved answers instead, and "
+                       "stage verify the same check after Nerdio's wizard (apply must be false for both). Only after the user said yes to this exact stage and apply choice.",
         "input_schema": {
             "type": "object",
-            "properties": {"stage": {"type": "string", "enum": ["platform", "config", "preflight"]}, "apply": {"type": "boolean"}},
+            "properties": {"stage": {"type": "string", "enum": ["platform", "config", "preflight", "verify"]}, "apply": {"type": "boolean"}},
             "required": ["stage", "apply"],
             "additionalProperties": False,
         },
@@ -143,7 +143,7 @@ PIPELINE_TOOLS = [
     },
     {
         "name": "pipeline_plan",
-        "description": "One run's result. preflight: the verdict and each readiness check's id, status, title, detail, fix, KB page and the right it needs. platform or "
+        "description": "One run's result. preflight or verify: the verdict and each readiness check's id, status, title, detail, fix, KB page and the right it needs. platform or "
                        "config: the plan's change list (each resource address and what happens to it: create, "
                        "update, delete, or delete then create), the variables adopted from an earlier Cloud Shell "
                        "run, and, once applied, the apply's result; after a platform apply that includes the names "
@@ -152,7 +152,7 @@ PIPELINE_TOOLS = [
             "type": "object",
             "properties": {
                 "run_id": {"type": "integer"},
-                "stage": {"type": "string", "enum": ["platform", "config", "preflight"]},
+                "stage": {"type": "string", "enum": ["platform", "config", "preflight", "verify"]},
                 "attempt": {"type": "integer", "description": "The run's attempt number. Default 1."},
             },
             "required": ["run_id", "stage"],

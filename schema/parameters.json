@@ -938,6 +938,7 @@
     },
     {
       "id": "image",
+      "readiness": ["pre-install"],
       "phase": "configure",
       "type": "string",
       "pattern": "^[^\\s]+$",
