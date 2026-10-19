@@ -153,9 +153,12 @@ resource "azurerm_role_assignment" "plan" {
   principal_id         = local.identities.plan.principal_id
 }
 
-# Constrained delegation: the apply identity's role-assignment rights only reach the roles the
-# kit assigns (apply_assignable_roles). Azure checks the condition on every assignment it creates
-# or deletes, so even an approved run can't grant Owner or widen its own access.
+# Constrained delegation: the apply identity's Azure role-assignment rights only reach the roles
+# the kit assigns (apply_assignable_roles). Azure checks the condition on every assignment it
+# creates or deletes, so an approved run can't grant Owner through Azure RBAC. The condition does
+# not reach Entra: with the default apply_graph_roles (Application.ReadWrite.All and
+# AppRoleAssignment.ReadWrite.All) an approved run can still widen its own Graph access, which is
+# what the approval gate protects. Narrow apply_graph_roles when you grant consent yourself.
 data "azurerm_role_definition" "assignable" {
   for_each = toset(var.apply_assignable_roles)
   name     = each.key

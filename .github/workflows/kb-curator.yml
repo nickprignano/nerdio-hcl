@@ -34,7 +34,8 @@ jobs:
         id: collect
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/kb/curate.py --since-days "${{ inputs.since_days || '8' }}" --output digest.md
+          SINCE_DAYS: ${{ inputs.since_days || '8' }}
+        run: python3 scripts/kb/curate.py --since-days "$SINCE_DAYS" --output digest.md
       - name: Job summary
         run: cat digest.md >> "$GITHUB_STEP_SUMMARY"
       - name: Open digest issue
