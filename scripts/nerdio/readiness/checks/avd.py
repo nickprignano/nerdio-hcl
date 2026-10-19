@@ -283,6 +283,16 @@ def diagnostics(ctx, c):
     return c.ok(f"{len(items)} host pools and workspaces send diagnostics")
 
 
+def premium_files_offered(ctx):
+    """True when premium file shares (FileStorage, Premium_LRS) are offered in the region; None when unreadable."""
+    location = ctx.values["location"].lower()
+
+    def read():
+        rows = ctx.az(["storage", "sku", "list", "--query", "[?name=='Premium_LRS' && kind=='FileStorage'].locations"])
+        return None if rows is None else any(location in [x.lower() for x in locs] for locs in rows)
+    return ctx.cached(("premium_files", location), read)
+
+
 AUTH = {"entra_joined": "AADKERB", "ad_ds": "AD", "entra_ds": "AADDS"}
 SHARE_ROLES = ("Storage File Data SMB Share Contributor", "Storage File Data SMB Share Elevated Contributor")
 
@@ -298,13 +308,12 @@ def fslogix_storage(ctx, c):
     if ctx.values.get("fslogix_enabled") is False:
         return c.skip("FSLogix is turned off in the answers")
     if ctx.stage == PRE:
-        location = ctx.values["location"].lower()
-        rows = ctx.az(["storage", "sku", "list", "--query", "[?name=='Premium_LRS' && kind=='FileStorage'].locations"])
-        if rows is None:
+        offered = premium_files_offered(ctx)
+        if offered is None:
             return c.warn("couldn't list storage SKUs")
-        if not any(location in [x.lower() for x in locs] for locs in rows):
-            return c.fail(f"premium file shares (FileStorage) aren't offered in {location}", "Pick another region")
-        return c.ok(f"premium file shares are offered in {location}")
+        if not offered:
+            return c.fail(f"premium file shares (FileStorage) aren't offered in {ctx.values['location']}", "Pick another region")
+        return c.ok(f"premium file shares are offered in {ctx.values['location']}")
     name = ctx.values.get("fslogix_storage_account_name")
     if not name:
         return c.skip("needs input: fslogix_storage_account_name (--fslogix-storage)")

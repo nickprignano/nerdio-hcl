@@ -26,11 +26,25 @@ FLAG_KEYS = {"location": "location", "identity_model": "identity_model", "users"
              "nerdio_url": "nerdio_url", "resource_group": "resource_group", "vnet_id": "vnet_id",
              "hosts_subnet": "hosts_subnet", "pe_subnet": "pe_subnet", "app_subnet": "app_subnet", "ai_model": "ai_model",
              "host_pool_subscriptions": "host_pool_subscriptions", "intune_devices": "intune_devices",
-             "fslogix_storage": "fslogix_storage_account_name"}
+             "fslogix_storage": "fslogix_storage_account_name", "app_attach_storage": "app_attach_storage"}
 # Inputs only the standalone check has: a Marketplace install into an existing network has no kit
 # answers for them. Everything else uses schema/parameters.json's keys.
 EXTRA_INPUTS = {"nerdio_url", "resource_group", "vnet_id", "hosts_subnet", "pe_subnet", "app_subnet", "ai_model",
-                "host_pool_subscriptions", "intune_devices"}
+                "host_pool_subscriptions", "intune_devices", "app_attach_storage", "rti_reuse_existing"}
+
+
+def extra_value(key: str, raw: str):
+    """An EXTRA_INPUTS value from `--set key=value` text."""
+    raw = raw.strip()
+    if key == "host_pool_subscriptions":
+        return [x.strip() for x in raw.split(",") if x.strip()]
+    if key == "intune_devices":
+        return int(raw)
+    if key == "rti_reuse_existing":
+        if raw.lower() not in ("yes", "no", "true", "false"):
+            raise ValueError("rti_reuse_existing is yes or no")
+        return raw.lower() in ("yes", "true")
+    return raw
 
 
 def load_schema() -> Dict:
@@ -121,6 +135,11 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--ai-model", help="with --features ai: the Azure OpenAI model Nerdio's Copilot uses (see its docs)")
     p.add_argument("--intune-devices", type=int, help="with --features insights: how many Intune devices")
     p.add_argument("--fslogix-storage", help="after the wizard: the FSLogix profile storage account's name")
+    p.add_argument("--app-attach-storage", help="with --features app-attach: the App Attach storage account's name")
+    p.add_argument("--nerdio-data", action="store_true",
+                   help="also read Nerdio's own REST API (needs NME_CLIENT_ID, NME_SCOPE and NME_CLIENT_SECRET in your shell)")
+    p.add_argument("--probe", choices=["url-check"], help="run one opt-in probe that changes something (asks first)")
+    p.add_argument("--vm", metavar="ID", help="with --probe url-check: the session host's resource ID")
     p.add_argument("--answers", metavar="FILE", help="answers in the kit's format (same keys as schema/parameters.json)")
     p.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", help="answer one question (repeatable)")
     p.add_argument("--no-input", action="store_true", help="never ask; missing inputs make their checks skipped")
@@ -148,9 +167,10 @@ def collect_answers(args, schema: Dict) -> Dict:
     for item in args.set:
         key, sep, raw = item.partition("=")
         if sep and key.strip() in EXTRA_INPUTS:
-            raw = raw.strip()
-            answers[key.strip()] = [x.strip() for x in raw.split(",") if x.strip()] \
-                if key.strip() == "host_pool_subscriptions" else int(raw) if key.strip() == "intune_devices" else raw
+            try:
+                answers[key.strip()] = extra_value(key.strip(), raw)
+            except ValueError as exc:
+                raise runner.UsageError(f"--set {key.strip()}: {exc}") from exc
             continue
         if not sep or key.strip() not in params:
             raise runner.UsageError(f"--set {item}: unknown parameter")
@@ -185,6 +205,12 @@ def run(argv: List[str], *, az: Optional[Callable] = None, ask: Callable[[str], 
         return report.USAGE
     if interactive is None:
         interactive = not args.no_input and sys.stdin.isatty()
+    if args.probe:
+        from . import probe
+
+        return probe.main(args.probe, args.vm, env=ctx_kw.get("env", os.environ), interactive=interactive, ask=ask,
+                          out=stdout, err=stderr, az=ctx_kw.get("probe_az"))
+    ctx_kw.pop("probe_az", None)
     if interactive:
         interview(tagged(schema, args.stage), answers, ask, stderr.write)
     values, problems = resolve(schema, answers, args.stage)
@@ -192,7 +218,7 @@ def run(argv: List[str], *, az: Optional[Callable] = None, ask: Callable[[str], 
         stderr.write("stopped: " + "; ".join(problems) + "\n")
         return report.USAGE
     ctx, results, started = main.evaluate(values, mode="standalone", stage=args.stage, features=features, only=only,
-                                          skip=skip, show_names=args.names, az=az, **ctx_kw)
+                                          skip=skip, show_names=args.names, az=az, nerdio_data=args.nerdio_data, **ctx_kw)
     version = str(schema.get("version", ""))
 
     def text(kind: str) -> str:

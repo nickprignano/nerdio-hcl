@@ -25,7 +25,7 @@ import fix  # noqa: E402
 import nerdio  # noqa: E402
 import preflight  # noqa: E402
 from readiness import SCHEMA_ID, catalogue, cloud, main, report, runner  # noqa: E402
-from readiness.context import Ctx, WriteRefused, is_read_only  # noqa: E402
+from readiness.context import NOT_AZ, Ctx, WriteRefused, is_read_only  # noqa: E402
 from readiness.model import REGISTRY, STAGES, Check, Result, check, contract_problems  # noqa: E402
 
 ZERO = "00000000-0000-0000-0000-000000000000"
@@ -438,14 +438,26 @@ class RegistryContractTests(unittest.TestCase):
             ctx, _, _ = run_all(overrides, vals=values(hub_vnet_id="/subscriptions/x/hub"), features=list(runner.FEATURES))
             self.assertTrue(ctx.calls)
             for call in ctx.calls:
-                self.assertTrue(is_read_only(call), call)
+                self.assertTrue(call[0] in NOT_AZ or is_read_only(call), call)
 
     def test_guard_tells_reads_from_writes(self):
         for args in (["account", "show"], ["vm", "list-skus", "-l", "x"], ["rest", "--method", "get", "--url", "u"],
                      ["rest", "--url", "u"], ["keyvault", "list-deleted"], ["cloud", "show"]):
             self.assertTrue(is_read_only(args), args)
+        for secret in (["keyvault", "secret", "show", "--id", "x"], ["keyvault", "secret", "list"]):
+            self.assertFalse(is_read_only(secret), secret)
         self.assertTrue(is_read_only(["rest", "--method", "post", "--url",
                                       "https://x/providers/Microsoft.Sql/checkNameAvailability?api-version=1", "--body", "{}"]))
+        for args in (["storage", "account", "keys", "list", "-n", "x"], ["webapp", "config", "appsettings", "list"],
+                     ["cosmosdb", "keys", "list"], ["acr", "credential", "show", "-n", "x"],
+                     ["webapp", "deployment", "list-publishing-profiles"], ["rest", "-m", "post", "--url", "u"],
+                     ["rest", "--method=post", "--url", "u"], ["rest", "--url", "u", "--body={}"],
+                     ["rest", "--url", "https://kv.vault.azure.net/secrets/x?api-version=7.4"],
+                     ["rest", "--uri", "https://management.azure.com/x/listKeys?api-version=1"],
+                     ["rest", "--method", "post", "--url",
+                      "https://x/providers/Microsoft.Sql/checkNameAvailability?api-version=1/../../write"],
+                     ["rest", "--method", "post", "--url", "https://x/write?y=/checkNameAvailability?"]):
+            self.assertFalse(is_read_only(args), args)
         for args in (["provider", "register", "-n", "x"], ["rest", "--method", "post", "--url", "u"],
                      ["rest", "--url", "u", "--body", "{}"], ["group", "create", "-n", "x"], ["cloud", "set"], []):
             self.assertFalse(is_read_only(args), args)

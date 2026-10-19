@@ -6,6 +6,7 @@ Every az, Graph and HTTPS call is answered from the fixtures below; nothing reac
 
 from __future__ import annotations
 
+import datetime
 import json
 import sys
 import unittest
@@ -15,9 +16,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from readiness import main  # noqa: E402
-from readiness.checks.subscription import PROVIDERS  # noqa: E402
-from readiness.context import is_read_only  # noqa: E402
-from readiness.model import REGISTRY  # noqa: E402
+from readiness.context import NOT_AZ, is_read_only  # noqa: E402
+from readiness.checks.insights import IDENTITY_ROLES  # noqa: E402
+from readiness.checks.subscription import FEATURE_PROVIDERS, PROVIDERS  # noqa: E402
+from readiness.model import FEATURES, REGISTRY  # noqa: E402
 from test_readiness import TOOLS, ZERO, fake_az, values  # noqa: E402
 
 RG = "rg-nerdio"
@@ -43,7 +45,8 @@ APP = {"id": "app-obj", "appId": "app-id", "displayName": "nerdio-nmw-app", "key
                                                       {"id": "graph-scope", "type": "Scope"}]}]}
 SP = {"id": "sp-obj", "appRoleAssignmentRequired": True, "accountEnabled": True,
       "appRoles": [{"id": i, "value": v} for v, i in ROLE_IDS.items()]}
-ALL = ["app-mgmt", "app-attach", "insights", "rbac", "self-service", "hardening", "scripted-actions", "automation"]
+ALL = [f for f in FEATURES if f != "ai"]
+NOW = datetime.datetime.now(datetime.timezone.utc).isoformat()
 HOST_POOL = f"/subscriptions/{ZERO}/resourceGroups/rg-avd/providers/Microsoft.DesktopVirtualization/hostPools/hp1"
 
 
@@ -55,6 +58,10 @@ def role_rows(args):
                 {"role": "Contributor", "scope": f"/subscriptions/{ZERO}/resourceGroups/{RG}"}]
     if "--assignee" in args and args[args.index("--assignee") + 1] == "avd-sp":
         return [{"role": "Desktop Virtualization Power On Off Contributor", "scope": f"/subscriptions/{ZERO}"}]
+    if "--role" in args and args[args.index("--role") + 1] == "Reader and Data Access":
+        return [{"id": "avd-sp", "name": "Azure Virtual Desktop"}, {"id": "arm-sp", "name": "Azure Virtual Desktop ARM Provider"}]
+    if "--assignee" in args and args[args.index("--assignee") + 1] == "pid-intune":
+        return [{"role": r, "scope": f"/subscriptions/{ZERO}/resourceGroups/{RG}"} for r in IDENTITY_ROLES]
     if "--role" in args:
         return ["user-group"]
     if "--scope" in args and "storageAccounts" in args[args.index("--scope") + 1]:
@@ -78,11 +85,21 @@ def post_az(overrides=None):
             "includeApplications": ["All"]}}, "grantControls": {"builtInControls": ["mfa"]}}]},
         ("rest", "basicPublishingCredentialsPolicies"): {"properties": {"allow": False}},
         ("rest", "/firewallRules"): {"value": []},
-        ("rest", "hybridRunbookWorkerGroups"): {"value": [{"name": "hw"}]},
+        ("rest", "/hybridRunbookWorkers?"): {"value": [{"properties": {"lastSeenDateTime": NOW}}]},
+        ("rest", "hybridRunbookWorkerGroups"): {"value": [{"name": "hw", "id": f"{SUB}/Microsoft.Automation/a/hw"}]},
+        ("rest", "/modules?"): {"value": [{"name": "Az.Accounts", "properties": {"version": "2.12.1",
+                                                                              "provisioningState": "Succeeded"}}]},
+        ("rest", "/subscribedSkus"): {"value": [{"skuPartNumber": "SPE_E3", "prepaidUnits": {"enabled": 100},
+                                                 "servicePlans": [{"servicePlanName": "INTUNE_A"}]}]},
+        ("rest", "appId eq '00000003-0000-0000-c000-000000000000'"): {"value": [{"id": "graph-sp", "appRoles": [
+            {"id": "graph-role", "value": "DeviceManagementApps.ReadWrite.All"}, {"id": "dir", "value": "Directory.Read.All"}]}]},
+        ("rest", "Microsoft.DocumentDB/locations"): {"value": [{"name": "East US 2", "properties": {
+            "isSubscriptionRegionAccessAllowedForRegular": True}}]},
+        ("rest", "dataCollectionRules"): {"value": [{"name": "microsoft-avdi-eastus2"}]},
         ("rest", "/scalingPlans?"): {"value": []},
         ("rest", "/workspaces?"): {"value": [{"id": f"{HOST_POOL}-ws", "name": "ws", "properties": {
             "applicationGroupReferences": [f"{HOST_POOL}-dag"]}}]},
-        ("rest", "/appRoleAssignments"): {"value": [{"appRoleId": "graph-role"}]},
+        ("rest", "/appRoleAssignments"): {"value": [{"appRoleId": "graph-role"}, {"appRoleId": "dir"}]},
         ("rest", "oauth2PermissionGrants"): {"value": [{"consentType": "AllPrincipals"}]},
         ("rest", "/servicePrincipals?"): {"value": [SP]},
         ("rest", "/applications?$filter=startswith(displayName,'nerdio-nmw-app')&$select=id,appId"): {"value": [APP]},
@@ -113,12 +130,19 @@ def post_az(overrides=None):
                                           "public": "Disabled", "endpoints": 1}],
         ("lock", "list"): ["CanNotDelete"],
         ("monitor", "action-group", "list"): [],
-        ("provider", "list"): [{"ns": ns, "state": "Registered"}
-                               for ns in [*PROVIDERS, "Microsoft.DocumentDB", "Microsoft.ManagedIdentity"]],
+        ("backup", "vault", "list"): ["eastus2"],
+        ("provider", "list"): [{"ns": ns, "state": "Registered"} for ns in
+                               [*PROVIDERS, "Microsoft.DocumentDB", "Microsoft.ManagedIdentity",
+                                           *[p for ps in FEATURE_PROVIDERS.values() for p in ps]]],
+        ("network", "nsg", "list"): [],
+        ("sig", "list"): [],
+        ("webapp", "identity", "show"): "pid-intune",
         ("role", "assignment", "list"): role_rows,
-        ("ad", "sp", "list"): "avd-sp",
+        ("ad", "sp", "list"): lambda args: "arm-sp" if "50e95039" in " ".join(args) else "avd-sp",
     }
-    data.update(overrides or {})
+    # Overrides first, so a specific URL fragment wins over a general default.
+    overrides = overrides or {}
+    data = {**overrides, **{k: v for k, v in data.items() if k not in overrides}}
     base = fake_az()
 
     def fake(args):
@@ -144,10 +168,12 @@ def health(status=200, body='{"status":"Healthy"}'):
     return get
 
 
-def run(stage="post-wizard", overrides=None, features=(), http=None, mode="kit", **vals):
+def run(stage="post-wizard", overrides=None, features=(), http=None, mode="kit", nerdio_data=False, nerdio_client=None,
+        **vals):
     vals = values(resource_group=RG, fslogix_storage_account_name="stprofiles", **vals)
     ctx, results, _ = main.evaluate(vals, az=post_az(overrides), stage=stage, features=list(features), mode=mode,
-                                    http=http or health(), **dict(TOOLS, isdir=lambda p: False))
+                                    http=http or health(), nerdio_data=nerdio_data, nerdio_client=nerdio_client,
+                                    **dict(TOOLS, isdir=lambda p: False))
     return ctx, results
 
 
@@ -169,7 +195,7 @@ class HealthyInstallTests(unittest.TestCase):
         ctx, _ = run("post-install", features=ALL)
         ctx2, _ = run("post-wizard", features=ALL)
         for call in ctx.calls + ctx2.calls:
-            self.assertTrue(call[0] == "GET" or is_read_only(call), call)
+            self.assertTrue(call[0] in NOT_AZ or is_read_only(call), call)
         gets = [c for c in ctx.calls if c[0] == "GET"]
         self.assertEqual(gets, [["GET", "https://nmw-app-abc.azurewebsites.net/public/health/status"]])
 

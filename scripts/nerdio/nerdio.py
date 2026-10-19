@@ -42,6 +42,7 @@ from readiness import catalogue as readiness_catalogue
 from readiness import main as readiness_main
 from readiness import report as readiness_report
 from readiness import runner as readiness_runner
+from readiness import standalone as readiness_standalone
 from readiness.model import FEATURES as READINESS_FEATURES
 from readiness.model import STAGES as READINESS_STAGES
 
@@ -363,22 +364,39 @@ def cmd_preflight(args) -> int:
     if args.no_redact and not (args.out or args.save):
         print("stopped: --no-redact writes only to a private file; add --out FILE or --save DIR", file=sys.stderr)
         return readiness_report.USAGE
+    if args.probe:
+        from readiness import probe
+
+        return probe.main(args.probe, args.vm, env=dict(os.environ), interactive=sys.stdin.isatty(), ask=input,
+                          out=sys.stdout, err=sys.stderr)
     if not check_profile():
         return 1
     schema = engine.load_schema()
     answers = engine.load_answers()
     engine.ensure_seed(answers)
-    problems = apply_sets(schema, answers, args.set or [])  # tried for this run only, not saved
+    # Inputs only the readiness check has (resource_group, intune_devices, ...) apply to this run only.
+    extras, sets = {}, []
+    for item in args.set or []:
+        key, sep, raw = item.partition("=")
+        if sep and key.strip() in readiness_standalone.EXTRA_INPUTS:
+            try:
+                extras[key.strip()] = readiness_standalone.extra_value(key.strip(), raw)
+            except ValueError as exc:
+                print(f"--set {key.strip()}: {exc}", file=sys.stderr)
+                return readiness_report.USAGE
+        else:
+            sets.append(item)
+    problems = apply_sets(schema, answers, sets)  # tried for this run only, not saved
     if problems:
         print("\n".join(problems), file=sys.stderr)
         return readiness_report.USAGE
     resolved = engine.resolve(schema, answers, {"tenant": "", "subscription": ""})
     if args.regions is not None:
         return scan_regions(resolved.values, args.regions, args.json)
-    resolved.values["_env"] = args.env
+    resolved.values.update(extras, _env=args.env)
     ctx, results, started = readiness_main.evaluate(
         resolved.values, az=engine.az_json, stage=args.stage, features=features, only=only, skip=skip,
-        show_names=args.names)
+        show_names=args.names, nerdio_data=args.nerdio_data)
     version = str(schema.get("version", ""))
     redact_on = not args.no_redact
 
@@ -651,7 +669,13 @@ def main(argv: list[str]) -> int:
     p.add_argument("--write", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--only", default="", metavar="ID,...", help="run only these checks")
     p.add_argument("--skip", default="", metavar="ID,...", help="leave these checks out")
-    p.add_argument("--set", action="append", metavar="NAME=VALUE", help="try a different answer for this run (not saved)")
+    p.add_argument("--set", action="append", metavar="NAME=VALUE",
+                   help="try a different answer for this run (not saved); also resource_group, nerdio_url, intune_devices, "
+                        "app_attach_storage and the other inputs only the readiness check has")
+    p.add_argument("--nerdio-data", action="store_true",
+                   help="also read Nerdio's own REST API, with the REST client secret from the kit's Key Vault")
+    p.add_argument("--probe", choices=["url-check"], help="run one opt-in probe that changes something (asks first)")
+    p.add_argument("--vm", metavar="ID", help="with --probe url-check: the session host's resource ID")
     p.add_argument("--regions", nargs="?", const="", metavar="A,B,...",
                    help="check the region-specific items across regions (default: the configured region's geography)")
     p.set_defaults(func=cmd_preflight)

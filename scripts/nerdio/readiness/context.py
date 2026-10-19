@@ -20,36 +20,52 @@ from . import cloud as cloudmod
 # az subcommands whose last word is one of these only read.
 READ_VERBS = {"show", "list", "exists", "check-name"}
 READ_PREFIXES = ("list-",)
-# The evaluate-only POSTs a default check may make: name availability (nothing is reserved).
-EVALUATE_ONLY = re.compile(r"/checkNameAvailability\?", re.I)
+# The evaluate-only POSTs a default check may make: name availability (nothing is reserved). The
+# path must end in checkNameAvailability, so a URL that merely contains it doesn't pass.
+EVALUATE_ONLY = re.compile(r"^https://[^/?#]+/[^?#]*/checkNameAvailability\?[^/#]*$", re.I)
+# Command words that read secret values, keys or credentials; no default-tier check may make them,
+# even when the verb is show or list (`storage account keys list`, `webapp config appsettings list`).
+SECRET_WORDS = {"secret", "secrets", "key", "keys", "credential", "credentials", "appsettings", "connection-string",
+                "list-publishing-profiles", "list-publishing-credentials", "list-keys", "list-connection-strings",
+                "show-connection-string", "list-secrets"}
+# ARM or data-plane URL parts that return secrets, refused for az rest even as a GET.
+SECRET_URL = re.compile(r"(\.vault(core)?\.|/secrets(/|\?|$)|/list[A-Za-z]*(keys|secrets|credentials)|/appsettings"
+                        r"|/connectionstrings|/publishxml|/publishingcredentials)", re.I)
+# What Ctx.calls records besides az argument lists.
+NOT_AZ = ("GET", "NERDIO")
 
 
 class WriteRefused(Exception):
     """A check tried to call something that isn't a read."""
 
 
+def option(args: List[str], *names: str) -> Optional[str]:
+    """An option's value, written as `--name value` or `--name=value`; None when absent."""
+    for i, a in enumerate(args):
+        key, eq, value = a.partition("=")
+        if key.lower() in names:
+            return value if eq else (args[i + 1] if i + 1 < len(args) else "")
+    return None
+
+
 def is_read_only(args: List[str]) -> bool:
-    """True when an az command line only reads: `az ... show|list|list-*`, or `az rest --method get`."""
+    """True when an az command line only reads and returns no secret: `az ... show|list|list-*`,
+    or `az rest` GET (or the evaluate-only name availability POST)."""
     words = []
     for a in args:
         if a.startswith("-"):
             break
         words.append(a)
-    if not words:
+    if not words or SECRET_WORDS & {w.lower() for w in words}:
         return False
     if words[0] == "rest":
-        lowered = [a.lower() for a in args]
-        try:
-            method = lowered[lowered.index("--method") + 1]
-        except (ValueError, IndexError):
-            method = "get"  # az rest defaults to GET
-        try:
-            url = args[lowered.index("--url") + 1]
-        except (ValueError, IndexError):
-            url = ""
-        if method == "post" and EVALUATE_ONLY.search(url):
+        method = (option(args, "--method", "-m") or "get").lower()  # az rest defaults to GET
+        url = option(args, "--url", "--uri", "-u") or ""
+        if SECRET_URL.search(url):
+            return False
+        if method == "post" and EVALUATE_ONLY.match(url):
             return True
-        if "--body" in lowered or "-b" in lowered:
+        if option(args, "--body", "-b") is not None:
             return False
         return method == "get"
     if words == ["cloud", "show"]:
@@ -94,7 +110,8 @@ class Ctx:
     def __init__(self, values: Dict, *, az: Optional[Callable] = None, mode: str = "kit", stage: str = "pre-install",
                  features=(), show_names: bool = False, env: Optional[Dict] = None,
                  which: Optional[Callable] = None, run_tool: Optional[Callable] = None,
-                 isdir: Optional[Callable] = None, python_version=None, http: Optional[Callable] = None):
+                 isdir: Optional[Callable] = None, python_version=None, http: Optional[Callable] = None,
+                 nerdio_data: bool = False, nerdio_client=None):
         self.values = values
         self.mode = mode
         self.stage = stage
@@ -107,6 +124,8 @@ class Ctx:
         self.python_version = python_version
         self._az = az or run_az
         self._http = http or http_get
+        self.nerdio_data = nerdio_data  # the opt-in Nerdio REST tier (--nerdio-data)
+        self._nerdio = nerdio_client
         self.acct: Optional[Dict] = None
         self.cloud: cloudmod.Cloud = cloudmod.COMMERCIAL
         self.stopped = ""  # set by a check that makes the rest pointless (unsupported cloud)
@@ -184,6 +203,18 @@ class Ctx:
             raise WriteRefused("only https GETs")
         self.calls.append(["GET", url])
         return self._http(url)
+
+    def nerdio_get(self, path: str):
+        """A GET of Nerdio Manager's REST API: (status, body). Only with --nerdio-data; raises
+        nerdio_api.NotConfigured when it can't sign in. The secret never enters ctx.calls."""
+        from . import nerdio_api
+
+        if not self.nerdio_data:
+            raise nerdio_api.NotConfigured("the Nerdio data tier is off (add --nerdio-data)")
+        if self._nerdio is None:
+            self._nerdio = nerdio_api.connect(self)
+        self.calls.append(["NERDIO", "GET", path])
+        return self._nerdio.get(path)
 
     def post_check(self, url: str, body: Dict):
         """An evaluate-only POST (name availability); the guard refuses any other POST."""

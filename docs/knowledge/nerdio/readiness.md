@@ -31,7 +31,9 @@ also runs on its own, without the kit ([standalone](#standalone)).
 
 `--stage pre-install|post-install|post-wizard` picks when you are. `--features` adds feature
 domains (`app-mgmt`, `app-attach`, `insights`, `rbac`, `self-service`, `hardening`,
-`scripted-actions`, `automation`, `ai`, or `all`); without it only core checks run.
+`scripted-actions`, `automation`, `ai`, or `all`); without it only core checks run. Inputs only
+the readiness check has (`resource_group`, `nerdio_url`, `intune_devices`, `app_attach_storage`,
+`rti_reuse_existing` and the existing-network ones) go in with `--set name=value`.
 `post-wizard` also re-runs the `post-install` checks, because an installed Nerdio Manager has to
 stay healthy through its wizard. After the install, point the checks at Nerdio Manager with
 `--resource-group` or `--nerdio-url` (the kit knows its own group). The app (`nme.*`), AVD
@@ -225,28 +227,91 @@ Azure roles Nerdio's admins need to link groups and networks. With `--features s
 someone holds `EndUser`, the app is enabled and has tenant-wide consent (Conditional Access stays
 `manual`).
 
-## Features
-
-After the wizard, the remaining feature domains check what each optional Nerdio capability needs:
-
-- **Application Management (`--features app-mgmt`)**: `app.repository` checks that Nerdio's
-  resource group has a storage account for Unified Application Management (UAM) custom packages.
-- **App Attach (`--features app-attach`)**: `attach.packages` checks MSIX / App Attach packages
-  registered across host pools (`Microsoft.DesktopVirtualization/hostPools/msixPackages`) for
-  valid image paths.
-- **Insights (`--features insights`)**: `ins.workspace` checks that Nerdio's Log Analytics
-  workspace retains at least 30 days of data (alongside `sub.app_service` pre-install quota).
-- **Scripted Actions (`--features scripted-actions`)**: `sa.automation_identity` checks that
-  Nerdio's Automation account has a system-assigned managed identity and runbooks ready.
-- **Automation (`--features automation`)**: `auto.scaling` checks that pooled host pools define a
-  `maxSessionLimit` so session-based auto-scale triggers can fire (alongside `avd.vcpu` and
-  `avd.start_vm_on_connect`).
-
 ## Kit
 
 In kit mode, `kit.terraform_checks` reads each initialised stage's state (`terraform state
 pull`, which only reads) and reports the kit's own `check` blocks, such as `nerdio_health`, as of
 the last plan or apply. Outside the pipeline it is `skipped` unless the stage is initialised.
+The state holds sensitive values, so this is the one default check that loads them; it keeps
+only `check_results`.
+
+## Applications
+
+With `--features app-mgmt`: the tenant has Intune licenses and Nerdio's app holds
+`DeviceManagementApps.ReadWrite.All` with consent (the Intune repository); before the install,
+private WinGet's providers and Cosmos DB access in the region; after the wizard, no security group
+denies outbound 443 to the internet. The Shell Apps storage account and a ConfigMgr repository are
+`manual`: the first has no documented name, the second lives on-premises. With
+`--features app-attach` and `--set app_attach_storage=<name>` (standalone: `--app-attach-storage`):
+the account is in the hosts' subscription, Entra-joined hosts have **Reader and Data Access** for
+both Azure Virtual Desktop service principals, AD DS hosts have a joined account and a share role
+(NTFS stays `manual`), host pools don't run Windows Server, and premium shares are offered.
+After the wizard, `app.repository` also checks that Nerdio's group has a storage account for
+Unified Application Management packages, and `attach.packages` that every App Attach package on
+a host pool has an image path.
+
+## Insights
+
+With `--features insights` (and `--set intune_devices=<n>` for sizing): SQL S1, S2 or S4 for the
+device count is offered in the region (App Service plans and Cost Attribution's P0v3 are in
+`sub.app_service`); you can grant the Insights identities their roles (Owner, RBAC Administrator
+or User Access Administrator, plus Global or Privileged Role Administrator once); Real-Time
+Insights gets its own Key Vault and SQL (`--set rti_reuse_existing=no` records it). After the
+wizard: the Insights identities hold exactly Storage Blob and Table Data Contributor, Monitoring
+Reader and Log Analytics Reader, the Intune Insights identity holds `Directory.Read.All`, and
+Microsoft's AVD Insights rule (`microsoft-avdi-*`) exists. Insights apps are found by name in
+Nerdio's group, which is inferred; endpoint reach and execution policy are `manual`. `ins.workspace` checks that Nerdio's Log Analytics workspace keeps at least 30 days of data.
+
+## Scripted actions and automation
+
+With `--features scripted-actions`: Azure runbook scripted actions look on, no Automation module
+failed to import, storage-mode scripts can reach private storage (or a hybrid worker runs them),
+hybrid workers checked in within the hour and you can list Nerdio's vault certificates. Which
+mode is set, and Windows scripted actions' Custom Script Extension, are `manual`. With
+`--features automation`: Microsoft.RecoveryServices is registered and a vault is in the region,
+image builds have a gallery and a VM's worth of quota, and Start VM on connect and scaling plans
+have their power roles. After the wizard, `sa.automation_identity` checks that Nerdio's Automation
+account has a system-assigned identity and runbooks, and `auto.scaling` that pooled host pools set
+a session limit, so session-based auto-scale can trigger.
+
+## Policy evaluation
+
+`sub.policy_eval` is `manual`. Read-only evaluation through Policy Insights'
+`checkPolicyRestrictions` is unproven: it may miss child resources such as a SQL firewall rule,
+the case that broke a real deploy. The spike needs a live run in the personal sandbox with a
+deny policy on a child resource; until then it's a no-go and the result points at Nerdio's
+script. Its POST would also need adding to the guard's evaluate-only list, which today holds only
+name availability.
+
+## Nerdio data tier
+
+`--nerdio-data` adds read-only GETs of Nerdio Manager's own REST API: `nme.wizard` reads the
+directory profile (`GET /api/v1/ad/config`, the only wizard step the API exposes; the network
+and resource group links stay `manual`), and `nme.rest_api` makes one read. It signs in with the
+REST client's credentials:
+
+- **Kit:** base URL, tenant, client and scope from `02-nerdio-config/platform.auto.tfvars.json`
+  (none are secrets), and the secret from the kit's Key Vault, which needs **Key Vault Secrets
+  User** on that vault only.
+- **Standalone:** `NME_CLIENT_ID`, `NME_SCOPE` and `NME_CLIENT_SECRET` in your own shell (the nme
+  provider's names; `NME_BASE_URL` and `NME_TENANT_ID` default to `--nerdio-url` and your
+  tenant). Nerdio shows the secret once and stores it nowhere, so a Marketplace install has it only
+  where you saved it. Never paste it into a chat.
+
+The secret stays in the process: it isn't printed, logged or sent anywhere but the sign-in
+endpoint. Default-tier checks can't read secrets at all: the guard refuses any `az` command
+naming secrets, keys, credentials or app settings, and Key Vault data-plane or `list*Keys` URLs.
+
+## Probes
+
+`--probe url-check --vm <session host ID>` runs Microsoft's Required URL Check tool
+(`WVDAgentUrlTool.exe`, installed with the AVD agent) on one host through Run Command, which
+runs the script as SYSTEM on that VM. It needs **Virtual Machine Contributor** on the VM, says
+what it does and waits for a typed `yes`, and refuses to run without a terminal or in GitHub
+Actions; the setup chat never offers it. It creates no Azure resource, and the VM's activity log
+keeps a record. The tool's output format is unverified, so anything that isn't plainly fine is a
+`warn` with the lines shown. `net.url_check` reads the agent's own URL health result first and is
+`manual`, never `pass`, when hosts don't report it.
 
 ## Nerdio's own readiness script
 
@@ -279,8 +344,20 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `ai.models` | P | [Copilot model](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) | ai | Reader on the subscription | az cognitiveservices model list |
 | `ai.provider` | P | [Cognitive Services provider](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource) | ai | Reader on the subscription | az provider show |
 | `ai.quota` | P | [Copilot quota](https://learn.microsoft.com/azure/ai-services/openai/quotas-limits) | ai | Reader on the subscription | az cognitiveservices usage list |
+| `app.intune_repo` | W | [Intune app repository](https://learn.microsoft.com/graph/permissions-reference) | app-mgmt | Directory Readers | Graph /subscribedSkus, Graph /servicePrincipals/{id}/appRoleAssignments |
+| `app.private_winget` | P | [Private WinGet](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | app-mgmt | Reader on the subscription | az provider show, ARM Microsoft.DocumentDB/locations |
 | `app.repository` | W | [UAM package storage](https://nmehelp.getnerdio.com/hc/en-us/articles/26124345260941-Nerdio-Manager-Default-Deployment-Resources-and-Costs) | app-mgmt | Reader on Nerdio's resource group | az resource list |
+| `app.sccm` | P | [ConfigMgr repository](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | app-mgmt | none | - |
+| `app.shell_apps` | W | [Shell Apps storage](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | app-mgmt | Reader on Nerdio's resource group | - |
+| `app.winget_reach` | W | [WinGet reach](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | app-mgmt | Reader on the subscription | az network nsg list |
+| `attach.adds_hosts` | W | [App Attach for AD DS hosts](https://nmehelp.getnerdio.com/hc/en-us/articles/26124362318989-Configure-Azure-Files-Permissions-for-App-Attach) | app-attach | Reader on the subscription | az storage account list, az role assignment list |
+| `attach.entra_hosts` | W | [App Attach for Entra-joined hosts](https://nmehelp.getnerdio.com/hc/en-us/articles/26124362318989-Configure-Azure-Files-Permissions-for-App-Attach) | app-attach | Reader on the subscription | az role assignment list, az ad sp list |
+| `attach.host_pools` | W | [App Attach host pools](https://learn.microsoft.com/azure/virtual-desktop/app-attach-overview) | app-attach | Reader on the subscription | ARM hostPools/sessionHosts |
 | `attach.packages` | W | [App Attach packages](https://learn.microsoft.com/azure/virtual-desktop/app-attach-overview) | app-attach | Reader on the subscription | ARM hostPools, ARM hostPools/msixPackages |
+| `attach.premium` | P | [App Attach premium shares](https://nmehelp.getnerdio.com/hc/en-us/articles/26124362318989-Configure-Azure-Files-Permissions-for-App-Attach) | app-attach | Reader on the subscription | az storage sku list |
+| `attach.storage_sub` | P, W | [App Attach storage](https://nmehelp.getnerdio.com/hc/en-us/articles/26124362318989-Configure-Azure-Files-Permissions-for-App-Attach) | app-attach | Reader on the subscription | az storage account list |
+| `auto.backup` | P, W | [Backup](https://learn.microsoft.com/azure/backup/backup-azure-vms-introduction) | automation | Reader on the subscription | az provider show, az backup vault list |
+| `auto.image_mgmt` | P | [Image management](https://learn.microsoft.com/azure/virtual-machines/shared-image-galleries) | automation | Reader on the subscription | az sig list, az vm list-usage |
 | `auto.scaling` | W | [Host pool session limits](https://learn.microsoft.com/azure/virtual-desktop/autoscale-scenarios) | automation | Reader on the subscription | ARM hostPools |
 | `avd.assignments` | W | [User assignments](https://learn.microsoft.com/azure/virtual-desktop/app-groups) | core | Reader on the subscription | ARM applicationGroups, ARM workspaces, az role assignment list |
 | `avd.diagnostics` | W | [AVD diagnostics](https://learn.microsoft.com/azure/virtual-desktop/insights) | core | Reader on the subscription | ARM diagnosticSettings |
@@ -308,6 +385,13 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `id.pim_eligible` | P | [PIM roles](https://learn.microsoft.com/rest/api/authorization/role-eligibility-schedule-instances/list-for-scope) | core | your own PIM eligibility (read) | ARM roleEligibilityScheduleInstances asTarget(), Graph roleEligibilityScheduleInstances |
 | `id.sub_owner` | P | [Subscription Owner](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az ad signed-in-user show, az role assignment list |
 | `id.tenant_match` | P, I, W | [Home tenant](https://learn.microsoft.com/entra/external-id/user-properties) | core | your own default directory read rights | az account show, Graph /me |
+| `ins.avd_insights` | W | [AVD Insights](https://learn.microsoft.com/azure/virtual-desktop/insights) | insights | Reader on the subscription | ARM dataCollectionRules |
+| `ins.capacity` | P | [Insights SQL tier](https://nmehelp.getnerdio.com/hc/en-us/articles/35702701977485) | insights | Reader on the subscription | ARM Microsoft.Sql/locations/capabilities |
+| `ins.enabler_rights` | P | [Rights to turn on Insights](https://nmehelp.getnerdio.com/hc/en-us/articles/35702701977485) | insights | Reader on the subscription | az role assignment list, Graph /me/transitiveMemberOf |
+| `ins.identity_roles` | W | [Insights identities](https://nmehelp.getnerdio.com/hc/en-us/articles/35702701977485) | insights | Reader on the subscription | az webapp identity show, az role assignment list |
+| `ins.intune_graph` | W | [Intune Insights Graph access](https://nmehelp.getnerdio.com/hc/en-us/articles/35702701977485) | insights | Directory Readers | az webapp identity show, Graph appRoleAssignments |
+| `ins.rti_endpoints` | W | [Real-Time Insights endpoints](https://nmehelp.getnerdio.com/hc/en-us/articles/41694103483533-Insights-Real-Time) | insights | none | - |
+| `ins.rti_new_kv_sql` | P | [Real-Time Insights stores](https://nmehelp.getnerdio.com/hc/en-us/articles/41694103483533-Insights-Real-Time) | insights | none | - |
 | `ins.workspace` | W | [Log Analytics workspace](https://learn.microsoft.com/azure/virtual-desktop/insights) | insights | Reader on Nerdio's resource group | ARM operationalInsights/workspaces |
 | `kit.terraform_checks` | I, W | [Terraform checks](https://developer.hashicorp.com/terraform/language/checks) (kit only) | core | read access to the Terraform state (it holds sensitive values) | terraform state pull |
 | `net.hub` | P | [Hub network](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview) | core | Reader on the hub VNet | az network vnet show, az role assignment list |
@@ -315,6 +399,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `net.overlap` | P | [Address range](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview) | core | Reader on the subscription | az network vnet list, az group list |
 | `net.private_dns` | P | [Private DNS](https://learn.microsoft.com/azure/private-link/private-endpoint-dns) | core | Reader on the private DNS zones' subscription | az network private-dns zone list |
 | `net.subnets` | P | [Existing subnets](https://learn.microsoft.com/azure/app-service/overview-vnet-integration#subnet-requirements) (standalone only) | core | Reader on the VNet | az network vnet subnet show |
+| `net.url_check` | W | [Required URLs](https://learn.microsoft.com/azure/virtual-desktop/required-url-check-tool) | core | Reader on the subscription | ARM hostPools/sessionHosts |
 | `nme.app` | I | [Web app](https://learn.microsoft.com/azure/app-service/overview-security) | core | Reader on Nerdio's resource group | az webapp show, az webapp config show |
 | `nme.automation` | I | [Nerdio's Automation](https://nmehelp.getnerdio.com/hc/en-us/articles/26124345260941-Nerdio-Manager-Default-Deployment-Resources-and-Costs) | core | Reader on Nerdio's resource group | ARM automationAccounts/runbooks, ARM automationAccounts/certificates |
 | `nme.discover` | I, W | [Nerdio resources](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on Nerdio's resource group | az resource list, az webapp list |
@@ -326,6 +411,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `nme.sp_roles` | I, W | [Nerdio's Azure roles](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az role assignment list |
 | `nme.sql` | I | [Nerdio's SQL](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on Nerdio's resource group | az sql server show, az sql db show |
 | `nme.version` | I, W | [Nerdio version](https://nmehelp.getnerdio.com/hc/en-us/articles/26124379482381-How-to-Check-the-Health-of-Nerdio-Manager) | core | none | - |
+| `nme.wizard` | W | [Nerdio's wizard](https://nmehelp.getnerdio.com/hc/en-us/articles/27422824784269) | core | Nerdio's REST client (the data tier, --nerdio-data) | Nerdio GET /api/v1/ad/config |
 | `op.cloud` | P, I, W | [Azure cloud](https://learn.microsoft.com/cli/azure/manage-clouds-azure-cli) | core | none | az cloud show |
 | `op.cloudshell_storage` | P | [Cloud Shell storage](https://learn.microsoft.com/azure/cloud-shell/persisting-shell-storage) (kit only) | core | none | environment, ~/clouddrive |
 | `op.signin` | P, I, W | [Azure sign-in](https://learn.microsoft.com/cli/azure/authenticate-azure-cli) | core | none | az account show |
@@ -334,6 +420,11 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `rbac.azure_side` | P | [Azure rights for Nerdio admins](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | rbac | Reader on the subscription | az role assignment list |
 | `rbac.groups` | W | [Nerdio role groups](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | rbac | Directory Readers | Graph /servicePrincipals/{id}/appRoleAssignedTo, Graph /groups/{id}/members |
 | `sa.automation_identity` | W | [Scripted Actions identity](https://nmehelp.getnerdio.com/hc/en-us/articles/26124302308109) | scripted-actions | Reader on Nerdio's resource group | az resource show, ARM automationAccounts/runbooks |
+| `sa.hybrid_worker` | W | [Hybrid workers](https://learn.microsoft.com/azure/automation/automation-hybrid-runbook-worker) | scripted-actions | Reader on Nerdio's resource group, Key Vault Reader | ARM hybridRunbookWorkerGroups/hybridRunbookWorkers, az keyvault certificate list |
+| `sa.mode_vs_network` | W | [Scripted actions and storage](https://nmehelp.getnerdio.com/hc/en-us/articles/26124302308109) | scripted-actions | Reader on Nerdio's resource group | az resource show, ARM automationAccounts/hybridRunbookWorkerGroups |
+| `sa.modules` | W | [Automation modules](https://nmehelp.getnerdio.com/hc/en-us/articles/26124302308109) | scripted-actions | Reader on Nerdio's resource group | ARM automationAccounts/modules |
+| `sa.runbooks_enabled` | W | [Azure runbook scripted actions](https://nmehelp.getnerdio.com/hc/en-us/articles/26124302308109) | scripted-actions | Reader on Nerdio's resource group | ARM automationAccounts/runbooks |
+| `sa.windows` | P | [Windows scripted actions](https://learn.microsoft.com/azure/virtual-machines/extensions/custom-script-windows) | scripted-actions | none | - |
 | `self.consent` | W | [Self-service sign-in](https://learn.microsoft.com/entra/identity/enterprise-apps/what-is-access-management) | self-service | Directory Readers | Graph /servicePrincipals, Graph /oauth2PermissionGrants |
 | `self.end_user_role` | W | [Self-service users](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | self-service | Directory Readers | Graph /servicePrincipals/{id}/appRoleAssignedTo |
 | `sub.app_service` | P | [App Service quota](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core, insights | Reader on the subscription | az appservice list-locations, ARM Microsoft.Web/locations/usages |
@@ -341,6 +432,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `sub.locks` | P | [Resource locks](https://learn.microsoft.com/azure/azure-resource-manager/management/lock-resources) | core | Reader on the subscription | az lock list |
 | `sub.names` | P | [Resource names](https://learn.microsoft.com/azure/azure-resource-manager/management/resource-name-rules) (kit only) | core | Reader on the subscription | az keyvault list-deleted, az keyvault check-name, az storage account check-name, ARM checkNameAvailability (Microsoft.Sql, Microsoft.Web) |
 | `sub.nerdio_license` | P | [Nerdio license](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | none | - |
+| `sub.policy_eval` | P | [Policy evaluation](https://learn.microsoft.com/rest/api/policyinsights/policy-restrictions/check-at-subscription-scope) | core | none | - |
 | `sub.policy_list` | P | [Azure Policy](https://learn.microsoft.com/azure/governance/policy/overview) | core | Reader on the subscription | az policy assignment list |
 | `sub.providers` | P, W | [Resource providers](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription and each host pool subscription | az provider list |
 | `sub.region` | P | [Region](https://learn.microsoft.com/cli/azure/account#az-account-list-locations) | core | Reader on the subscription | az account list-locations |
