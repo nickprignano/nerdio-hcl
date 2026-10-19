@@ -18,7 +18,7 @@ projects:
   name: AI
   repo: nickprignano/ai-brain
   kb_path: docs/knowledge
-  role: hub
+  role: reference
   format_version: 1
   focus: The AI research behind the family's projects
   owns: [The family's shared KB format and conventions, Claude API and Microsoft Foundry use, model choices,

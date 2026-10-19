@@ -23,8 +23,9 @@ siblings' signals. Where should the format be owned?
 Chosen option: "The AI hub owns the format", because format work now happens there and one
 owner is easier to follow than two.
 
-- In [family.yaml](../family.yaml), this kit's role is `member` and the AI hub owns "the family's
-  shared KB format and conventions".
+- In [family.yaml](../family.yaml), this kit's role is `member`. The AI hub's role is `reference`,
+  which is how ai-brain's family scripts find the hub, and it owns "the family's shared KB format
+  and conventions".
 - A format change starts as a "Family format" decision in the hub. This kit adopts it by PR once
   the hub has accepted it, and bumps `format_version` to match.
 - Besides the two sources every sibling gets, this KB watches the hub's `docs/knowledge/schema`,
@@ -43,5 +44,5 @@ owner is easier to follow than two.
 
 ## More Information
 
-This decision should merge once the matching "Family format" decision exists in
-[ai-brain](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge/decisions).
+Also recorded in ai-brain decision 0007, "ai-brain owns the format", accepted on 2026-10-18 in
+[ai-brain's decisions](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge/decisions).
