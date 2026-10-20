@@ -87,6 +87,31 @@ jobs:
       - name: schema matches the Terraform variables and the Actions form
         run: ./nerdio schema check
 
+  preflight-zipapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # Azure Cloud Shell's Python; the standalone check must run there.
+          python-version: "3.9"
+      - name: readiness tests on Python 3.9
+        working-directory: scripts/nerdio
+        run: python3 -m unittest -v test_readiness test_standalone test_redact
+      - name: build twice, same bytes
+        run: |
+          a="$(python3 scripts/build-preflight-pyz.py --out dist/a.pyz)"
+          b="$(python3 scripts/build-preflight-pyz.py --out dist/b.pyz)"
+          echo "$a"
+          [ "${a%% *}" = "${b%% *}" ] || { echo "::error::the zipapp build isn't reproducible"; exit 1; }
+      - name: smoke test
+        working-directory: dist
+        run: |
+          python3 -I a.pyz --version
+          python3 -I a.pyz --list > /dev/null
+          python3 -I a.pyz --no-input --format md > smoke.md || [ $? -le 3 ]
+          head -n 3 smoke.md
+
   packer:
     runs-on: ubuntu-latest
     steps:

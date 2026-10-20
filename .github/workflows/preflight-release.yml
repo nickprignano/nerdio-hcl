@@ -1,0 +1,70 @@
+name: preflight-release
+
+# Publishes the standalone readiness check (nerdio-preflight.pyz) when a maintainer pushes a
+# preflight-v<version> tag. The build is reproducible, so anyone can rebuild the tag and compare
+# checksums; the release also carries a signed build provenance attestation. Steps:
+# docs/knowledge/nerdio/readiness.md#releasing-the-standalone-check.
+on:
+  push:
+    tags: ["preflight-v*"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # Azure Cloud Shell's Python; the zipapp must run there.
+          python-version: "3.9"
+      - name: tag matches the engine's version
+        run: |
+          want="${GITHUB_REF_NAME#preflight-v}"
+          have="$(cd scripts/nerdio && python3 -c 'import readiness; print(readiness.__version__)')"
+          [ "$want" = "$have" ] || { echo "::error::tag says $want, readiness.__version__ says $have"; exit 1; }
+      - name: tests on Python 3.9
+        run: python3 -m unittest -v test_readiness test_standalone test_redact
+        working-directory: scripts/nerdio
+      - name: build
+        run: |
+          python3 scripts/build-preflight-pyz.py --out dist/nerdio-preflight.pyz
+          (cd dist && sha256sum nerdio-preflight.pyz > nerdio-preflight.pyz.sha256)
+          cat dist/nerdio-preflight.pyz.sha256
+      - name: smoke test
+        working-directory: dist
+        run: |
+          python3 -I nerdio-preflight.pyz --version
+          python3 -I nerdio-preflight.pyz --list > /dev/null
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/nerdio-preflight.pyz
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(cut -d' ' -f1 dist/nerdio-preflight.pyz.sha256)"
+          cat > notes.md <<NOTES
+          Standalone Nerdio readiness check, read-only. In Azure Cloud Shell (Bash):
+
+          \`\`\`bash
+          V=$GITHUB_REF_NAME
+          curl -fsSLO https://github.com/$GITHUB_REPOSITORY/releases/download/\$V/nerdio-preflight.pyz
+          echo "$sha  nerdio-preflight.pyz" | sha256sum -c && python3 nerdio-preflight.pyz
+          \`\`\`
+
+          SHA-256: \`$sha\`. Check it against the README of this repository, not only these notes.
+          Provenance: \`gh attestation verify nerdio-preflight.pyz --repo $GITHUB_REPOSITORY\`.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" dist/nerdio-preflight.pyz dist/nerdio-preflight.pyz.sha256 \
+            --title "Readiness check $GITHUB_REF_NAME" --notes-file notes.md

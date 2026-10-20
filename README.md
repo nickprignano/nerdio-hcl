@@ -42,6 +42,27 @@ One set of questions, three ways to answer them. All three read
 
 Details: [docs/setup.md](docs/setup.md).
 
+### Readiness check without the kit
+
+Installing Nerdio Manager from the Marketplace by hand? The same read-only readiness check runs on
+its own in Azure Cloud Shell (Bash), with Reader on the subscription. Download a pinned release,
+check it, run it:
+
+```bash
+V=preflight-v0.1.0   # pinned; never "latest"
+curl -fsSLO "https://github.com/nickprignano/nerdio-hcl/releases/download/$V/nerdio-preflight.pyz"
+echo "<sha256 for $V, from the table below>  nerdio-preflight.pyz" | sha256sum -c && python3 nerdio-preflight.pyz
+```
+
+| Release | SHA-256 of `nerdio-preflight.pyz` |
+|---|---|
+| *none yet* | The first release is published when a maintainer tags `preflight-v0.1.0` |
+
+The checksum lives here, not only beside the download, so a swapped file can't bring its own.
+With `gh` signed in, `gh attestation verify nerdio-preflight.pyz --repo nickprignano/nerdio-hcl`
+also proves the file came from this repository's release workflow. What it checks and how to read
+the result: [docs/knowledge/nerdio/readiness.md](docs/knowledge/nerdio/readiness.md).
+
 To deploy without pasting commands, run the one-time pipeline bootstrap from Cloud Shell. After
 that, the **deploy** workflow plans each stage and applies it only after you approve it in
 GitHub, and the setup chatbot can start and explain those runs for you

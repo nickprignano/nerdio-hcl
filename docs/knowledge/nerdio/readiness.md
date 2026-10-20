@@ -15,8 +15,8 @@ One read-only engine answers "will this Nerdio Manager deployment, and each feat
 turn on, work in this tenant?" before the install, after it and after Nerdio's wizard
 ([decision 0026](../decisions/0026-read-only-readiness-engine.md)). It lives in
 `scripts/nerdio/readiness/` and runs behind `./nerdio preflight`, the deploy pipeline's
-`preflight` stage and, through the pipeline, the setup chat. A standalone build for manual
-Marketplace installs is planned.
+`preflight` stage and, through the pipeline, the setup chat. For a manual Marketplace install it
+also runs on its own, without the kit ([standalone](#standalone)).
 
 ## Running it
 
@@ -33,6 +33,39 @@ Marketplace installs is planned.
 domains (`app-mgmt`, `app-attach`, `insights`, `rbac`, `self-service`, `hardening`,
 `scripted-actions`, `automation`, `ai`, or `all`); without it only core checks run. The
 post-install and post-wizard checks and the feature checks arrive in later build phases.
+
+## Standalone
+
+`nerdio-preflight.pyz` is a single-file Python zipapp attached to this repository's releases.
+It needs only what Cloud Shell has (Python 3.9 or later, `az`), installs nothing and has no
+`curl | bash` step: download a pinned version, check its SHA-256 against the
+[README](../../../README.md#readiness-check-without-the-kit), and run it.
+
+```bash
+python3 nerdio-preflight.pyz                         # asks a few questions, then checks
+python3 nerdio-preflight.pyz --location eastus2 --users 200 --identity-model entra --no-input
+python3 nerdio-preflight.pyz --answers answers.json --format md
+```
+
+Inputs come from flags (`--location`, `--identity-model entra|entra_ds|ad_ds`, `--users`,
+`--vm-size`, `--set name=value`), then `--answers` (the kit's answer keys), then a short
+interview using the kit's own questions. `--no-input` never asks; checks whose inputs are missing
+report `skipped`. It resolves only the parameters tagged `readiness` in
+`schema/parameters.json`, bundles a copy of that file, and records its version in
+`readiness.json` as `parameters_version`. It assumes the Marketplace install, and it never
+invents a network to check: the address range and hub are checked only when you give them.
+Choices the kit can't build yet (AD DS, for example) are still checked, because Nerdio supports
+them.
+
+### Releasing the standalone check
+
+1. Bump `__version__` in `scripts/nerdio/readiness/__init__.py` in a PR and merge it.
+2. Tag the merge commit `preflight-v<version>` and push the tag. The `preflight-release`
+   workflow runs the tests on Python 3.9, builds the zipapp, signs a build provenance
+   attestation and publishes the release with its SHA-256.
+3. Rebuild locally (`python3 scripts/build-preflight-pyz.py`) from the tag: the build is
+   reproducible, so the checksum must match the release's. Then add the version and checksum to
+   the README's table in a PR.
 
 ## Statuses and the verdict
 
@@ -125,7 +158,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `op.cloud` | P, I, W | [Azure cloud](https://learn.microsoft.com/cli/azure/manage-clouds-azure-cli) | core | none | az cloud show |
 | `op.cloudshell_storage` | P | [Cloud Shell storage](https://learn.microsoft.com/azure/cloud-shell/persisting-shell-storage) (kit only) | core | none | environment, ~/clouddrive |
 | `op.signin` | P, I, W | [Azure sign-in](https://learn.microsoft.com/cli/azure/authenticate-azure-cli) | core | none | az account show |
-| `op.tools` | P | [Tools](https://learn.microsoft.com/azure/cloud-shell/features) (kit only) | core | none | PATH |
+| `op.tools` | P | [Tools](https://learn.microsoft.com/azure/cloud-shell/features) | core | none | PATH |
 | `sub.app_service` | P | [App Service quota](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az appservice list-locations, ARM Microsoft.Web/locations/usages |
 | `sub.nerdio_license` | P | [Nerdio license](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | none | - |
 | `sub.policy_list` | P | [Azure Policy](https://learn.microsoft.com/azure/governance/policy/overview) | core | Reader on the subscription | az policy assignment list |

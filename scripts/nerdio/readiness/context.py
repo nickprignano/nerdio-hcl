@@ -70,7 +70,7 @@ class Ctx:
     def __init__(self, values: Dict, *, az: Optional[Callable] = None, mode: str = "kit", stage: str = "pre-install",
                  features=(), show_names: bool = False, env: Optional[Dict] = None,
                  which: Optional[Callable] = None, run_tool: Optional[Callable] = None,
-                 isdir: Optional[Callable] = None):
+                 isdir: Optional[Callable] = None, python_version=None):
         self.values = values
         self.mode = mode
         self.stage = stage
@@ -80,6 +80,7 @@ class Ctx:
         self.which = which or shutil.which
         self.run_tool = run_tool or tool_version
         self.isdir = isdir or os.path.isdir
+        self.python_version = python_version
         self._az = az or run_az
         self.acct: Optional[Dict] = None
         self.cloud: cloudmod.Cloud = cloudmod.COMMERCIAL
