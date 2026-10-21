@@ -1,0 +1,122 @@
+name: github-settings-drift
+
+# Daily `terraform plan` of github/ (this repository's own GitHub settings). When GitHub differs
+# from the code, it opens or updates one issue labelled settings-drift; when they match again, it
+# closes that issue. It never applies: there's no apply step, and the GitHub App token it plans
+# with can only read, so an apply would fail even if someone added one. The owner applies from
+# Cloud Shell (github/README.md).
+
+on:
+  schedule:
+    - cron: "23 6 * * *" # daily, 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # the drift issue, with the workflow's own token
+
+concurrency:
+  group: github-settings-drift
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    # Holds the read-only App's key. Its deployment branch rule allows main only, so a workflow on
+    # any other branch can't read the key.
+    environment: github-settings-read
+    steps:
+      # Pinned by commit: the token action receives the App key, so a moved tag must not change them.
+      - name: repository name
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_ENV"
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      - name: read-only token for this repository
+        id: app
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.SETTINGS_APP_ID }}
+          private-key: ${{ secrets.SETTINGS_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ env.REPO_NAME }}
+          permission-administration: read
+          permission-issues: read
+          permission-metadata: read
+      - name: plan
+        id: plan
+        working-directory: github
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+          TF_VAR_owner: ${{ github.repository_owner }}
+          TF_VAR_repository: ${{ env.REPO_NAME }}
+          TF_IN_AUTOMATION: "1"
+        # Only resource addresses and the names of changed attributes reach the log and the issue,
+        # never values: some settings (security_and_analysis) are visible only to admins.
+        run: |
+          terraform init -input=false -no-color -lockfile=readonly >/dev/null
+          terraform plan -input=false -no-color -lock=false -out=settings.tfplan >/dev/null
+          terraform show -json settings.tfplan > plan.json
+          jq -r '
+            [.resource_changes[]
+             | select(.change.actions != ["no-op"])
+             | "- `\(.address)`: \(.change.actions | join("/"))"
+               + (if .change.actions == ["update"] then
+                    " (" + ([.change.before as $b | .change.after as $a | ($a | keys[]) as $k
+                             | select(($b[$k] // null) != ($a[$k] // null)) | $k] | join(", ")) + ")"
+                  else "" end)
+            ] | .[]' plan.json > drift.md
+          count=$(wc -l < drift.md)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          {
+            echo "### GitHub settings drift: $count change(s)"
+            cat drift.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -f settings.tfplan plan.json
+      - name: open, update or close the drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COUNT: ${{ steps.plan.outputs.count }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create settings-drift --color b60205 --description "GitHub settings differ from github/ (drift workflow)" --force >/dev/null
+          existing=$(gh issue list --label settings-drift --state open --json number --jq '.[0].number')
+          if [ "$COUNT" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "Settings match github/ again ($RUN_URL)."
+            fi
+            exit 0
+          fi
+          {
+            echo "The daily plan of \`github/\` found $COUNT difference(s) between this repository's GitHub settings and the code ($RUN_URL)."
+            echo
+            cat github/drift.md
+            echo
+            echo "Nothing was changed. Either change the code in a pull request to match GitHub, or apply the code from Cloud Shell (github/README.md)."
+          } > body.md
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file body.md
+          else
+            gh issue create --title "GitHub settings drift" --label settings-drift --body-file body.md
+          fi
+      - name: report a failed check
+        # A plan that can't run is a finding too: an expired key, a provider change, a lookup error.
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create settings-drift --color b60205 --description "GitHub settings differ from github/ (drift workflow)" --force >/dev/null
+          body="The daily plan of \`github/\` couldn't run, so drift is unknown: $RUN_URL. Nothing was changed."
+          existing=$(gh issue list --label settings-drift --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "GitHub settings drift check failed" --label settings-drift --body "$body"
+          fi

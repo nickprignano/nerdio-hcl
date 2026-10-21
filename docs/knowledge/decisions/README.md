@@ -31,4 +31,5 @@ marked *Superseded by NNNN*.
 | [0022](0022-family-model-selection-convention.md) | Follow the family's model-selection convention, as one of its pilot projects | Proposed |
 | [0023](0023-ai-brain-is-the-family-format-source.md) | The AI hub owns the family's KB format, and this kit follows it as a member | Proposed |
 | [0026](0026-read-only-readiness-engine.md) | Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test | Accepted |
+| [0027](0027-github-settings-in-terraform.md) | The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner | Proposed |
 <!-- END GENERATED: decision-index -->

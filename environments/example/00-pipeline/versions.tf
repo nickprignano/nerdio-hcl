@@ -33,7 +33,8 @@ provider "azuread" {
   tenant_id = var.tenant_id
 }
 
-# Reads GITHUB_TOKEN from the environment. The bootstrap script passes `gh auth token` to this
+# Reads GITHUB_TOKEN from the environment. It manages the plan and apply environments only;
+# repository settings are github/. The bootstrap script passes `gh auth token` to this
 # one terraform process only; it's never written to a file.
 provider "github" {
   owner = var.github.owner

@@ -25,6 +25,7 @@ Two kinds of access:
 | Admin consent, if the pipeline doesn't grant it (`grant_admin_consent = false`) | Entra admin | | **Privileged Role Administrator** or **Global Administrator** | Once per app |
 | Readiness check (`./nerdio preflight`, or `nerdio-preflight.pyz` standalone) | Anyone planning or checking a deploy | **Reader** on the subscription, and on the hub network's and private DNS zones' subscriptions when they live elsewhere. Every default check only reads ([decision 0026](knowledge/decisions/0026-read-only-readiness-engine.md)) | Your own default user read rights; **Directory Readers** for tenant-wide reads. Rights it can't use give `no-access`, never a failure | Each run |
 | Approve an apply | A named GitHub reviewer | None | None | Per run, in GitHub |
+| Apply GitHub settings (`./github/settings.sh apply`) | The repository owner | None | None. On GitHub: a fine-grained token for this repository only with *Administration: read and write*, *Issues: read and write* (labels) and *Metadata: read* | One day; revoke it after the apply ([github/](../github/README.md)) |
 | Nerdio first-run wizard | Nerdio admin | None beyond what Nerdio asks for | Sign-in only | Once |
 
 Portal note: when you give someone Owner or Role Based Access Control Administrator, Azure offers
@@ -42,6 +43,7 @@ it after.
 | Pipeline **apply** identity | Bootstrap | **Contributor** and **Role Based Access Control Administrator** on the subscription. Azure only lets it assign or remove the roles in `apply_assignable_roles` (a role assignment condition), so it can't grant Owner or widen its own access | **Application.ReadWrite.All**, **Group.ReadWrite.All**, **Directory.Read.All**, and by default **AppRoleAssignment.ReadWrite.All** and **DelegatedPermissionGrant.ReadWrite.All** so it can grant admin consent (drop both if you consent yourself, below) | Only after a reviewer approves the run in GitHub |
 | Setup chat (managed identity) | Chat deploy | With Foundry, **Cognitive Services User** on its Foundry resource. With the pipeline, **Storage Blob Data Contributor** on the `answers` container, **Storage Blob Data Reader** on `plans` and **Key Vault Crypto Officer** on its own vault, which holds only the GitHub App key | None. With the Claude API it asks Entra for tokens for its audience app, which has no permissions of its own | While someone is chatting |
 | Setup chat on the Claude side (service account) | `--connect-claude` | None | None. In Anthropic: *developer* organization role, *user* in its own workspace, and a federation rule that accepts only the chat's managed identity (object ID, tenant, audience) and mints 10-minute `workspace:inference` tokens | While someone is chatting |
+| Settings reader (GitHub App) | The owner, once ([github/](../github/README.md)) | None | None. On GitHub: *Administration: read* (security settings, Dependabot, workflow token), *Issues: read* (labels, needed on private repositories) and *Metadata: read*, on this repository only. Its key is a secret of the `github-settings-read` environment, which only `main` can use | The daily drift plan |
 | Chat's GitHub App | `/setup/github`, two clicks | None | None. On GitHub: *Actions: read and write* on this repository only | When the chat starts a plan |
 | Nerdio web app (managed identity) | Platform stage | **Contributor** on the Nerdio resource group and the groups it manages; **Reader** and **Backup Reader** on the subscription; Key Vault roles on its own vault | None | Always: it is Nerdio |
 | Nerdio Entra app | Platform stage | Key Vault roles on Nerdio's vault | The delegated and application permissions Nerdio documents for its install (`modules/nerdio-identity`), granted by admin consent | Always: it is Nerdio |
@@ -64,7 +66,7 @@ These are supported switches, not forks of the kit. Set them in `00-pipeline/ter
   Privileged Role Administrator. They can be different people, each activating their role
   through PIM for the step.
 - **Keep the approval gate tight.** Name specific reviewers (`NME_REVIEWERS`), not a team, and
-  keep the branch ruleset on (`github_settings.protect_branch`).
+  keep the branch ruleset on (`ruleset.enabled` in `github/main.tf`).
 - **Private networking.** `enable_hardening` turns public access off; plans and applies then
   need a runner inside the network (chatbot-first inventory, step 19).
 

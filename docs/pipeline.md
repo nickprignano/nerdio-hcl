@@ -60,11 +60,12 @@ sign-in, and you pin them once per environment:
 They aren't secrets (sign-in is OIDC, with no stored password), but they identify the tenant, so
 the kit keeps them out of the repo, the chat and shared output.
 
-It also sets the repository settings the kit relies on (`modules/github-repo`): the `kb-*` issue
-labels, a read-only default workflow token, Actions allowed to open pull requests (for
-kb-feedback), and a ruleset on `main` so it only changes through pull requests and can't be
-force-pushed or deleted. The apply environment trusts `main`, so that ruleset is part of the gate.
-Turn either of the last two off with `github_settings` in `00-pipeline/terraform.tfvars`.
+The repository settings the kit relies on live in [`github/`](../github/README.md), with their
+own state and a daily drift check: the `kb-*` issue labels, a read-only default workflow token,
+Actions allowed to open pull requests (for kb-feedback), and a ruleset on `main` so it only
+changes through pull requests and can't be force-pushed or deleted. The apply environment trusts
+`main`, so that ruleset is part of the gate: run `./github/settings.sh apply` right after the
+bootstrap.
 
 It reads your tenant and subscription from `az account show`, the repository from git, and you
 as the approver (set `NME_REVIEWERS=login1,login2` for others). It moves its own state into the

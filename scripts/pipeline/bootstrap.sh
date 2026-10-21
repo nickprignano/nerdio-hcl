@@ -12,8 +12,9 @@
 #
 # Terraform (environments/example/00-pipeline) creates the state storage, the plan and apply
 # identities with GitHub OIDC trust, the GitHub environments: <env>-plan, and <env>-apply,
-# which needs a reviewer's approval, and the repository settings the kit relies on
-# (modules/github-repo: issue labels, workflow token, a ruleset on the branch the apply trusts). This script is glue only: it reads IDs from
+# which needs a reviewer's approval. The repository settings the kit relies on (issue labels,
+# workflow token, the ruleset on the branch the apply trusts) are github/: run
+# ./github/settings.sh apply afterwards. This script is glue only: it reads IDs from
 # `az account show`, the repository from git, and a GitHub token from `gh auth token`, which it
 # hands to that one terraform process and never writes down.
 #
@@ -240,9 +241,16 @@ unset GITHUB_TOKEN
 say "Answers"
 publish_answers
 
+# The apply environment trusts main, so warn loudly while main has no ruleset (github/ sets it).
+if [ "$(gh api "repos/$owner/$repo/rulesets" --jq '[.[] | select(.target == "branch")] | length' 2>/dev/null || echo 0)" = 0 ]; then
+  echo "WARNING: $owner/$repo has no branch ruleset, so anyone who can push to main can change what an approved apply runs." >&2
+  echo "         Protect it now: ./github/settings.sh apply (github/README.md)." >&2
+fi
+
 cat <<MSG
 
 Done. Next:
+  - Protect main, which the apply environment trusts: ./github/settings.sh apply
   - If you applied 01-platform from Cloud Shell already: $0 --adopt
   - Then in GitHub: Actions > deploy > Run workflow. Pick $env_name and a stage; tick "apply" to
     apply after the plan. The apply waits for an approver's OK in the $env_name-apply environment.
