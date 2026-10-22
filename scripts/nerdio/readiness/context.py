@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from typing import Callable, Dict, List, Optional
@@ -15,8 +16,10 @@ from typing import Callable, Dict, List, Optional
 from . import cloud as cloudmod
 
 # az subcommands whose last word is one of these only read.
-READ_VERBS = {"show", "list"}
+READ_VERBS = {"show", "list", "exists", "check-name"}
 READ_PREFIXES = ("list-",)
+# The evaluate-only POSTs a default check may make: name availability (nothing is reserved).
+EVALUATE_ONLY = re.compile(r"/checkNameAvailability\?", re.I)
 
 
 class WriteRefused(Exception):
@@ -34,12 +37,18 @@ def is_read_only(args: List[str]) -> bool:
         return False
     if words[0] == "rest":
         lowered = [a.lower() for a in args]
-        if "--body" in lowered or "-b" in lowered:
-            return False
         try:
             method = lowered[lowered.index("--method") + 1]
         except (ValueError, IndexError):
             method = "get"  # az rest defaults to GET
+        try:
+            url = args[lowered.index("--url") + 1]
+        except (ValueError, IndexError):
+            url = ""
+        if method == "post" and EVALUATE_ONLY.search(url):
+            return True
+        if "--body" in lowered or "-b" in lowered:
+            return False
         return method == "get"
     if words == ["cloud", "show"]:
         return True
@@ -133,15 +142,29 @@ class Ctx:
             self.rights |= roles
         return roles
 
-    def roles_at(self, scope: str) -> Optional[List[str]]:
-        """Role names the signed-in user holds at a scope, inherited and through groups included."""
+    def assignments_at(self, scope: str) -> Optional[List[Dict]]:
+        """The signed-in user's role assignments at a scope (inherited and through groups included),
+        each as {"role": name, "condition": text or None}."""
         def read():
             me = self.me_id()
             if not me:
                 return None
-            return self.az(["role", "assignment", "list", "--assignee", me, "--scope", scope,
-                            "--include-inherited", "--include-groups", "--query", "[].roleDefinitionName"])
+            rows = self.az(["role", "assignment", "list", "--assignee", me, "--scope", scope,
+                            "--include-inherited", "--include-groups", "--query",
+                            "[].{role:roleDefinitionName, condition:condition}"])
+            if rows is None:
+                return None
+            return [r if isinstance(r, dict) else {"role": r, "condition": None} for r in rows]
         return self.cached(("roles", scope.lower()), read)
+
+    def roles_at(self, scope: str) -> Optional[List[str]]:
+        """Role names the signed-in user holds at a scope."""
+        rows = self.assignments_at(scope)
+        return None if rows is None else [r.get("role") for r in rows]
+
+    def post_check(self, url: str, body: Dict):
+        """An evaluate-only POST (name availability); the guard refuses any other POST."""
+        return self.az(["rest", "--method", "post", "--url", url, "--body", json.dumps(body)])
 
     # --- Output ------------------------------------------------------------------------------
 

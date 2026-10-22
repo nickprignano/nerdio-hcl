@@ -3,7 +3,7 @@ title: "Nerdio Manager platform"
 summary: "What the Marketplace deployment creates, the install step, setup wizard, roles and hardening"
 topic: nerdio
 status: partial
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-19
 ---
 
 # Nerdio Manager platform
@@ -15,12 +15,23 @@ How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and 
 - App Service plan and web app (B3 by default, roughly $219/month list price at the time of writing)
 - Azure SQL server and database (S1 by default, roughly $29/month)
 - Key Vault, Automation account, Application Insights
-- Per Nerdio's reference architecture, also storage accounts and a Log Analytics workspace
+- Per Nerdio's reference architecture, also storage accounts and a Log Analytics workspace,
+  including the DPS storage account (Nerdio 5.5 and later)
+- Each Insights app adds an App Service plan: one more B3 each for Intune Insights and Real-Time
+  Insights (a P2v3 for Intune Insights above 20,000 devices) and a P0v3 for Cost Attribution, per
+  Nerdio's [preparation steps](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps).
+  `sub.app_service` counts them when `--features insights` is on.
+- Resource providers Nerdio lists include **Microsoft.RecoveryServices** (backups), as well as the
+  usual compute, network, storage, web, SQL, Key Vault, Automation and monitoring namespaces.
 - SQL must be a dedicated, new PaaS instance with collation `Latin1_General_CP1_CI_AS`.
 
 ## Marketplace deployment
 
-- Deploy into an **empty resource group**.
+- Deploy into an **empty resource group** (`sub.empty_rg` checks it).
+- The installer looks up its own client IP with ipinfo.io (per Nerdio's readiness script), so an
+  egress filter that blocks it breaks a local install. Cloud Shell isn't affected.
+- On a public install the SQL server gets the `AllowAllWindowsAzureIps` firewall rule, a known
+  point where Azure Policy denies the deployment (per that script's README).
 - Use the **Nerdio Manager for Enterprise** offer (`nerdio.nerdio_wvd_manager`), not the
   "Billing Subscription" SaaS listing (`nerdio.nmw-billing`).
 - Nerdio's own template is public at `Get-Nerdio/NMW` `templates/mainTemplate.json` (updated
@@ -89,6 +100,10 @@ registration/first-run state. Those two keep the wizard from being fully automat
 
 ## Hardening (private endpoints)
 
+- The private DNS zones Nerdio's private endpoints use: blob, file, database, vaultcore,
+  azurewebsites and `privatelink.azure-automation.net`.
+- The App Service integration subnet must be **delegated to `Microsoft.Web/serverFarms`**
+  (`net.subnets` checks an existing VNet's).
 - Nerdio ships an **Enable Private Endpoints** runbook with parameters `StorageAccountResource`,
   `MakeAppServicePrivate` and `PeerVnetId`.
 - Making the scripted-actions storage account private breaks Azure runbook scripted actions;
@@ -101,9 +116,10 @@ registration/first-run state. Those two keep the wizard from being fully automat
 
 ## Networking note
 
-- *Unverified, check Microsoft's current position before relying on it:* new Azure subnets no
-  longer get default outbound internet access, so session host subnets need a NAT gateway or a
-  route through a firewall.
+- VNets created after 31 March 2026 get no default outbound internet access, so session host
+  subnets need a NAT gateway, a route through a firewall or a load balancer
+  ([Microsoft](https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access));
+  `net.outbound` checks it.
 - RDP Shortpath and screen capture protection can be turned on with Nerdio's Windows scripted
   actions in Get-Nerdio/NMW (`scripted-actions/windows-scripts`); see [../security/README.md](../security/README.md).
 

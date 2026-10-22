@@ -171,6 +171,36 @@ api_asks:
     Policy as code today has to go straight to Graph, which skips Nerdio's approvals. An API (and turning the
     integration on without the console) would let Terraform drive Nerdio-managed Intune with its guardrails intact.
   status: candidate
+- id: readiness-script-license
+  title: A license on Get-Nerdio/NME-SE (the readiness script)
+  evidence: The repository publishes Test-NmeDeploymentReadiness.ps1 with no license file
+  why: Community tools can't reuse or package its checks; the kit can only cite facts from it.
+  status: candidate
+- id: readiness-script-read-only-mode
+  title: A read-only mode for the readiness script
+  evidence: The script creates throwaway copies of the installer's resources, so it needs Owner
+  why: In strict tenants running it is itself a change needing approval; a validate-only mode would run under Reader plus deployments/validate.
+  status: candidate
+- id: version-endpoint
+  title: A documented read of Nerdio Manager's version
+  evidence: Neither the health page payload nor the REST API docs expose the version
+  why: Readiness checks can't confirm a feature's minimum version (8.0 for the current Copilot), so they report manual.
+  status: candidate
+- id: feature-state-reads
+  title: Read APIs or settings for feature state (Copilot, MCP, Azure runbooks, REST API)
+  evidence: These are toggled only in Settings in the console
+  why: Post-wizard checks can't tell whether a feature is on.
+  status: candidate
+- id: primary-app-graph-permissions
+  title: Publish the primary app's Graph permission list
+  evidence: Nerdio's permissions article references the list but doesn't include it
+  why: Reviewers in strict tenants need the exact list before consent; readiness checks can't compare against it.
+  status: candidate
+- id: readiness-output-schema
+  title: A published schema for NmeReadinessOutput.json
+  evidence: The readiness script writes JSON with no documented format
+  why: The kit could import its results into one report instead of asking people to compare two.
+  status: candidate
 docs_packaging:
 - id: registry-publishing-plus-a-license
   title: Registry publishing plus a LICENSE

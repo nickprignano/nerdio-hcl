@@ -45,6 +45,14 @@ REPO = Path(__file__).resolve().parents[2]
 def fake_az(overrides=None):
     """az answers for a subscription that's ready for the kit; overrides change one answer."""
     data = {
+        # Specific URL fragments first: the fake answers the first fragment a URL contains.
+        ("rest", "checkNameAvailability"): {"nameAvailable": True},
+        ("rest", "checknameavailability"): {"nameAvailable": True},
+        ("rest", "api-version=2022-12-01"): {"subscriptionPolicies": {"quotaId": "PayAsYouGo_2014-09-01",
+                                                                       "spendingLimit": "Off"}},
+        ("rest", "roleEligibilityScheduleInstances"): {"value": []},
+        ("rest", "/me?$select=userType"): {"userType": "Member"},
+        ("rest", "/applications"): {"value": []},
         ("cloud", "show"): COMMERCIAL_CLOUD,
         ("account", "show"): {"id": ZERO, "name": "sandbox", "user": {"type": "user", "name": "admin@contoso.onmicrosoft.com"}},
         ("ad", "signed-in-user"): "66666666-7777-8888-9999-000000000000",
@@ -66,6 +74,19 @@ def fake_az(overrides=None):
                                "capabilities": [{"name": "vCPUs", "value": "8"}]}],
         ("vm", "list-usage"): [{"name": {"value": "standardDSv5Family"}, "limit": 100, "currentValue": 0},
                                {"name": {"value": "cores"}, "limit": 100, "currentValue": 10}],
+        ("keyvault", "list-deleted"): [],
+        ("keyvault", "check-name"): {"nameAvailable": True},
+        ("storage", "account", "check-name"): {"nameAvailable": True},
+        ("resource", "list"): [],
+        ("lock", "list"): [],
+        ("group", "exists"): False,
+        ("provider", "show"): "Registered",
+        ("cognitiveservices", "model", "list"): ["GlobalStandard", "Standard"],
+        ("cognitiveservices", "usage", "list"): [{"name": {"value": "OpenAI.GlobalStandard.gpt-4o"}, "limit": 50,
+                                                  "currentValue": 0}],
+        ("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/24", "natGateway": {"id": "/x/nat"},
+                                         "delegations": [{"serviceName": "Microsoft.Web/serverFarms"}]},
+        ("network", "route-table"): [],
     }
     data.update(overrides or {})
 
@@ -208,10 +229,11 @@ class PreflightShimTests(unittest.TestCase):
         results = by_title({("rest", "Microsoft.Sql"): {"status": "Disabled", "reason": "RegionDoesNotAllowProvisioning"}})
         self.assertEqual(results["Azure SQL region"].status, "fail")
 
-    def test_marketplace_install_skips_the_kits_app_service_and_sql(self):
+    def test_marketplace_install_still_needs_app_service_and_sql(self):
         results = by_title(nerdio_install="marketplace")
-        self.assertNotIn("App Service quota", results)
-        self.assertNotIn("Azure SQL region", results)
+        self.assertEqual(results["App Service quota"].status, "pass")
+        self.assertEqual(results["Azure SQL region"].status, "pass")
+        self.assertNotIn("Resource names", results)
 
     def test_ephemeral_cloud_shell_fails(self):
         _, results, _ = run_all(env={"AZUREPS_HOST_ENVIRONMENT": "cloud-shell/1.0", "HOME": "/home/x"},
@@ -230,6 +252,175 @@ class PreflightShimTests(unittest.TestCase):
         self.assertIsInstance(out, list)
         self.assertEqual(set(out[0]), {"status", "check", "detail", "fix", "kb"})
         self.assertTrue({r["status"] for r in out} <= {"pass", "warn", "fail", "manual"})
+
+
+def ids(overrides=None, vals=None, **kw):
+    """Every result by check ID: {id: [results]}."""
+    out = {}
+    for r in run_all(overrides, vals=vals, **kw)[1]:
+        out.setdefault(r.id, []).append(r)
+    return out
+
+
+def statuses(found, cid):
+    return [r.status for r in found[cid]]
+
+
+class PreInstallAdditionTests(unittest.TestCase):
+    def test_hub_with_ipv6_prefixes_doesnt_crash(self):
+        found = ids({("network", "vnet", "show"): {"prefixes": ["10.0.0.0/16", "fd00::/48"]}},
+                    vals=values(hub_vnet_id="/subscriptions/x/hub"))
+        self.assertNotIn("stopped unexpectedly", " ".join(r.detail for r in found["net.hub"]))
+
+    """Phase 1c: the gaps found against Nerdio's preparation steps, and the new pre-install checks."""
+
+    def test_everything_new_passes_on_a_ready_subscription(self):
+        found = ids(vals=values(nerdio_install="terraform"))
+        for cid in ("sub.type", "sub.locks", "sub.names", "id.pim_eligible", "id.tenant_match", "id.leftover_app",
+                    "net.outbound"):
+            self.assertTrue(set(statuses(found, cid)) <= {"pass", "manual"}, (cid, found[cid]))
+
+    def test_recovery_services_is_now_required(self):
+        rows = [{"ns": ns, "state": "Registered"} for ns in preflight.PROVIDERS if ns != "Microsoft.RecoveryServices"]
+        found = ids({("provider", "list"): rows})
+        self.assertEqual(statuses(found, "sub.providers"), ["fail"])
+        self.assertIn("Microsoft.RecoveryServices", found["sub.providers"][0].detail)
+
+    def test_feature_providers_and_host_pool_subscriptions(self):
+        found = ids(vals=values(host_pool_subscriptions=["11111111-0000-0000-0000-000000000000"]), features=["ai"])
+        self.assertEqual(len(found["sub.providers"]), 2)
+        self.assertEqual(statuses(found, "sub.providers"), ["fail", "fail"])  # CognitiveServices isn't in the fixture
+        self.assertIn("--subscription", found["sub.providers"][1].fix)
+
+    def test_conditioned_owner_warns(self):
+        found = ids({("role", "assignment"): [{"role": "Owner", "condition": "((!(ActionMatches{...})))"}]})
+        self.assertEqual(statuses(found, "id.sub_owner"), ["warn"])
+        found = ids({("role", "assignment"): [{"role": "Contributor", "condition": None},
+                                              {"role": "Role Based Access Control Administrator", "condition": "x"}]})
+        self.assertEqual(statuses(found, "id.sub_owner"), ["warn"])
+
+    def test_eligible_but_inactive_owner_warns(self):
+        found = ids({("role", "assignment"): ["Contributor"], ("rest", "roleEligibilityScheduleInstances"): {"value": [
+            {"properties": {"expandedProperties": {"roleDefinition": {"displayName": "Owner"}}}}]}})
+        self.assertEqual(statuses(found, "id.pim_eligible"), ["warn"])
+        self.assertIn("./nerdio fix roles", found["id.pim_eligible"][0].fix)
+
+    def test_unreadable_entra_eligibility_is_no_access_not_fail(self):
+        found = ids({("rest", "directoryRole"): {"value": []}, ("rest", "roleEligibilityScheduleInstances"): None})
+        self.assertIn("no-access", statuses(found, "id.pim_eligible"))
+        self.assertNotIn("fail", statuses(found, "id.pim_eligible"))
+
+    def test_guest_account_warns(self):
+        found = ids({("rest", "/me?$select=userType"): {"userType": "Guest"}})
+        self.assertEqual(statuses(found, "id.tenant_match"), ["warn"])
+
+    def test_leftover_nerdio_app_warns(self):
+        found = ids({("rest", "/applications"): {"value": [{"displayName": "nerdio-nmw-app",
+                                                             "createdDateTime": "2025-01-02T00:00:00Z"}]}})
+        self.assertEqual(statuses(found, "id.leftover_app"), ["warn"])
+        self.assertIn("2025-01-02", found["id.leftover_app"][0].detail)
+
+    def test_insights_needs_more_app_service_plans(self):
+        web = {"value": [{"name": {"value": "B3 VMs", "localizedValue": "B3"}, "limit": 2, "currentValue": 0},
+                         {"name": {"value": "P0v3 VMs", "localizedValue": "P0v3"}, "limit": 1, "currentValue": 0}]}
+        found = ids({("rest", "Microsoft.Web"): web}, features=["insights"])
+        quota = [r for r in found["sub.app_service"] if r.title == "App Service quota"]
+        b3 = next(r for r in quota if r.detail.startswith("B3"))
+        self.assertEqual(b3.status, "fail")
+        self.assertIn("3 needed", b3.detail)
+        self.assertIn("--limit 3", b3.fix)
+        self.assertEqual(next(r for r in quota if r.detail.startswith("P0v3")).status, "pass")
+
+    def test_free_trial_fails_for_marketplace_and_warns_for_the_kit(self):
+        trial = {("rest", "api-version=2022-12-01"): {"subscriptionPolicies": {"quotaId": "FreeTrial_2014-09-01"}}}
+        self.assertEqual(statuses(ids(trial, vals=values(nerdio_install="marketplace")), "sub.type"), ["fail"])
+        self.assertEqual(statuses(ids(trial), "sub.type"), ["warn"])
+
+    def test_marketplace_target_group_must_be_empty(self):
+        vals = values(nerdio_install="marketplace", resource_group="rg-nerdio")
+        found = ids({("group", "exists"): True, ("resource", "list"): ["Microsoft.Web/sites"]}, vals=vals)
+        self.assertEqual(statuses(found, "sub.empty_rg"), ["fail"])
+        self.assertNotIn("rg-nerdio", found["sub.empty_rg"][0].detail)
+        self.assertEqual(statuses(ids(vals=vals), "sub.empty_rg"), ["pass"])
+
+    def test_read_only_lock_fails(self):
+        lock = {"level": "ReadOnly", "id": f"/subscriptions/{ZERO}/providers/Microsoft.Authorization/locks/freeze"}
+        self.assertEqual(statuses(ids({("lock", "list"): [lock]}), "sub.locks"), ["fail"])
+        other = dict(lock, id=f"/subscriptions/{ZERO}/resourceGroups/other/providers/Microsoft.Authorization/locks/x")
+        self.assertEqual(statuses(ids({("lock", "list"): [other]}), "sub.locks"), ["warn"])
+
+    def test_kit_names_follow_the_nerdio_core_module(self):
+        from readiness.checks.subscription import kit_names
+        ctx = Ctx(values())
+        ctx.acct = {"id": ZERO}
+        names = kit_names(ctx)
+        self.assertTrue(names["key_vault"].startswith("nmw-app-kv-"))
+        self.assertEqual(len(names["key_vault"]), 24)  # Key Vault's limit; 13-character suffix
+        self.assertEqual(names["rg"], f"rg-{ctx.values['prefix']}-nerdio")
+
+    def test_taken_names_fail_and_our_own_existing_ones_pass(self):
+        found = ids({("rest", "checkNameAvailability"): {"nameAvailable": False}})
+        self.assertEqual(statuses(found, "sub.names"), ["fail"])
+        self.assertIn("SQL server", found["sub.names"][0].detail)
+        from readiness.checks.subscription import kit_names
+        ctx = Ctx(values())
+        ctx.acct = {"id": ZERO}
+        own = list(kit_names(ctx).values())
+        found = ids({("rest", "checkNameAvailability"): {"nameAvailable": False}, ("resource", "list"): own})
+        self.assertEqual(statuses(found, "sub.names"), ["pass"])
+
+    def test_soft_deleted_vault_warns(self):
+        from readiness.checks.subscription import kit_names
+        ctx = Ctx(values())
+        ctx.acct = {"id": ZERO}
+        found = ids({("keyvault", "list-deleted"): [kit_names(ctx)["key_vault"]]})
+        self.assertIn("warn", statuses(found, "sub.names"))
+
+    def standalone_vals(self, **extra):
+        return dict({"location": "eastus2", "vnet_id": "/subscriptions/x/resourceGroups/rg-net/providers/"
+                     "Microsoft.Network/virtualNetworks/vnet-hub", "hosts_subnet": "snet-hosts",
+                     "pe_subnet": "snet-pe", "app_subnet": "snet-app"}, **extra)
+
+    def test_existing_subnets_need_the_app_service_delegation(self):
+        found = ids({("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/24", "delegations": []}},
+                    vals=self.standalone_vals(), mode="standalone")
+        app = found["net.subnets"][-1]
+        self.assertEqual(app.status, "fail")
+        self.assertIn("--delegations Microsoft.Web/serverFarms", app.fix)
+        found = ids(vals=self.standalone_vals(), mode="standalone")
+        self.assertEqual(statuses(found, "net.subnets"), ["pass", "pass", "pass"])
+
+    def test_small_subnet_fails(self):
+        found = ids({("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/29"}}, vals=self.standalone_vals(),
+                    mode="standalone")
+        self.assertEqual(statuses(found, "net.subnets"), ["fail", "fail", "fail"])
+
+    def test_outbound(self):
+        no_way_out = {("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/24", "defaultOutboundAccess": False}}
+        self.assertEqual(statuses(ids(no_way_out, vals=self.standalone_vals(), mode="standalone"), "net.outbound"), ["fail"])
+        legacy = {("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/24"}}
+        self.assertEqual(statuses(ids(legacy, vals=self.standalone_vals(), mode="standalone"), "net.outbound"), ["warn"])
+        routed = {("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/24", "routeTable": {"id": "/x/rt"}},
+                  ("network", "route-table"): [{"prefix": "0.0.0.0/0", "hop": "VirtualAppliance"}]}
+        self.assertEqual(statuses(ids(routed, vals=self.standalone_vals(), mode="standalone"), "net.outbound"), ["pass"])
+        self.assertEqual(statuses(ids(vals=values(create_nat_gateway=False, hub_vnet_id="")), "net.outbound"), ["warn"])
+
+    def test_automation_zone_is_looked_for(self):
+        found = ids({("network", "private-dns"): [{"name": "privatelink.azure-automation.net", "rg": "rg-hub-dns"}]})
+        self.assertEqual(statuses(found, "net.private_dns"), ["warn"])
+
+    def test_ai_checks_run_only_with_the_feature_and_a_model(self):
+        self.assertNotIn("ai.models", ids())
+        found = ids(vals=values(ai_model="gpt-4o"), features=["ai"])
+        self.assertEqual(statuses(found, "ai.models"), ["pass"])
+        self.assertEqual(statuses(found, "ai.quota"), ["pass"])
+        self.assertEqual(statuses(found, "ai.provider"), ["pass"])
+        none = ids({("cognitiveservices", "usage", "list"): [{"name": {"value": "OpenAI.GlobalStandard.gpt-4o"},
+                                                              "limit": 0, "currentValue": 0}],
+                    ("cognitiveservices", "model", "list"): ["Standard"]}, vals=values(ai_model="gpt-4o"), features=["ai"])
+        self.assertEqual(statuses(none, "ai.models"), ["fail"])
+        self.assertEqual(statuses(none, "ai.quota"), ["fail"])
+        self.assertEqual(statuses(ids(features=["ai"]), "ai.models"), ["skipped"])
 
 
 class RegistryContractTests(unittest.TestCase):
@@ -251,6 +442,8 @@ class RegistryContractTests(unittest.TestCase):
         for args in (["account", "show"], ["vm", "list-skus", "-l", "x"], ["rest", "--method", "get", "--url", "u"],
                      ["rest", "--url", "u"], ["keyvault", "list-deleted"], ["cloud", "show"]):
             self.assertTrue(is_read_only(args), args)
+        self.assertTrue(is_read_only(["rest", "--method", "post", "--url",
+                                      "https://x/providers/Microsoft.Sql/checkNameAvailability?api-version=1", "--body", "{}"]))
         for args in (["provider", "register", "-n", "x"], ["rest", "--method", "post", "--url", "u"],
                      ["rest", "--url", "u", "--body", "{}"], ["group", "create", "-n", "x"], ["cloud", "set"], []):
             self.assertFalse(is_read_only(args), args)
@@ -405,7 +598,7 @@ class CloudTests(unittest.TestCase):
         self.assertIn("privatelink.azurewebsites.us", gov.private_dns_zones())
         self.assertEqual(cloud.COMMERCIAL.private_dns_zones(), [
             "privatelink.blob.core.windows.net", "privatelink.file.core.windows.net", "privatelink.database.windows.net",
-            "privatelink.vaultcore.azure.net", "privatelink.azurewebsites.net"])
+            "privatelink.vaultcore.azure.net", "privatelink.azurewebsites.net", "privatelink.azure-automation.net"])
 
     def test_checks_call_the_active_clouds_endpoints(self):
         ctx, results, _ = run_all({("cloud", "show"): GOV_CLOUD})
@@ -437,7 +630,8 @@ class SchemaTagTests(unittest.TestCase):
         self.assertTrue(any("readiness" in e for e in engine.check_schema(bad)))
 
     def test_every_input_a_pre_install_check_reads_is_tagged(self):
-        tagged = set(engine.readiness_ids(engine.load_schema(), "pre-install"))
+        from readiness import standalone
+        tagged = set(engine.readiness_ids(engine.load_schema(), "pre-install")) | standalone.EXTRA_INPUTS
         for c in runner.select("pre-install", features=runner.FEATURES):
             self.assertTrue(set(c.inputs) <= tagged, (c.id, set(c.inputs) - tagged))
 

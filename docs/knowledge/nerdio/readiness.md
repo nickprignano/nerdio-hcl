@@ -108,10 +108,47 @@ hard-coded), the sign-in and Cloud Shell's persistent storage.
 The `id.*` checks: subscription Owner, the Entra roles for admin consent, app registration and,
 for AD DS or Entra Domain Services, domain reachability (always `manual`).
 
+- An Owner or role-assigning assignment that carries a **condition** (the portal's default "all
+  roles except privileged ones") is a `warn`, not a pass: it can block the role assignments
+  Nerdio's install and the kit make.
+- Roles that are **eligible in PIM but not active** are a `warn` with `./nerdio fix roles`. The
+  az CLI's Graph token usually can't read Entra PIM eligibility, so that half often comes back
+  `no-access`; `./nerdio fix roles` reads it with its own sign-in.
+- A **guest** (B2B) account, or one signed in outside its home tenant, is a `warn`.
+- A `nerdio-nmw-app` registration left by an earlier install is a `warn`: reuse or delete it.
+
+## Subscription
+
+The `sub.*` checks: resource providers (Nerdio's list, including Microsoft.RecoveryServices, plus
+what selected features need, in the target subscription and every `--host-pool-subscriptions`
+one), the region, App Service plans and quota (one B3 for Nerdio, plus the Insights plans with
+`--features insights`), Azure SQL, enforced policy assignments, the offer type (free and
+credit-based offers usually can't deploy third-party Marketplace offers; *unverified list*),
+resource locks, an empty target group for the Marketplace path (`--resource-group`) and, for the
+kit's Terraform install, whether the Key Vault, storage, SQL server and web app names it plans are
+free. Names are global, so that check asks Azure's name-availability APIs, the only POSTs a
+default check may make: they evaluate and reserve nothing.
+
 ## Network
 
 The `net.*` checks: the AVD range against existing networks, the hub network and peering rights,
-and existing `privatelink` zones you may want to link instead of creating new ones.
+and existing `privatelink` zones (including `privatelink.azure-automation.net`) you may want to
+link instead of creating new ones.
+
+Installing into an existing network (standalone `--vnet-id` with `--hosts-subnet`,
+`--pe-subnet` and `--app-subnet`), `net.subnets` checks each subnet exists and is /28 or bigger,
+and that the App Service integration subnet is delegated to `Microsoft.Web/serverFarms`; the fix
+command is printed, never run. `net.outbound` checks the session host subnet has a way out: a
+NAT gateway or a 0.0.0.0/0 route to a firewall. Without either, a subnet with default outbound
+access turned off is a `fail`, and one still relying on it is a `warn` (VNets created after
+31 March 2026 don't get it).
+
+## AI
+
+With `--features ai` and `--ai-model <name>` (the model Nerdio's Copilot docs name), the `ai.*`
+checks look for the Cognitive Services provider, the model offered as Global or Data Zone
+Standard in the region, and free quota for it. Quota requests have no API, so a shortfall links
+Microsoft's form.
 
 ## AVD
 
@@ -145,24 +182,36 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 <!-- BEGIN GENERATED: readiness-catalogue (./nerdio preflight --list --write) -->
 | ID | Stage | Check | Feature | Right needed | Reads with |
 |---|---|---|---|---|---|
+| `ai.models` | P | [Copilot model](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) | ai | Reader on the subscription | az cognitiveservices model list |
+| `ai.provider` | P | [Cognitive Services provider](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource) | ai | Reader on the subscription | az provider show |
+| `ai.quota` | P | [Copilot quota](https://learn.microsoft.com/azure/ai-services/openai/quotas-limits) | ai | Reader on the subscription | az cognitiveservices usage list |
 | `avd.licenses` | P | [AVD user licenses](https://learn.microsoft.com/azure/virtual-desktop/prerequisites) | core | none | - |
 | `avd.vcpu` | P | [vCPU quota](https://learn.microsoft.com/azure/quotas/per-vm-quota-requests) | core, automation | Reader on the subscription | az vm list-skus, az vm list-usage |
 | `avd.vm_size` | P | [VM size](https://learn.microsoft.com/azure/azure-resource-manager/troubleshooting/error-sku-not-available) | core | Reader on the subscription | az vm list-skus |
 | `id.app_registration` | P | [App registration](https://learn.microsoft.com/graph/api/resources/authorizationpolicy) | core | your own default directory read rights | Graph /me/transitiveMemberOf, Graph /policies/authorizationPolicy |
 | `id.domain_join_account` | P | [Domain reachability](https://learn.microsoft.com/azure/virtual-desktop/prerequisites) | core | nothing in Azure; a person confirms it | - |
 | `id.entra_roles` | P | [Entra admin role](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | your own default directory read rights | Graph /me/transitiveMemberOf |
+| `id.leftover_app` | P | [Earlier Nerdio app](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | your own default directory read rights | Graph /applications |
+| `id.pim_eligible` | P | [PIM roles](https://learn.microsoft.com/rest/api/authorization/role-eligibility-schedule-instances/list-for-scope) | core | your own PIM eligibility (read) | ARM roleEligibilityScheduleInstances asTarget(), Graph roleEligibilityScheduleInstances |
 | `id.sub_owner` | P | [Subscription Owner](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az ad signed-in-user show, az role assignment list |
+| `id.tenant_match` | P, I, W | [Home tenant](https://learn.microsoft.com/entra/external-id/user-properties) | core | your own default directory read rights | az account show, Graph /me |
 | `net.hub` | P | [Hub network](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview) | core | Reader on the hub VNet | az network vnet show, az role assignment list |
+| `net.outbound` | P, W | [Outbound access](https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access) | core | Reader on the VNet | az network vnet subnet show, az network route-table show |
 | `net.overlap` | P | [Address range](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview) | core | Reader on the subscription | az network vnet list, az group list |
 | `net.private_dns` | P | [Private DNS](https://learn.microsoft.com/azure/private-link/private-endpoint-dns) | core | Reader on the private DNS zones' subscription | az network private-dns zone list |
+| `net.subnets` | P | [Existing subnets](https://learn.microsoft.com/azure/app-service/overview-vnet-integration#subnet-requirements) (standalone only) | core | Reader on the VNet | az network vnet subnet show |
 | `op.cloud` | P, I, W | [Azure cloud](https://learn.microsoft.com/cli/azure/manage-clouds-azure-cli) | core | none | az cloud show |
 | `op.cloudshell_storage` | P | [Cloud Shell storage](https://learn.microsoft.com/azure/cloud-shell/persisting-shell-storage) (kit only) | core | none | environment, ~/clouddrive |
 | `op.signin` | P, I, W | [Azure sign-in](https://learn.microsoft.com/cli/azure/authenticate-azure-cli) | core | none | az account show |
 | `op.tools` | P | [Tools](https://learn.microsoft.com/azure/cloud-shell/features) | core | none | PATH |
-| `sub.app_service` | P | [App Service quota](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az appservice list-locations, ARM Microsoft.Web/locations/usages |
+| `sub.app_service` | P | [App Service quota](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core, insights | Reader on the subscription | az appservice list-locations, ARM Microsoft.Web/locations/usages |
+| `sub.empty_rg` | P | [Target resource group](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the resource group | az group exists, az resource list |
+| `sub.locks` | P | [Resource locks](https://learn.microsoft.com/azure/azure-resource-manager/management/lock-resources) | core | Reader on the subscription | az lock list |
+| `sub.names` | P | [Resource names](https://learn.microsoft.com/azure/azure-resource-manager/management/resource-name-rules) (kit only) | core | Reader on the subscription | az keyvault list-deleted, az keyvault check-name, az storage account check-name, ARM checkNameAvailability (Microsoft.Sql, Microsoft.Web) |
 | `sub.nerdio_license` | P | [Nerdio license](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | none | - |
 | `sub.policy_list` | P | [Azure Policy](https://learn.microsoft.com/azure/governance/policy/overview) | core | Reader on the subscription | az policy assignment list |
-| `sub.providers` | P | [Resource providers](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az provider list |
+| `sub.providers` | P, W | [Resource providers](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription and each host pool subscription | az provider list |
 | `sub.region` | P | [Region](https://learn.microsoft.com/cli/azure/account#az-account-list-locations) | core | Reader on the subscription | az account list-locations |
 | `sub.sql` | P | [Azure SQL region](https://learn.microsoft.com/rest/api/sql/capabilities/list-by-location) | core | Reader on the subscription | ARM Microsoft.Sql/locations/capabilities |
+| `sub.type` | P | [Subscription offer](https://learn.microsoft.com/marketplace/purchase-saas-offer-in-azure-portal) | core | Reader on the subscription | ARM GET /subscriptions/{id} |
 <!-- END GENERATED: readiness-catalogue -->
