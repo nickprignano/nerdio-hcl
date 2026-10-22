@@ -20,13 +20,12 @@ module "pipeline" {
   plan_graph_roles       = var.access.plan_graph_roles
 }
 
-# Repository settings the kit relies on: the kb-* labels, a read-only default workflow token,
-# Actions allowed to open pull requests, and a ruleset protecting the branch the apply trusts.
-module "github_repo" {
-  source = "../../../modules/github-repo"
+# Repository settings (labels, workflow token, the ruleset on the branch the apply trusts) moved to
+# github/, which has its own state and a daily drift check. Forget them here without touching GitHub.
+removed {
+  from = module.github_repo
 
-  repository                     = var.github.repository
-  branch                         = var.github.branch
-  protect_branch                 = var.github_settings.protect_branch
-  actions_can_open_pull_requests = var.github_settings.actions_can_open_pull_requests
+  lifecycle {
+    destroy = false
+  }
 }

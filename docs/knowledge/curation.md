@@ -133,9 +133,7 @@ regenerates and validates the KB, and opens a pull request that closes the issue
 incomplete or fails validation, the workflow comments on the issue instead.
 
 The label is the safety gate: issue text from anyone is only parsed as data, the PR still goes
-through review, and gitleaks and the KB checks run on it. Two repository settings matter. The
-[pipeline bootstrap](../pipeline.md#set-it-up-once-in-cloud-shell) sets both in Terraform
-(`modules/github-repo`); if you don't use the pipeline:
+through review, and gitleaks and the KB checks run on it. Two repository settings matter. [`github/`](../../github/README.md) sets both in Terraform; until you've applied it:
 
 - Run **Actions > kb-freshness** once so the `kb-*` labels exist (issue forms only apply labels
   that already exist).

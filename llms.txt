@@ -21,6 +21,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [Nerdio Terraform provider (`nerdio/nme`)](docs/knowledge/nerdio/terraform-provider.md): Nerdio's own nerdio/nme provider: auth, resources, coverage gaps, how to build it (status: verified)
 - [Upstream contribution candidates (`nerdio/nme`)](docs/knowledge/nerdio/upstream-contributions.md): Gaps, API asks and doc fixes we could raise with Nerdio, with evidence (status: partial)
 - [azurerm 5.x and azuread 3.x](docs/knowledge/terraform/azurerm-5.md): azurerm 5.x and azuread 3.x changes we hit, with fixes (status: partial)
+- [GitHub settings in Terraform](docs/knowledge/terraform/github-settings.md): Declaring a repository's own GitHub settings with integrations/github, imported on every run, with a read-only drift check (status: unverified)
 - [Terraform and Packer behind a restrictive proxy](docs/knowledge/terraform/restricted-networks.md): Running Terraform and Packer where the registry is blocked (status: verified)
 - [Testing and CI](docs/knowledge/terraform/testing-and-ci.md): terraform test, tflint, the CI workflow and planned post-deploy checks (status: verified)
 - [Windows 11 multi-session image with Packer](docs/knowledge/packer/avd-image.md): Building a Windows 11 multi-session image for Nerdio with Packer (status: partial)
@@ -66,6 +67,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0022. Follow the family's model-selection convention, as one of its pilot projects](docs/knowledge/decisions/0022-family-model-selection-convention.md): proposed
 - [0023. The AI hub owns the family's KB format, and this kit follows it as a member](docs/knowledge/decisions/0023-ai-brain-is-the-family-format-source.md): proposed
 - [0026. Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test](docs/knowledge/decisions/0026-read-only-readiness-engine.md): accepted
+- [0027. The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner](docs/knowledge/decisions/0027-github-settings-in-terraform.md): proposed
 
 ## Related knowledge bases
 

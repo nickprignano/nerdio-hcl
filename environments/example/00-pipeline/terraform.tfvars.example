@@ -11,11 +11,8 @@ github = {
   reviewers  = ["contoso-admin"]
 }
 
-# Optional. Both default to true; put overrides in terraform.tfvars next to this file.
-# github_settings = {
-#   protect_branch                 = true # ruleset: the branch only changes through pull requests
-#   actions_can_open_pull_requests = true # kb-feedback opens its own pull request
-# }
+# Repository settings (labels, workflow token, the ruleset on main) live in github/ now:
+# run ./github/settings.sh apply after this bootstrap (github/README.md).
 
 # Optional, for tenants with strict access rules: narrow what the pipeline's identities may do.
 # Leave a field out to keep the kit's default. See docs/access.md before changing these.

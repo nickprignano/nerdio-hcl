@@ -34,6 +34,7 @@ belongs to instead of starting a new file.
 | [nerdio/terraform-provider.md](nerdio/terraform-provider.md) | Nerdio's own nerdio/nme provider: auth, resources, coverage gaps, how to build it | verified |
 | [nerdio/upstream-contributions.md](nerdio/upstream-contributions.md) | Gaps, API asks and doc fixes we could raise with Nerdio, with evidence | partial |
 | [terraform/azurerm-5.md](terraform/azurerm-5.md) | azurerm 5.x and azuread 3.x changes we hit, with fixes | partial |
+| [terraform/github-settings.md](terraform/github-settings.md) | Declaring a repository's own GitHub settings with integrations/github, imported on every run, with a read-only drift check | unverified |
 | [terraform/restricted-networks.md](terraform/restricted-networks.md) | Running Terraform and Packer where the registry is blocked | verified |
 | [terraform/testing-and-ci.md](terraform/testing-and-ci.md) | terraform test, tflint, the CI workflow and planned post-deploy checks | verified |
 | [packer/avd-image.md](packer/avd-image.md) | Building a Windows 11 multi-session image for Nerdio with Packer | partial |

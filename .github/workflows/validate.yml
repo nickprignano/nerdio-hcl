@@ -52,7 +52,7 @@ jobs:
           terraform validate -no-color 2>&1 | tee validate.log || { grep -v '^$' validate.log | tail -n 8 | sed 's/^/::error::/'; exit 1; }
       - name: module tests
         run: |
-          for dir in modules/assistant modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao modules/deploy-pipeline modules/github-repo environments/example/01-platform; do
+          for dir in modules/assistant modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao modules/deploy-pipeline modules/github-settings github environments/example/01-platform; do
             echo "::group::$dir"
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" test
@@ -68,7 +68,7 @@ jobs:
           tflint --init
           tflint --recursive --minimum-failure-severity=error
       - name: shellcheck pipeline scripts
-        run: shellcheck scripts/pipeline/*.sh
+        run: shellcheck scripts/pipeline/*.sh github/settings.sh
 
   setup:
     runs-on: ubuntu-latest
