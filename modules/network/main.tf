@@ -5,7 +5,7 @@ locals {
     file  = "privatelink.file.core.usgovcloudapi.net"
     blob  = "privatelink.blob.core.usgovcloudapi.net"
     web   = "privatelink.azurewebsites.us"
-  } : {
+    } : {
     sql   = "privatelink.database.windows.net"
     vault = "privatelink.vaultcore.azure.net"
     file  = "privatelink.file.core.windows.net"

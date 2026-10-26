@@ -114,30 +114,6 @@
       "form": true
     },
     {
-      "id": "cloud",
-      "phase": "discover",
-      "type": "enum",
-      "question": "Which Azure cloud environment are you deploying into?",
-      "help": "Azure Commercial (public) or Azure US Government (usgovernment). Sets provider environment endpoints, Private DNS zones, and Nerdio Manager cloud settings.",
-      "choices": [
-        {
-          "value": "public",
-          "label": "Azure Commercial (AzureCloud)"
-        },
-        {
-          "value": "usgovernment",
-          "label": "Azure US Government (AzureUSGovernment)"
-        }
-      ],
-      "default": "public",
-      "tfvars": [
-        {
-          "stage": "platform",
-          "path": "cloud"
-        }
-      ]
-    },
-    {
       "id": "identity_model",
       "phase": "discover",
       "readiness": ["pre-install"],
@@ -205,6 +181,30 @@
       "form": true,
       "sources": [
         "https://learn.microsoft.com/windows-server/remote/remote-desktop-services/virtual-machine-recs"
+      ]
+    },
+    {
+      "id": "cloud",
+      "phase": "discover",
+      "type": "enum",
+      "question": "Which Azure cloud environment are you deploying into?",
+      "help": "Azure Commercial (public) or Azure US Government (usgovernment). Sets provider environment endpoints, Private DNS zones, and Nerdio Manager cloud settings.",
+      "choices": [
+        {
+          "value": "public",
+          "label": "Azure Commercial (AzureCloud)"
+        },
+        {
+          "value": "usgovernment",
+          "label": "Azure US Government (AzureUSGovernment)"
+        }
+      ],
+      "default": "public",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "cloud"
+        }
       ]
     },
     {

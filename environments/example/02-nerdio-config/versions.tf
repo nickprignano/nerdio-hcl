@@ -72,9 +72,9 @@ provider "restapi" {
   write_returns_object = true
 
   oauth_client_credentials {
-    oauth_client_id     = var.nme_client_id
-    oauth_client_secret = coalesce(local.nme_client_secret, "unused-when-no-rest-gaps")
+    oauth_client_id      = var.nme_client_id
+    oauth_client_secret  = coalesce(local.nme_client_secret, "unused-when-no-rest-gaps")
     oauth_token_endpoint = "https://login.microsoftonline.com/${var.nme_tenant_id}/oauth2/v2.0/token"
-    oauth_scopes        = [var.nme_scope]
+    oauth_scopes         = [var.nme_scope]
   }
 }
