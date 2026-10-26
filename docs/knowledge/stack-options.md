@@ -267,7 +267,7 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 | Vault (Community) or OpenBao | Build | Removes the manual secret hand-off between stages. Workload identity federation for the Azure engine is Enterprise only. |
 | Packer | Already in the kit | Pin the gallery image version in Terraform. |
 | HCP Packer | Optional only | Paid, no free tier. |
-| Ansible | Dropped ([decision 0006](decisions/0006-no-ansible.md)) | Terraform owns desired state; Nerdio auto-scale, schedules and scripted actions own runtime work. |
+| Ansible | Targeted ([decision 0028](decisions/0028-targeted-ansible-for-images-and-hybrid.md), supersedes [0006](decisions/0006-no-ansible.md)) | Terraform and Nerdio Scripted Actions own the control plane and auto-scaled hosts; optional `ansible/` playbooks cover Packer golden image baking, AD DS `AzFilesHybrid` storage domain joins, and day-2 state for persistent static/personal hosts. |
 | azuread | Already in the kit | Covers apps, groups and Conditional Access; stores client secrets in state. |
 | msgraph (preview v0.6.0) | For Graph gaps azuread doesn't cover | Official but preview. |
 | microsoft365 community provider (v1.4.0) | Optional Intune module, later | Purpose-built resources, but effectively one maintainer. |

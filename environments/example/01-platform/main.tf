@@ -18,6 +18,7 @@ module "network" {
   hub_vnet_id         = var.network.hub_vnet_id
   use_remote_gateways = var.network.use_remote_gateways
   create_nat_gateway  = var.network.create_nat_gateway
+  cloud               = var.cloud
 }
 
 module "fslogix" {
@@ -30,6 +31,7 @@ module "fslogix" {
   tags                       = var.tags
   share_quota_gb             = var.fslogix.share_quota_gb
   identity_source            = var.fslogix.identity_source
+  active_directory           = var.fslogix.active_directory
   private_endpoint_subnet_id = module.network.subnet_ids["private_endpoints"]
   private_dns_zone_id        = module.network.private_dns_zone_ids["file"]
   user_group_object_ids      = var.fslogix.user_group_object_ids
@@ -61,6 +63,7 @@ module "nerdio_core" {
   package_version      = var.nerdio_core.package_version
   grant_admin_consent  = var.entra_app.grant_admin_consent
   deployer_object_id   = var.deployer_object_id
+  cloud                = var.cloud
 
   entra_app = {
     application_id              = module.nerdio_identity[0].application_id

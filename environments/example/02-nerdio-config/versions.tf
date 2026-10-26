@@ -19,6 +19,11 @@ terraform {
       source  = "hashicorp/vault"
       version = "~> 5.0"
     }
+    # Bridges Nerdio REST API endpoints not yet covered by nerdio/nme (modules/nerdio-rest-gaps).
+    restapi = {
+      source  = "Mastercard/restapi"
+      version = "~> 2.0"
+    }
   }
 
   # Use a separate state from 01-platform; see ../01-platform/backend.tf.example.
@@ -58,4 +63,18 @@ provider "nme" {
   client_id     = var.nme_client_id
   scope         = var.nme_scope
   client_secret = local.nme_client_secret
+}
+
+# Optional REST API gap filler (modules/nerdio-rest-gaps), authenticated with the same OAuth2
+# client credentials as the nerdio/nme provider.
+provider "restapi" {
+  uri                  = var.nme_base_url
+  write_returns_object = true
+
+  oauth_client_credentials {
+    oauth_client_id     = var.nme_client_id
+    oauth_client_secret = coalesce(local.nme_client_secret, "unused-when-no-rest-gaps")
+    oauth_token_endpoint = "https://login.microsoftonline.com/${var.nme_tenant_id}/oauth2/v2.0/token"
+    oauth_scopes        = [var.nme_scope]
+  }
 }

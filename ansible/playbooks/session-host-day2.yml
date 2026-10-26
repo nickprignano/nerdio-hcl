@@ -1,0 +1,33 @@
+---
+# Day-2 configuration playbook for persistent/static AVD session hosts (`nme_static_host_pool`)
+# discovered via `ansible/inventory/azure_rm.yml`.
+- name: Day-2 state enforcement for static and personal AVD session hosts
+  hosts: avd_session_hosts
+  gather_facts: true
+  vars:
+    ensure_services_running:
+      - RDAgentBootLoader
+      - TermService
+      - frxsvc
+    verify_fslogix_share_unc: ""
+
+  tasks:
+    - name: Ensure core AVD and FSLogix Windows services are running and automatic
+      ansible.windows.win_service:
+        name: "{{ item }}"
+        start_mode: auto
+        state: started
+      loop: "{{ ensure_services_running }}"
+
+    - name: Verify SMB TCP 445 connectivity to FSLogix storage share when specified
+      ansible.windows.win_powershell:
+        script: |
+          $unc = "{{ verify_fslogix_share_unc }}"
+          if ($unc -match '^\\\\([^\\]+)\\') {
+            $hostName = $Matches[1]
+            $test = Test-NetConnection -ComputerName $hostName -Port 445 -WarningAction SilentlyContinue
+            if (-not $test.TcpTestSucceeded) {
+              throw "Cannot reach FSLogix storage endpoint $hostName on TCP 445"
+            }
+          }
+      when: verify_fslogix_share_unc | length > 0

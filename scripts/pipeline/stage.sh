@@ -27,7 +27,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 action="${1:-}"
-case "$action" in plan | apply) ;; *) echo "usage: $0 plan|apply" >&2; exit 64 ;; esac
+case "$action" in plan | apply | unlock) ;; *) echo "usage: $0 plan|apply|unlock" >&2; exit 64 ;; esac
 case "${STAGE:-}" in
   platform) dir_name=01-platform ;;
   config) dir_name=02-nerdio-config ;;
@@ -35,7 +35,10 @@ case "${STAGE:-}" in
   verify) dir_name="" readiness_stage=post-wizard ;;
   *) echo "STAGE must be platform, config, preflight or verify" >&2; exit 64 ;;
 esac
-[ -z "${readiness_stage:-}" ] || [ "$action" = plan ] || { echo "$STAGE only checks; it never applies" >&2; exit 64; }
+[ -z "${readiness_stage:-}" ] || [ "$action" = plan ] || { echo "$STAGE only checks; it never applies or unlocks" >&2; exit 64; }
+if [ "${DESTROY:-false}" = true ] && [ -n "${readiness_stage:-}" ]; then
+  echo "$STAGE cannot be run with DESTROY=true" >&2; exit 64
+fi
 [[ "${NERDIO_ENV:-}" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "NERDIO_ENV is missing or malformed" >&2; exit 64; }
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT; do
   [ -n "${!v:-}" ] || { echo "$v isn't set: run scripts/pipeline-bootstrap.sh for the $NERDIO_ENV environment first" >&2; exit 2; }
@@ -50,6 +53,7 @@ mkdir -p "$work"
 run_dir="$NERDIO_ENV/${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
 result_blob="$run_dir/$STAGE.json"
 [ "$action" = apply ] && result_blob="$run_dir/$STAGE-apply.json"
+[ "$action" = unlock ] && result_blob="$run_dir/$STAGE-unlock.json"
 log=""  # the log the last step wrote; a failure reports its tail
 
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID NERDIO_PLAN_PRINCIPAL_ID NERDIO_APPLY_PRINCIPAL_ID; do
@@ -89,6 +93,21 @@ init_stage() { # $1 dir, $2 state name
 if [ "$STAGE" = config ]; then
   echo "== nerdio/nme provider"
   "$root/scripts/install-nme-provider.sh" 2>&1 | redact | tail -n 2
+fi
+
+if [ "$action" = unlock ]; then
+  [[ "${LOCK_ID:-}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] \
+    || fail "LOCK_ID must be a valid UUID to force-unlock state"
+  echo "::add-mask::$LOCK_ID"
+  echo "== $dir_name: terraform force-unlock"
+  init_stage "$stage_dir" "$STAGE"
+  log="$work/unlock.log"
+  terraform -chdir="$stage_dir" force-unlock -force "$LOCK_ID" > "$log" 2>&1 || { redact < "$log"; fail "terraform force-unlock failed"; }
+  redact < "$log"
+  { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Force-unlocked Terraform state."; } | summary
+  jq -n --arg stage "$STAGE" '{stage: $stage, action: "unlock", status: "unlocked"}' > "$work/unlocked.json"
+  blob upload plans "$result_blob" "$work/unlocked.json" --overwrite
+  exit 0
 fi
 
 if [ "$action" = plan ]; then
@@ -166,9 +185,11 @@ if [ "$action" = plan ]; then
   # Key Vault roles and app ownership in the plan are the apply identity's.
   export TF_VAR_deployer_object_id="${NERDIO_APPLY_PRINCIPAL_ID:?}"
   init_stage "$stage_dir" "$STAGE"
+  plan_flags=(-input=false -no-color -lock-timeout=5m -detailed-exitcode -out="$work/tfplan")
+  [ "${DESTROY:-false}" = true ] && plan_flags+=(-destroy)
   set +e
   log="$work/plan.log"
-  terraform -chdir="$stage_dir" plan -input=false -no-color -lock-timeout=5m -detailed-exitcode -out="$work/tfplan" > "$log" 2>&1
+  terraform -chdir="$stage_dir" plan "${plan_flags[@]}" > "$log" 2>&1
   code=$?
   set -e
   if [ "$code" = 1 ]; then

@@ -1,5 +1,6 @@
-# Connection details, the secret hand-off, subscription, network and FSLogix share come from
-# platform.auto.tfvars.json, written by 01-platform (see docs/deployment-runbook.md).
+# Connection details, the secret hand-off, subscription, network, FSLogix share and gallery
+# image definition IDs come from platform.auto.tfvars.json, written by 01-platform
+# (see docs/deployment-runbook.md).
 
 workspace = {
   name          = "ws-avd"
@@ -10,8 +11,36 @@ workspace = {
 
 host_pools = {
   "hp-general" = {
-    friendly_name = "General desktops"
-    vm_prefix     = "avdgen"
-    vm_size       = "Standard_D4s_v5"
+    friendly_name         = "General desktops"
+    host_pool_type        = "Pooled"
+    vm_prefix             = "avdgen"
+    vm_size               = "Standard_D4s_v5"
+    has_ephemeral_os_disk = false
+    encryption_at_host    = false
+    # image = "win11-24h2-avd-m365"             # key from gallery_image_definition_ids once Packer builds it
   }
+  # "hp-devs" = {
+  #   friendly_name   = "Developer personal desktops"
+  #   host_pool_type  = "Personal"
+  #   assignment_type = "Automatic"
+  #   vm_prefix       = "avddev"
+  #   vm_size         = "Standard_D8s_v5"
+  # }
 }
+
+# Optional static host pools, RDP profiles, VM deployment profiles, scripted actions and REST gap fillers:
+# rdp_profiles = {
+#   "corporate" = {
+#     name = "Corporate RDP"
+#   }
+# }
+# default_rdp_profile_key = "corporate"
+#
+# scripted_actions = {
+#   "configure-defender" = {
+#     name   = "Configure Defender exclusions"
+#     script = "Write-Output 'Defender exclusions configured'"
+#   }
+# }
+#
+# workspace_user_assignments = ["11111111-1111-1111-1111-111111111111"]

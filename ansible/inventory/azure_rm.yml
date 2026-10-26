@@ -1,0 +1,21 @@
+---
+# Dynamic Azure inventory for AVD session hosts (static/personal pools) and OpenBao servers.
+# Authenticate with `az login` or ARM_* environment variables.
+plugin: azure.azcollection.azure_rm
+auth_source: auto
+include_vm_resource_groups:
+  - "*"
+
+conditional_groups:
+  avd_session_hosts: "'workload' in tags and tags.workload == 'avd'"
+  nerdio_managed: "'managed-by' in tags and tags['managed-by'] == 'terraform'"
+  openbao_servers: "'role' in tags and tags.role == 'openbao'"
+
+keyed_groups:
+  - prefix: env
+    key: tags.environment | default('unknown')
+  - prefix: pool
+    key: tags.NMW_HOST_POOL_NAME | default('unassigned')
+
+hostvar_expressions:
+  ansible_host: private_ipv4_addresses[0]

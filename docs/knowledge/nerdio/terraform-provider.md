@@ -54,14 +54,19 @@ The REST API has to be enabled first ([entra-app.md](entra-app.md#rest-api-clien
 host pools.
 
 Host pool notes: `SecurityType` is `None`, `TrustedLaunch` or `Confidential`; `image` and
-`storage_type` are required.
+`storage_type` are required. For Compute Gallery images (`GET /api/v1/image?imageType=ComputeGalleryImage`),
+`image` accepts the Azure Compute Gallery image definition ARM ID
+(`/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/galleries/{gallery}/images/{image}`),
+which `01-platform` outputs in `gallery_image_definition_ids`.
 
 ## Gaps
 
-Not covered at last review: session hosts, app groups, RemoteApps, MSIX app attach, schedules
-and monitoring. Those stay in the Nerdio console. Nerdio treats imperative actions (power,
-reimage, drain, run script) as out of scope for the provider by design. Gaps worth contributing
-are tracked in [upstream-contributions.md](upstream-contributions.md).
+Not covered natively by `nerdio/nme` at last review: session hosts, app groups, RemoteApps, MSIX
+app attach, schedules and monitoring. Where Nerdio's REST API exposes full CRUD (host pool user/group
+assignments, per-pool RDP profile and Shortpath bindings, UAM app groups, and Azure Files storage
+auto-scale), the kit bridges them with `modules/nerdio-rest-gaps` (`Mastercard/restapi`). Nerdio
+treats imperative actions (power, reimage, drain, run script) as out of scope for the provider by
+design. Gaps worth contributing are tracked in [upstream-contributions.md](upstream-contributions.md).
 
 ## Building it locally
 

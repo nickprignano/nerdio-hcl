@@ -35,6 +35,16 @@ on:
         required: true
         type: boolean
         default: false
+      destroy:
+        description: "Plan a teardown (-destroy) of the chosen stage? Requires platform or config."
+        required: false
+        type: boolean
+        default: false
+      unlock_lock_id:
+        description: "Force-unlock a stuck Terraform state lock ID (UUID)? Runs in the gated apply environment."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -53,9 +63,12 @@ env:
   ARM_USE_OIDC: "true"
   STAGE: ${{ inputs.stage }}
   NERDIO_ENV: ${{ inputs.environment }}
+  DESTROY: ${{ inputs.destroy && 'true' || 'false' }}
+  LOCK_ID: ${{ inputs.unlock_lock_id }}
 
 jobs:
   plan:
+    if: inputs.unlock_lock_id == ''
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}-plan
     permissions:
@@ -127,3 +140,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/pipeline/stage.sh apply
+
+  unlock:
+    if: inputs.unlock_lock_id != ''
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-apply
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+      TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+      NERDIO_PLAN_PRINCIPAL_ID: ${{ secrets.NERDIO_PLAN_PRINCIPAL_ID }}
+      NERDIO_APPLY_PRINCIPAL_ID: ${{ secrets.NERDIO_APPLY_PRINCIPAL_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: unlock
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/pipeline/stage.sh unlock

@@ -588,7 +588,10 @@ class OutputTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "readiness.json")
             report.write_private(path, "{}")
-            self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+            if os.name != "nt":
+                self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+            else:
+                self.assertTrue(os.path.isfile(path))
 
 
 class CloudTests(unittest.TestCase):

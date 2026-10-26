@@ -25,6 +25,7 @@ on:
         options:
           - entra_joined
           - entra_ds
+          - ad_ds
         default: entra_joined
       user_count:
         description: "How many people will use a desktop at the busiest time?"

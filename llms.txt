@@ -48,7 +48,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0003. Deploy Nerdio Manager from the exported Marketplace template](docs/knowledge/decisions/0003-marketplace-template.md): superseded by 0011
 - [0004. Tenant and subscription are inputs, never hardcoded](docs/knowledge/decisions/0004-tenant-agnostic-inputs.md): accepted
 - [0005. Packer builds the golden image](docs/knowledge/decisions/0005-packer-for-images.md): accepted
-- [0006. No Ansible](docs/knowledge/decisions/0006-no-ansible.md): accepted
+- [0006. No Ansible](docs/knowledge/decisions/0006-no-ansible.md): superseded by 0028
 - [0007. GitHub Actions forms are the button experience](docs/knowledge/decisions/0007-button-ux.md): accepted
 - [0008. Chat is the guided front door; the engine stays deterministic](docs/knowledge/decisions/0008-chat-front-door.md): accepted
 - [0009. Prefer Azure, GitHub, HashiCorp and open-source tooling](docs/knowledge/decisions/0009-prefer-azure-github-hashicorp-oss.md): accepted
@@ -68,6 +68,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0023. The AI hub owns the family's KB format, and this kit follows it as a member](docs/knowledge/decisions/0023-ai-brain-is-the-family-format-source.md): proposed
 - [0026. Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test](docs/knowledge/decisions/0026-read-only-readiness-engine.md): accepted
 - [0027. The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner](docs/knowledge/decisions/0027-github-settings-in-terraform.md): proposed
+- [0028. Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration](docs/knowledge/decisions/0028-targeted-ansible-for-images-and-hybrid.md): accepted
 
 ## Related knowledge bases
 

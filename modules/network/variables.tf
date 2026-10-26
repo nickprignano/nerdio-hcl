@@ -78,3 +78,14 @@ variable "create_nat_gateway" {
   type        = bool
   default     = true
 }
+
+variable "cloud" {
+  description = "Azure cloud environment: public (AzureCloud) or usgovernment (AzureUSGovernment)."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgovernment"], var.cloud)
+    error_message = "cloud must be public or usgovernment."
+  }
+}

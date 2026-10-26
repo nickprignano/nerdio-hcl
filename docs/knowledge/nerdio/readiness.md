@@ -225,6 +225,23 @@ Azure roles Nerdio's admins need to link groups and networks. With `--features s
 someone holds `EndUser`, the app is enabled and has tenant-wide consent (Conditional Access stays
 `manual`).
 
+## Features
+
+After the wizard, the remaining feature domains check what each optional Nerdio capability needs:
+
+- **Application Management (`--features app-mgmt`)**: `app.repository` checks that Nerdio's
+  resource group has a storage account for Unified Application Management (UAM) custom packages.
+- **App Attach (`--features app-attach`)**: `attach.packages` checks MSIX / App Attach packages
+  registered across host pools (`Microsoft.DesktopVirtualization/hostPools/msixPackages`) for
+  valid image paths.
+- **Insights (`--features insights`)**: `ins.workspace` checks that Nerdio's Log Analytics
+  workspace retains at least 30 days of data (alongside `sub.app_service` pre-install quota).
+- **Scripted Actions (`--features scripted-actions`)**: `sa.automation_identity` checks that
+  Nerdio's Automation account has a system-assigned managed identity and runbooks ready.
+- **Automation (`--features automation`)**: `auto.scaling` checks that pooled host pools define a
+  `maxSessionLimit` so session-based auto-scale triggers can fire (alongside `avd.vcpu` and
+  `avd.start_vm_on_connect`).
+
 ## Kit
 
 In kit mode, `kit.terraform_checks` reads each initialised stage's state (`terraform state
@@ -262,6 +279,9 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `ai.models` | P | [Copilot model](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) | ai | Reader on the subscription | az cognitiveservices model list |
 | `ai.provider` | P | [Cognitive Services provider](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource) | ai | Reader on the subscription | az provider show |
 | `ai.quota` | P | [Copilot quota](https://learn.microsoft.com/azure/ai-services/openai/quotas-limits) | ai | Reader on the subscription | az cognitiveservices usage list |
+| `app.repository` | W | [UAM package storage](https://nmehelp.getnerdio.com/hc/en-us/articles/26124345260941-Nerdio-Manager-Default-Deployment-Resources-and-Costs) | app-mgmt | Reader on Nerdio's resource group | az resource list |
+| `attach.packages` | W | [App Attach packages](https://learn.microsoft.com/azure/virtual-desktop/app-attach-overview) | app-attach | Reader on the subscription | ARM hostPools, ARM hostPools/msixPackages |
+| `auto.scaling` | W | [Host pool session limits](https://learn.microsoft.com/azure/virtual-desktop/autoscale-scenarios) | automation | Reader on the subscription | ARM hostPools |
 | `avd.assignments` | W | [User assignments](https://learn.microsoft.com/azure/virtual-desktop/app-groups) | core | Reader on the subscription | ARM applicationGroups, ARM workspaces, az role assignment list |
 | `avd.diagnostics` | W | [AVD diagnostics](https://learn.microsoft.com/azure/virtual-desktop/insights) | core | Reader on the subscription | ARM diagnosticSettings |
 | `avd.entra_join_login` | W | [Entra sign-in to hosts](https://learn.microsoft.com/azure/virtual-desktop/azure-ad-joined-session-hosts) | core | Reader on the subscription | az role assignment list, ARM hostPools |
@@ -288,6 +308,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `id.pim_eligible` | P | [PIM roles](https://learn.microsoft.com/rest/api/authorization/role-eligibility-schedule-instances/list-for-scope) | core | your own PIM eligibility (read) | ARM roleEligibilityScheduleInstances asTarget(), Graph roleEligibilityScheduleInstances |
 | `id.sub_owner` | P | [Subscription Owner](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core | Reader on the subscription | az ad signed-in-user show, az role assignment list |
 | `id.tenant_match` | P, I, W | [Home tenant](https://learn.microsoft.com/entra/external-id/user-properties) | core | your own default directory read rights | az account show, Graph /me |
+| `ins.workspace` | W | [Log Analytics workspace](https://learn.microsoft.com/azure/virtual-desktop/insights) | insights | Reader on Nerdio's resource group | ARM operationalInsights/workspaces |
 | `kit.terraform_checks` | I, W | [Terraform checks](https://developer.hashicorp.com/terraform/language/checks) (kit only) | core | read access to the Terraform state (it holds sensitive values) | terraform state pull |
 | `net.hub` | P | [Hub network](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview) | core | Reader on the hub VNet | az network vnet show, az role assignment list |
 | `net.outbound` | P, W | [Outbound access](https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access) | core | Reader on the VNet | az network vnet subnet show, az network route-table show |
@@ -312,6 +333,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 | `rbac.admins` | W | [Nerdio admins](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | rbac | Directory Readers | Graph /servicePrincipals/{id}/appRoleAssignedTo |
 | `rbac.azure_side` | P | [Azure rights for Nerdio admins](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | rbac | Reader on the subscription | az role assignment list |
 | `rbac.groups` | W | [Nerdio role groups](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | rbac | Directory Readers | Graph /servicePrincipals/{id}/appRoleAssignedTo, Graph /groups/{id}/members |
+| `sa.automation_identity` | W | [Scripted Actions identity](https://nmehelp.getnerdio.com/hc/en-us/articles/26124302308109) | scripted-actions | Reader on Nerdio's resource group | az resource show, ARM automationAccounts/runbooks |
 | `self.consent` | W | [Self-service sign-in](https://learn.microsoft.com/entra/identity/enterprise-apps/what-is-access-management) | self-service | Directory Readers | Graph /servicePrincipals, Graph /oauth2PermissionGrants |
 | `self.end_user_role` | W | [Self-service users](https://nmehelp.getnerdio.com/hc/en-us/articles/26124313324173) | self-service | Directory Readers | Graph /servicePrincipals/{id}/appRoleAssignedTo |
 | `sub.app_service` | P | [App Service quota](https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps) | core, insights | Reader on the subscription | az appservice list-locations, ARM Microsoft.Web/locations/usages |

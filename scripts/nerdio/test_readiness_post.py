@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from readiness import main  # noqa: E402
+from readiness.checks.subscription import PROVIDERS  # noqa: E402
 from readiness.context import is_read_only  # noqa: E402
 from readiness.model import REGISTRY  # noqa: E402
 from test_readiness import TOOLS, ZERO, fake_az, values  # noqa: E402
@@ -42,7 +43,7 @@ APP = {"id": "app-obj", "appId": "app-id", "displayName": "nerdio-nmw-app", "key
                                                       {"id": "graph-scope", "type": "Scope"}]}]}
 SP = {"id": "sp-obj", "appRoleAssignmentRequired": True, "accountEnabled": True,
       "appRoles": [{"id": i, "value": v} for v, i in ROLE_IDS.items()]}
-ALL = ["hardening", "rbac", "self-service", "automation"]
+ALL = ["app-mgmt", "app-attach", "insights", "rbac", "self-service", "hardening", "scripted-actions", "automation"]
 HOST_POOL = f"/subscriptions/{ZERO}/resourceGroups/rg-avd/providers/Microsoft.DesktopVirtualization/hostPools/hp1"
 
 
@@ -92,7 +93,10 @@ def post_az(overrides=None):
         ("rest", "diagnosticSettings"): {"value": [{"name": "nerdio"}]},
         ("rest", "/privateEndpointConnections?"): {"value": [{"name": "pe"}]},
         ("rest", "/hostPools?"): {"value": [{"id": HOST_POOL, "name": "hp1", "properties": {
+            "hostPoolType": "Pooled", "maxSessionLimit": 16,
             "customRdpProperty": "targetisaadjoined:i:1;enablerdsaadauth:i:1", "startVMOnConnect": True}}]},
+        ("rest", "/msixPackages"): {"value": [{"name": "hp1/pkg1", "properties": {"imagePath": "\\\\st\\msix\\app.vhdx"}}]},
+        ("rest", "OperationalInsights/workspaces/law"): {"properties": {"retentionInDays": 30, "sku": {"name": "PerGB2018"}}},
         ("rest", "/applicationGroups?"): {"value": [{"id": f"{HOST_POOL}-dag", "name": "hp1-dag"}]},
         ("resource", "list"): RESOURCES,
         ("webapp", "show"): {"state": "Running", "https": True, "identity": "SystemAssigned",
@@ -103,12 +107,14 @@ def post_az(overrides=None):
         ("sql", "db", "show"): {"collation": "SQL_Latin1_General_CP1_CI_AS", "slo": "S1"},
         ("keyvault", "certificate", "list"): [{"name": "nmw-app-cert", "expires": "2099-01-01T00:00:00+00:00"}],
         ("keyvault", "show"): {"purge": False},
-        ("resource", "show"): {"public": "Disabled", "pe": 1},
+        ("resource", "show"): {"public": "Disabled", "pe": 1, "identity": "SystemAssigned"},
         ("webapp", "config", "show"): {"tls": "1.2", "ftps": "Disabled", "rules": 2, "useMain": True},
         ("storage", "account", "list"): [{"id": f"{SUB}/Microsoft.Storage/storageAccounts/stprofiles", "auth": "AADKERB",
                                           "public": "Disabled", "endpoints": 1}],
         ("lock", "list"): ["CanNotDelete"],
         ("monitor", "action-group", "list"): [],
+        ("provider", "list"): [{"ns": ns, "state": "Registered"}
+                               for ns in [*PROVIDERS, "Microsoft.DocumentDB", "Microsoft.ManagedIdentity"]],
         ("role", "assignment", "list"): role_rows,
         ("ad", "sp", "list"): "avd-sp",
     }
@@ -427,6 +433,34 @@ class FeatureTests(unittest.TestCase):
         _, r = run("pre-install", features=["rbac"])
         self.assertEqual(by_id(r)["rbac.azure_side"], ["pass"])
 
+    def test_app_mgmt_repository(self):
+        no_storage = [x for x in RESOURCES if x["type"] != "Microsoft.Storage/storageAccounts"]
+        _, r = run(overrides={("resource", "list"): no_storage}, features=["app-mgmt"])
+        self.assertEqual(by_id(r)["app.repository"], ["fail"])
+
+    def test_app_attach_packages(self):
+        _, r = run(overrides={("rest", "/msixPackages"): {"value": []}}, features=["app-attach"])
+        self.assertEqual(by_id(r)["attach.packages"], ["skipped"])
+        bad_pkg = {"value": [{"name": "hp1/pkg1", "properties": {"imagePath": ""}}]}
+        _, r = run(overrides={("rest", "/msixPackages"): bad_pkg}, features=["app-attach"])
+        self.assertEqual(by_id(r)["attach.packages"], ["warn"])
+
+    def test_insights_workspace_retention(self):
+        short = {"properties": {"retentionInDays": 7, "sku": {"name": "PerGB2018"}}}
+        _, r = run(overrides={("rest", "OperationalInsights/workspaces/law"): short}, features=["insights"])
+        self.assertEqual(by_id(r)["ins.workspace"], ["warn"])
+
+    def test_scripted_actions_identity(self):
+        _, r = run(overrides={("resource", "show"): {"identity": "None"}}, features=["scripted-actions"])
+        self.assertEqual(by_id(r)["sa.automation_identity"], ["warn"])
+
+    def test_automation_scaling_session_limit(self):
+        unbounded = {"value": [{"id": HOST_POOL, "name": "hp1", "properties": {
+            "hostPoolType": "Pooled", "maxSessionLimit": 999999,
+            "customRdpProperty": "targetisaadjoined:i:1", "startVMOnConnect": True}}]}
+        _, r = run(overrides={("rest", "/hostPools?"): unbounded}, features=["automation"])
+        self.assertEqual(by_id(r)["auto.scaling"], ["warn"])
+
 
 class KitTerraformTests(unittest.TestCase):
     def state(self, status):
@@ -435,7 +469,7 @@ class KitTerraformTests(unittest.TestCase):
 
     def run_kit(self, raw):
         vals = values(resource_group=RG)
-        kw = dict(TOOLS, isdir=lambda p: p.endswith("01-platform/.terraform"), run_tool=lambda cmd: raw)
+        kw = dict(TOOLS, isdir=lambda p: p.replace("\\", "/").endswith("01-platform/.terraform"), run_tool=lambda cmd: raw)
         _, results, _ = main.evaluate(vals, az=post_az(), stage="post-install", only=["kit.terraform_checks"],
                                       http=health(), **kw)
         return results

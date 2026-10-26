@@ -19,6 +19,17 @@ variable "location" {
   default     = "eastus2"
 }
 
+variable "cloud" {
+  description = "Azure cloud environment: public (AzureCloud) or usgovernment (AzureUSGovernment)."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgovernment"], var.cloud)
+    error_message = "cloud must be public or usgovernment."
+  }
+}
+
 variable "tags" {
   description = "Tags applied to every resource."
   type        = map(string)
@@ -54,6 +65,14 @@ variable "fslogix" {
     identity_source        = optional(string, "AADKERB")
     user_group_object_ids  = optional(list(string), [])
     admin_group_object_ids = optional(list(string), [])
+    active_directory = optional(object({
+      domain_name         = string
+      domain_guid         = string
+      domain_sid          = optional(string)
+      forest_name         = optional(string)
+      netbios_domain_name = optional(string)
+      storage_sid         = optional(string)
+    }))
   })
   default = null
 }

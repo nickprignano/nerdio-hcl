@@ -123,6 +123,24 @@ build {
     restart_timeout = "30m"
   }
 
+  # Optional Ansible golden image playbook (Decision 0028). Runs from the build host over WinRM
+  # when run_ansible_playbook = true; skipped by default so builds without ansible-playbook succeed.
+  provisioner "shell-local" {
+    environment_vars = [
+      "RUN_ANSIBLE=${var.run_ansible_playbook}",
+      "ANSIBLE_PLAYBOOK=${path.root}/${var.ansible_playbook_path}",
+      "WINRM_HOST=${build.Host}",
+      "WINRM_PORT=${build.Port}",
+      "WINRM_USER=${build.User}",
+      "WINRM_PASS=${build.Password}",
+    ]
+    inline = [
+      "set -eu",
+      "if [ \"$RUN_ANSIBLE\" != true ]; then exit 0; fi",
+      "ansible-playbook \"$ANSIBLE_PLAYBOOK\" -i \"$WINRM_HOST,\" -e ansible_connection=winrm -e ansible_port=\"$WINRM_PORT\" -e ansible_user=\"$WINRM_USER\" -e ansible_password=\"$WINRM_PASS\" -e ansible_winrm_transport=ntlm -e ansible_winrm_server_cert_validation=ignore",
+    ]
+  }
+
   provisioner "powershell" {
     script = "${path.root}/scripts/99-sysprep.ps1"
   }

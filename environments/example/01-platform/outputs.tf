@@ -35,12 +35,13 @@ output "entra_app_client_secret" {
 }
 
 output "packer_gallery" {
-  description = "Values for the Packer gallery variable."
+  description = "Values for the Packer gallery variable and Compute Gallery image definition IDs."
   value = try({
-    resource_group   = module.foundation.resource_group_names["hostpools"]
-    name             = module.image_gallery[0].gallery_name
-    image_definition = keys(module.image_gallery[0].image_definition_ids)[0]
-    build_rg         = module.image_gallery[0].build_resource_group_name
+    resource_group       = module.foundation.resource_group_names["hostpools"]
+    name                 = module.image_gallery[0].gallery_name
+    image_definition     = keys(module.image_gallery[0].image_definition_ids)[0]
+    image_definition_ids = module.image_gallery[0].image_definition_ids
+    build_rg             = module.image_gallery[0].build_resource_group_name
   }, null)
 }
 
@@ -62,7 +63,8 @@ output "nerdio_config_inputs" {
       vnet_name           = module.network.vnet_name
       subnet_name         = module.network.session_host_subnet_name
     }
-    fslogix_profile_share_unc = try(module.fslogix[0].profile_share_unc, null)
+    fslogix_profile_share_unc    = try(module.fslogix[0].profile_share_unc, null)
+    gallery_image_definition_ids = try(module.image_gallery[0].image_definition_ids, {})
     # How stage 2 gets the REST client secret (decision 0015). None of these are secrets.
     nme_secret_source = local.nme_secret_store
     nme_key_vault = try({

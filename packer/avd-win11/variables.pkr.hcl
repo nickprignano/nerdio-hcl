@@ -133,3 +133,15 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "run_ansible_playbook" {
+  type        = bool
+  default     = false
+  description = "When true, runs ansible/playbooks/avd-image.yml from the build host over WinRM before sysprep (Decision 0028)."
+}
+
+variable "ansible_playbook_path" {
+  type        = string
+  default     = "../../ansible/playbooks/avd-image.yml"
+  description = "Path to the Ansible playbook executed when run_ansible_playbook is true."
+}
