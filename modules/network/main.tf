@@ -1,5 +1,11 @@
 locals {
-  private_dns_zones = {
+  private_dns_zones = var.cloud == "usgovernment" ? {
+    sql   = "privatelink.database.usgovcloudapi.net"
+    vault = "privatelink.vaultcore.usgovcloudapi.net"
+    file  = "privatelink.file.core.usgovcloudapi.net"
+    blob  = "privatelink.blob.core.usgovcloudapi.net"
+    web   = "privatelink.azurewebsites.us"
+    } : {
     sql   = "privatelink.database.windows.net"
     vault = "privatelink.vaultcore.azure.net"
     file  = "privatelink.file.core.windows.net"

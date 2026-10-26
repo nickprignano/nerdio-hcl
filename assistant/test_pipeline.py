@@ -178,6 +178,16 @@ class PipelineTests(unittest.TestCase):
         with self.assertRaises(PipelineError):
             p.start("destroy", False)
 
+    def test_verify_runs_and_never_applies(self):
+        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        p, http = pipeline({(("POST", dispatch)): (204, b"")})
+        self.assertFalse(p.start("verify", True)["apply_requested"])
+        self.assertEqual(http.calls[-1][3]["inputs"]["stage"], "verify")
+        url = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/9-1/verify.json"
+        p, _ = pipeline({("GET", url): (200, {"status": "go", "verdict": "GO", "results": [
+            {"id": "nme.health", "status": "pass", "title": "Health page"}]})})
+        self.assertEqual(p.plan(9, "verify")["verdict"], "GO")
+
     def test_runs_flag_waiting_for_approval(self):
         base = "https://api.github.com/repos/contoso/nerdio-hcl/actions"
         p, _ = pipeline({

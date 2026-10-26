@@ -3,7 +3,8 @@
 #
 #   scripts/pipeline/stage.sh plan    render tfvars from the answers, plan, save the plan
 #                                     and a change summary the setup chatbot can read
-#                                     (STAGE=preflight runs the read-only readiness check instead)
+#                                     (STAGE=preflight runs the read-only readiness check instead,
+#                                     and STAGE=verify the same check after Nerdio's wizard)
 #   scripts/pipeline/stage.sh apply   fetch the saved plan, check its hash, apply exactly it
 #
 # Every run leaves a result in the plans container for the setup chatbot, failures included
@@ -16,7 +17,7 @@
 # repository's Actions logs are public.
 #
 # Inputs (set by the workflow from the GitHub environment's variables):
-#   STAGE                    platform | config | preflight
+#   STAGE                    platform | config | preflight | verify
 #   NERDIO_ENV               sandbox | dev | prod
 #   ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID
 #   TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT
@@ -26,14 +27,18 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 action="${1:-}"
-case "$action" in plan | apply) ;; *) echo "usage: $0 plan|apply" >&2; exit 64 ;; esac
+case "$action" in plan | apply | unlock) ;; *) echo "usage: $0 plan|apply|unlock" >&2; exit 64 ;; esac
 case "${STAGE:-}" in
   platform) dir_name=01-platform ;;
   config) dir_name=02-nerdio-config ;;
-  preflight) dir_name="" ;;
-  *) echo "STAGE must be platform, config or preflight" >&2; exit 64 ;;
+  preflight) dir_name="" readiness_stage=pre-install ;;
+  verify) dir_name="" readiness_stage=post-wizard ;;
+  *) echo "STAGE must be platform, config, preflight or verify" >&2; exit 64 ;;
 esac
-[ "$STAGE" != preflight ] || [ "$action" = plan ] || { echo "preflight only plans" >&2; exit 64; }
+[ -z "${readiness_stage:-}" ] || [ "$action" = plan ] || { echo "$STAGE only checks; it never applies or unlocks" >&2; exit 64; }
+if [ "${DESTROY:-false}" = true ] && [ -n "${readiness_stage:-}" ]; then
+  echo "$STAGE cannot be run with DESTROY=true" >&2; exit 64
+fi
 [[ "${NERDIO_ENV:-}" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "NERDIO_ENV is missing or malformed" >&2; exit 64; }
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT; do
   [ -n "${!v:-}" ] || { echo "$v isn't set: run scripts/pipeline-bootstrap.sh for the $NERDIO_ENV environment first" >&2; exit 2; }
@@ -48,6 +53,7 @@ mkdir -p "$work"
 run_dir="$NERDIO_ENV/${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
 result_blob="$run_dir/$STAGE.json"
 [ "$action" = apply ] && result_blob="$run_dir/$STAGE-apply.json"
+[ "$action" = unlock ] && result_blob="$run_dir/$STAGE-unlock.json"
 log=""  # the log the last step wrote; a failure reports its tail
 
 for v in ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID NERDIO_PLAN_PRINCIPAL_ID NERDIO_APPLY_PRINCIPAL_ID; do
@@ -89,6 +95,21 @@ if [ "$STAGE" = config ]; then
   "$root/scripts/install-nme-provider.sh" 2>&1 | redact | tail -n 2
 fi
 
+if [ "$action" = unlock ]; then
+  [[ "${LOCK_ID:-}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] \
+    || fail "LOCK_ID must be a valid UUID to force-unlock state"
+  echo "::add-mask::$LOCK_ID"
+  echo "== $dir_name: terraform force-unlock"
+  init_stage "$stage_dir" "$STAGE"
+  log="$work/unlock.log"
+  terraform -chdir="$stage_dir" force-unlock -force "$LOCK_ID" > "$log" 2>&1 || { redact < "$log"; fail "terraform force-unlock failed"; }
+  redact < "$log"
+  { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Force-unlocked Terraform state."; } | summary
+  jq -n --arg stage "$STAGE" '{stage: $stage, action: "unlock", status: "unlocked"}' > "$work/unlocked.json"
+  blob upload plans "$result_blob" "$work/unlocked.json" --overwrite
+  exit 0
+fi
+
 if [ "$action" = plan ]; then
   echo "== Answers to tfvars"
   mkdir -p "$root/.nerdio"
@@ -100,22 +121,24 @@ if [ "$action" = plan ]; then
   "$root/nerdio" init --non-interactive > "$log" 2>&1 || { redact < "$log"; fail "./nerdio init rejected the answers"; }
   grep -E '^(✓|✗|Wrote)' "$log" | redact || true
 
-  if [ "$STAGE" = preflight ]; then
-    echo "== Readiness check (read-only)"
+  if [ -n "${readiness_stage:-}" ]; then
+    echo "== Readiness check, $readiness_stage (read-only)"
     # Signed in as the plan identity, so the checks of a person's roles come back as "manual":
     # the apply identity holds those roles by design. Everything else is checked for real.
+    # After the install, the platform state also carries the kit's own Terraform checks.
+    if [ "$STAGE" = verify ]; then init_stage "$platform" platform; fi
     log="$work/preflight.log"
     set +e
-    "$root/nerdio" preflight --json --strict > "$work/preflight.json" 2> "$log"
+    "$root/nerdio" preflight --stage "$readiness_stage" --json --strict > "$work/preflight.json" 2> "$log"
     code=$?
     set -e
     jq -e '.schema == "nerdio-readiness/1"' "$work/preflight.json" >/dev/null 2>&1 || fail "The readiness check didn't finish"
     # The engine masks its own output; the second pass is belt and braces for anything new.
-    redact < "$work/preflight.json" | jq --arg stage preflight \
+    redact < "$work/preflight.json" | jq --arg stage "$STAGE" \
       '{stage: $stage, status: (.verdict | ascii_downcase | gsub(" "; "-")), verdict, counts, results}' > "$work/result.json"
     blob upload plans "$result_blob" "$work/result.json" --overwrite
     {
-      echo "## $NERDIO_ENV / readiness check: $(jq -r '.verdict' "$work/result.json")"
+      echo "## $NERDIO_ENV / readiness check ($readiness_stage): $(jq -r '.verdict' "$work/result.json")"
       echo
       echo "| Result | Check | Detail |"
       echo "|---|---|---|"
@@ -162,9 +185,11 @@ if [ "$action" = plan ]; then
   # Key Vault roles and app ownership in the plan are the apply identity's.
   export TF_VAR_deployer_object_id="${NERDIO_APPLY_PRINCIPAL_ID:?}"
   init_stage "$stage_dir" "$STAGE"
+  plan_flags=(-input=false -no-color -lock-timeout=5m -detailed-exitcode -out="$work/tfplan")
+  [ "${DESTROY:-false}" = true ] && plan_flags+=(-destroy)
   set +e
   log="$work/plan.log"
-  terraform -chdir="$stage_dir" plan -input=false -no-color -lock-timeout=5m -detailed-exitcode -out="$work/tfplan" > "$log" 2>&1
+  terraform -chdir="$stage_dir" plan "${plan_flags[@]}" > "$log" 2>&1
   code=$?
   set -e
   if [ "$code" = 1 ]; then

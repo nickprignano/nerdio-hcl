@@ -109,6 +109,29 @@ variable "fslogix_entra_kerberos" {
   default     = true
 }
 
+variable "fslogix_options" {
+  description = "Extra FSLogix profile settings when fslogix_profile_share_unc is set (cloud_cache, office_share_unc, set_as_default, redirections_xml, etc.)."
+  type = object({
+    name                     = optional(string, "Terraform FSLogix profile")
+    office_share_unc         = optional(list(string), [])
+    cloud_cache              = optional(bool, false)
+    page_blobs               = optional(bool, false)
+    profile_options          = optional(string, "")
+    office_options           = optional(string, "")
+    exclusion_mode           = optional(string, "None")
+    excluded_domain_accounts = optional(list(string), [])
+    set_as_default           = optional(bool, false)
+    redirections_xml         = optional(string)
+  })
+  default = {}
+}
+
+variable "gallery_image_definition_ids" {
+  description = "Compute Gallery image definition ARM IDs keyed by short name (from 01-platform)."
+  type        = map(string)
+  default     = {}
+}
+
 variable "workspace" {
   description = "AVD workspace."
   type = object({
@@ -135,7 +158,116 @@ variable "auto_scale" {
 }
 
 variable "host_pools" {
-  description = "Dynamic host pools keyed by name (see modules/nerdio-config)."
+  description = "Dynamic host pools (Pooled or Personal) keyed by name (see modules/nerdio-config)."
   type        = any
   default     = {}
+}
+
+variable "static_host_pools" {
+  description = "Static host pools (Pooled or Personal) keyed by name (see modules/nerdio-config)."
+  type        = any
+  default     = {}
+}
+
+variable "rdp_profiles" {
+  description = "Host pool RDP profiles keyed by logical key (see modules/nerdio-config)."
+  type        = any
+  default     = {}
+}
+
+variable "default_rdp_profile_key" {
+  description = "Logical key in rdp_profiles to set as Nerdio's default RDP profile."
+  type        = string
+  default     = null
+}
+
+variable "vm_deployment_profiles" {
+  description = "Reusable VM deployment profiles keyed by logical key (see modules/nerdio-config)."
+  type        = any
+  default     = {}
+}
+
+variable "scripted_actions" {
+  description = "Nerdio Windows scripted actions keyed by logical key (see modules/nerdio-config)."
+  type        = any
+  default     = {}
+}
+
+variable "scripted_action_groups" {
+  description = "Nerdio scripted action groups keyed by logical key (see modules/nerdio-config)."
+  type        = any
+  default     = {}
+}
+
+variable "scripted_action_profiles" {
+  description = "Host pool scripted action profiles keyed by logical key (see modules/nerdio-config)."
+  type        = any
+  default     = {}
+}
+
+variable "workspace_user_assignments" {
+  description = "Entra user, group, or service principal object IDs to assign to the AVD workspace."
+  type        = list(string)
+  default     = []
+}
+
+variable "rest_gaps" {
+  description = <<-EOT
+    Optional Nerdio REST API configurations for endpoints not yet covered by the nerdio/nme
+    provider (host pool user/group assignments, per-pool RDP profile & Shortpath overrides,
+    Unified Application Management app groups, and Azure Files storage auto-scale).
+    Leave empty to skip the REST gap-filler module.
+  EOT
+  type = object({
+    host_pool_assignments = optional(map(object({
+      resource_group = optional(string)
+      users          = optional(list(string), [])
+      groups         = optional(list(string), [])
+      app_groups     = optional(list(string), [])
+    })), {})
+    host_pool_rdp = optional(map(object({
+      resource_group     = optional(string)
+      configuration_name = optional(string)
+      rdp_properties     = optional(string)
+      short_path = optional(object({
+        managed_private_udp = optional(string, "Default")
+        direct_udp          = optional(string, "Default")
+        public_udp          = optional(string, "Default")
+        relay_udp           = optional(string, "Default")
+      }))
+    })), {})
+    uam_app_groups = optional(map(object({
+      name = string
+      items = list(object({
+        repo_id         = number
+        external_id     = string
+        version         = optional(string, "")
+        cached_name     = optional(string, "")
+        reboot          = optional(bool, false)
+        on_upgrade_fail = optional(string, "Reinstall")
+      }))
+    })), {})
+    azure_files_autoscale = optional(map(object({
+      resource_group     = string
+      account_name       = string
+      share_name         = string
+      link_share         = optional(bool, true)
+      is_enabled         = optional(bool, true)
+      unit               = optional(string, "SizeGb")
+      min_quota_buffer   = optional(number, 10)
+      max_quota_buffer   = optional(number, 100)
+      max_quota_limit_gb = optional(number, 102400)
+      scaling = optional(object({
+        trigger               = optional(string, "AvgSuccessServerLatency")
+        scale_out_by          = optional(number, 10)
+        scale_out_high_lat    = optional(number, 20)
+        scale_out_interval    = optional(number, 5)
+        scale_in_by           = optional(number, 20)
+        scale_in_low_lat      = optional(number, 10)
+        scale_in_interval     = optional(number, 15)
+        transaction_threshold = optional(number, 100)
+      }), {})
+    })), {})
+  })
+  default = {}
 }

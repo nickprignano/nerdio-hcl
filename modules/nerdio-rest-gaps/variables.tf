@@ -1,0 +1,78 @@
+variable "subscription_id" {
+  description = "Azure subscription ID linked in Nerdio."
+  type        = string
+}
+
+variable "hostpools_resource_group_name" {
+  description = "Default resource group for host pools when an entry omits resource_group."
+  type        = string
+}
+
+variable "host_pool_assignments" {
+  description = "Per-host-pool user and group assignments via POST /api/v1/arm/hostpool/{subscriptionId}/{resourceGroup}/{hostPoolName}/assign."
+  type = map(object({
+    resource_group = optional(string)
+    users          = optional(list(string), [])
+    groups         = optional(list(string), [])
+    app_groups     = optional(list(string), [])
+  }))
+  default = {}
+}
+
+variable "host_pool_rdp" {
+  description = "Per-host-pool RDP profile and Shortpath settings via PATCH /api/v1/arm/hostpool/{subscriptionId}/{resourceGroup}/{hostPoolName}/rdp."
+  type = map(object({
+    resource_group     = optional(string)
+    configuration_name = optional(string)
+    rdp_properties     = optional(string)
+    short_path = optional(object({
+      managed_private_udp = optional(string, "Default")
+      direct_udp          = optional(string, "Default")
+      public_udp          = optional(string, "Default")
+      relay_udp           = optional(string, "Default")
+    }))
+  }))
+  default = {}
+}
+
+variable "uam_app_groups" {
+  description = "Unified Application Management (UAM) app groups via /api/v1/app-management/app-group."
+  type = map(object({
+    name = string
+    items = list(object({
+      repo_id         = number
+      external_id     = string
+      version         = optional(string, "")
+      cached_name     = optional(string, "")
+      reboot          = optional(bool, false)
+      on_upgrade_fail = optional(string, "Reinstall")
+    }))
+  }))
+  default = {}
+}
+
+variable "azure_files_autoscale" {
+  description = "Azure Files share linking and storage auto-scale via /api/v1/storage/azure-files/{subscriptionId}/{resourceGroup}/{accountName}/{shareName}."
+  type = map(object({
+    resource_group     = string
+    account_name       = string
+    share_name         = string
+    link_share         = optional(bool, true)
+    is_enabled         = optional(bool, true)
+    unit               = optional(string, "SizeGb")
+    min_quota_buffer   = optional(number, 10)
+    max_quota_buffer   = optional(number, 100)
+    max_quota_limit_gb = optional(number, 102400)
+    scaling = optional(object({
+      trigger               = optional(string, "AvgSuccessServerLatency")
+      scale_out_by          = optional(number, 10)
+      scale_out_high_lat    = optional(number, 20)
+      scale_out_interval    = optional(number, 5)
+      scale_in_by           = optional(number, 20)
+      scale_in_low_lat      = optional(number, 10)
+      scale_in_interval     = optional(number, 15)
+      transaction_threshold = optional(number, 100)
+    }), {})
+  }))
+  default = {}
+}

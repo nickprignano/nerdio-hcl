@@ -13,8 +13,8 @@ locals {
   # ID is built from its name because the server depends on the web app (its admin group holds
   # the app's identity).
   app_settings = {
-    "AzureAd:Instance"                                            = "https://login.microsoftonline.com/"
-    "Deployment:AzureType"                                        = "AzureCloud"
+    "AzureAd:Instance"                                            = local.cloud_endpoints.login_endpoint
+    "Deployment:AzureType"                                        = local.cloud_endpoints.azure_type
     "Deployment:Region"                                           = var.location
     "Deployment:ResourceGroupName"                                = var.resource_group_name
     "Deployment:WebAppName"                                       = local.names.web_app

@@ -87,6 +87,8 @@ def fake_az(overrides=None):
         ("network", "vnet", "subnet"): {"addressPrefix": "10.60.1.0/24", "natGateway": {"id": "/x/nat"},
                                          "delegations": [{"serviceName": "Microsoft.Web/serverFarms"}]},
         ("network", "route-table"): [],
+        ("vm", "image", "list-skus"): ["win11-24h2-avd-m365", "win11-24h2-avd"],
+        ("storage", "sku", "list"): [["eastus2", "westeurope"]],
     }
     data.update(overrides or {})
 
@@ -586,7 +588,10 @@ class OutputTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "readiness.json")
             report.write_private(path, "{}")
-            self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+            if os.name != "nt":
+                self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o600)
+            else:
+                self.assertTrue(os.path.isfile(path))
 
 
 class CloudTests(unittest.TestCase):

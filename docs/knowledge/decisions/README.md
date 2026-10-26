@@ -12,7 +12,7 @@ marked *Superseded by NNNN*.
 | [0003](0003-marketplace-template.md) | Deploy Nerdio Manager from the exported Marketplace template | Superseded by 0011 |
 | [0004](0004-tenant-agnostic-inputs.md) | Tenant and subscription are inputs, never hardcoded | Accepted |
 | [0005](0005-packer-for-images.md) | Packer builds the golden image | Accepted |
-| [0006](0006-no-ansible.md) | No Ansible | Accepted |
+| [0006](0006-no-ansible.md) | No Ansible | Superseded by 0028 |
 | [0007](0007-button-ux.md) | GitHub Actions forms are the button experience | Accepted |
 | [0008](0008-chat-front-door.md) | Chat is the guided front door; the engine stays deterministic | Accepted |
 | [0009](0009-prefer-azure-github-hashicorp-oss.md) | Prefer Azure, GitHub, HashiCorp and open-source tooling | Accepted |
@@ -32,4 +32,5 @@ marked *Superseded by NNNN*.
 | [0023](0023-ai-brain-is-the-family-format-source.md) | The AI hub owns the family's KB format, and this kit follows it as a member | Proposed |
 | [0026](0026-read-only-readiness-engine.md) | Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test | Accepted |
 | [0027](0027-github-settings-in-terraform.md) | The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner | Proposed |
+| [0028](0028-targeted-ansible-for-images-and-hybrid.md) | Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration | Accepted |
 <!-- END GENERATED: decision-index -->

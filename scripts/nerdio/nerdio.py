@@ -375,6 +375,7 @@ def cmd_preflight(args) -> int:
     resolved = engine.resolve(schema, answers, {"tenant": "", "subscription": ""})
     if args.regions is not None:
         return scan_regions(resolved.values, args.regions, args.json)
+    resolved.values["_env"] = args.env
     ctx, results, started = readiness_main.evaluate(
         resolved.values, az=engine.az_json, stage=args.stage, features=features, only=only, skip=skip,
         show_names=args.names)
@@ -632,6 +633,7 @@ def main(argv: list[str]) -> int:
     p.set_defaults(func=cmd_show)
 
     p = sub.add_parser("preflight", help="read-only readiness checks")
+    p.add_argument("--env", default="example", help="environment folder under environments/ (post-install Terraform checks)")
     p.add_argument("--stage", choices=READINESS_STAGES, default="pre-install",
                    help="when you are: before the install (default), after it, or after Nerdio's wizard")
     p.add_argument("--features", default="", metavar="A,B,...",

@@ -11,6 +11,8 @@ import os
 import re
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from typing import Callable, Dict, List, Optional
 
 from . import cloud as cloudmod
@@ -70,6 +72,19 @@ def run_az(args: List[str]):
         return None
 
 
+def http_get(url: str):
+    req = urllib.request.Request(url, method="GET", headers={"User-Agent": "nerdio-readiness"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as res:  # noqa: S310 (https only, checked above)
+            return res.status, res.read(65536).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, ""
+    except (urllib.error.URLError, OSError) as exc:
+        # The class only: a TLS error's text names the host, which can be a customer's domain.
+        reason = getattr(exc, "reason", exc)
+        return None, type(reason).__name__ if isinstance(reason, BaseException) else type(exc).__name__
+
+
 def tool_version(cmd: List[str]) -> str:
     res = subprocess.run(cmd, capture_output=True, text=True, check=False)
     return res.stdout
@@ -79,7 +94,7 @@ class Ctx:
     def __init__(self, values: Dict, *, az: Optional[Callable] = None, mode: str = "kit", stage: str = "pre-install",
                  features=(), show_names: bool = False, env: Optional[Dict] = None,
                  which: Optional[Callable] = None, run_tool: Optional[Callable] = None,
-                 isdir: Optional[Callable] = None, python_version=None):
+                 isdir: Optional[Callable] = None, python_version=None, http: Optional[Callable] = None):
         self.values = values
         self.mode = mode
         self.stage = stage
@@ -91,6 +106,7 @@ class Ctx:
         self.isdir = isdir or os.path.isdir
         self.python_version = python_version
         self._az = az or run_az
+        self._http = http or http_get
         self.acct: Optional[Dict] = None
         self.cloud: cloudmod.Cloud = cloudmod.COMMERCIAL
         self.stopped = ""  # set by a check that makes the rest pointless (unsupported cloud)
@@ -161,6 +177,13 @@ class Ctx:
         """Role names the signed-in user holds at a scope."""
         rows = self.assignments_at(scope)
         return None if rows is None else [r.get("role") for r in rows]
+
+    def http_get(self, url: str):
+        """An unauthenticated HTTPS GET (Nerdio's health page): (status, body text), or (None, reason)."""
+        if not url.startswith("https://"):
+            raise WriteRefused("only https GETs")
+        self.calls.append(["GET", url])
+        return self._http(url)
 
     def post_check(self, url: str, body: Dict):
         """An evaluate-only POST (name availability); the guard refuses any other POST."""

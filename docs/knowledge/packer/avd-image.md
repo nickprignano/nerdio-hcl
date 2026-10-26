@@ -64,3 +64,7 @@ and the kit's profile are in `packer/avd-win11/README.md`. Checked against the W
 - **Pinning:** where GitHub archive downloads are blocked, fetch the commit with git and pin by
   commit hash rather than a zip checksum (see
   [../terraform/restricted-networks.md](../terraform/restricted-networks.md#pinning-github-sources-by-commit)).
+- **Optional Ansible image hardening:** set `run_ansible_playbook = true` in `packer/avd-win11` to
+  run `ansible/playbooks/avd-image.yml` over WinRM before sysprep (Teams media optimization, RDP
+  Shortpath UDP 3390, Defender FSLogix exclusions, enterprise root certificates; see
+  [decision 0028](../decisions/0028-targeted-ansible-for-images-and-hybrid.md)).

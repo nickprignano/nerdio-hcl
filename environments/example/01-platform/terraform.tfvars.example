@@ -32,6 +32,14 @@ fslogix = {
   storage_account_name  = "stcontosofslogix01"
   identity_source       = "AADKERB"
   user_group_object_ids = ["11111111-1111-1111-1111-111111111111"]
+  # For AD DS hybrid authentication (identity_source = "AD"):
+  # active_directory = {
+  #   domain_name         = "corp.contoso.com"
+  #   domain_guid         = "00000000-0000-0000-0000-000000000000"
+  #   domain_sid          = "S-1-5-21-1000000000-2000000000-3000000000"
+  #   storage_sid         = "S-1-5-21-1000000000-2000000000-3000000000-1105"
+  #   netbios_domain_name = "CONTOSO"
+  # }
 }
 
 image_gallery = {

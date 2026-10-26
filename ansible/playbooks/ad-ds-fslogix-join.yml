@@ -1,0 +1,91 @@
+---
+# Automates joining an Azure Files FSLogix storage account to on-premises Active Directory Domain
+# Services (AD DS) using Microsoft's AzFilesHybrid module from a domain-joined Windows management
+# host, then prints the exact `active_directory` values for 01-platform or `./nerdio init --set`.
+#
+# Usage:
+#   ansible-playbook -i <domain-joined-mgmt-host>, ansible/playbooks/ad-ds-fslogix-join.yml \
+#     -e subscription_id=00000000-0000-0000-0000-000000000000 \
+#     -e resource_group_name=rg-contoso-avd-storage \
+#     -e storage_account_name=stcontosofslogix01 \
+#     -e organizational_unit_dn="OU=StorageAccounts,DC=corp,DC=contoso,DC=com"
+- name: Join Azure Files FSLogix storage account to on-premises AD DS (AzFilesHybrid)
+  hosts: all
+  gather_facts: false
+  vars:
+    subscription_id: ""
+    resource_group_name: ""
+    storage_account_name: ""
+    domain_account_type: "ComputerAccount"
+    encryption_type: "AES256"
+    organizational_unit_dn: ""
+    azfileshybrid_version: "0.3.0"
+    azfileshybrid_dir: 'C:\Windows\Temp\AzFilesHybrid'
+
+  tasks:
+    - name: Validate required inputs
+      ansible.builtin.assert:
+        that:
+          - subscription_id | length > 0
+          - resource_group_name | length > 0
+          - storage_account_name | length > 0
+          - organizational_unit_dn | length > 0
+        fail_msg: "Provide subscription_id, resource_group_name, storage_account_name, and organizational_unit_dn."
+
+    - name: Ensure AzFilesHybrid working directory exists
+      ansible.windows.win_file:
+        path: "{{ azfileshybrid_dir }}"
+        state: directory
+
+    - name: Download and extract AzFilesHybrid release if not present
+      ansible.windows.win_powershell:
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $dir = "{{ azfileshybrid_dir }}"
+          $psd1 = Join-Path $dir "AzFilesHybrid.psd1"
+          if (-not (Test-Path $psd1)) {
+            $zip = Join-Path $dir "AzFilesHybrid.zip"
+            $url = "https://github.com/Azure-Samples/azure-files-samples/releases/download/v{{ azfileshybrid_version }}/AzFilesHybrid.zip"
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+            Expand-Archive -Path $zip -DestinationPath $dir -Force
+          }
+
+    - name: Join storage account to AD DS and capture domain/storage SIDs
+      ansible.windows.win_powershell:
+        script: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location "{{ azfileshybrid_dir }}"
+          .\CopyToPSPath.ps1
+          Import-Module AzFilesHybrid -Force
+
+          Select-AzSubscription -SubscriptionId "{{ subscription_id }}" | Out-Null
+
+          Join-AzStorageAccount `
+            -ResourceGroupName "{{ resource_group_name }}" `
+            -StorageAccountName "{{ storage_account_name }}" `
+            -DomainAccountType "{{ domain_account_type }}" `
+            -OrganizationalUnitDistinguishedName "{{ organizational_unit_dn }}" `
+            -EncryptionType "{{ encryption_type }}" `
+            -OverwriteExistingADObject
+
+          $domain = Get-ADDomain
+          $forest = Get-ADForest
+          $adAccount = Get-ADObject -Filter "sAMAccountName -eq '{{ storage_account_name }}$' -or sAMAccountName -eq '{{ storage_account_name }}'" -Properties objectSid | Select-Object -First 1
+
+          $result = @{
+            domain_name         = $domain.DNSRoot
+            domain_guid         = $domain.ObjectGUID.ToString()
+            domain_sid          = $domain.DomainSID.Value
+            netbios_domain_name = $domain.NetBIOSName
+            forest_name         = $forest.Name
+            storage_sid         = if ($adAccount) { $adAccount.objectSid.Value } else { "" }
+          }
+          $Ansible.Result = $result
+      register: ad_join_result
+
+    - name: Print ./nerdio init --set flags for 01-platform
+      ansible.builtin.debug:
+        msg:
+          - "AD DS storage join succeeded. Pass these values to ./nerdio init:"
+          - "./nerdio init --set identity_model=ad_ds --set ad_domain_name={{ ad_join_result.result.domain_name }} --set ad_domain_guid={{ ad_join_result.result.domain_guid }} --set ad_domain_sid={{ ad_join_result.result.domain_sid }} --set ad_storage_sid={{ ad_join_result.result.storage_sid }} --set ad_netbios_name={{ ad_join_result.result.netbios_domain_name }} --set ad_forest_name={{ ad_join_result.result.forest_name }}"

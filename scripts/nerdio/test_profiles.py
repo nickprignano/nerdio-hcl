@@ -46,7 +46,8 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(profiles.load("trial")["subscription_id"], "s-trial")
         self.assertEqual(profiles.current(), "trial")
-        self.assertEqual(stat.S_IMODE(profiles.path("trial").stat().st_mode), 0o600)
+        if os.name != "nt":
+            self.assertEqual(stat.S_IMODE(profiles.path("trial").stat().st_mode), 0o600)
         self.assertNotIn("s-trial", out)
 
     def test_first_use_needs_a_yes(self):

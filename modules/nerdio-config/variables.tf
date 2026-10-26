@@ -40,52 +40,402 @@ variable "ad_config_friendly_name" {
 variable "fslogix" {
   description = "FSLogix profile pointing at the profile share. Null skips it."
   type = object({
-    name              = optional(string, "Terraform FSLogix profile")
-    profile_share_unc = string
-    entra_id_kerberos = optional(bool, true)
-    cloud_cache       = optional(bool, false)
+    name                     = optional(string, "Terraform FSLogix profile")
+    profile_share_unc        = string
+    office_share_unc         = optional(list(string), [])
+    entra_id_kerberos        = optional(bool, true)
+    cloud_cache              = optional(bool, false)
+    page_blobs               = optional(bool, false)
+    profile_options          = optional(string, "")
+    office_options           = optional(string, "")
+    exclusion_mode           = optional(string, "None")
+    excluded_domain_accounts = optional(list(string), [])
+    set_as_default           = optional(bool, false)
+    redirections_xml         = optional(string)
   })
   default = null
 }
 
 variable "auto_scale" {
-  description = "Default-mode auto-scale profile shared by the host pools."
+  description = "Default-mode auto-scale profile shared by the host pools unless a pool sets auto_scale_profile_id."
   type = object({
-    name                   = optional(string, "Terraform default scaling")
-    max_sessions_per_host  = optional(number, 10)
-    load_balancing         = optional(string, "BreadthFirst")
-    host_pool_capacity     = optional(number, 4)
-    min_active_hosts_count = optional(number, 1)
-    burst_capacity         = optional(number, 2)
-    scale_out_cpu_percent  = optional(number, 80)
-    scale_in_cpu_percent   = optional(number, 20)
+    name                    = optional(string, "Terraform default scaling")
+    max_sessions_per_host   = optional(number, 10)
+    load_balancing          = optional(string, "BreadthFirst")
+    host_pool_capacity      = optional(number, 4)
+    min_active_hosts_count  = optional(number, 1)
+    burst_capacity          = optional(number, 2)
+    scale_out_cpu_percent   = optional(number, 80)
+    scale_in_cpu_percent    = optional(number, 20)
+    start_vm_on_connect     = optional(bool, true)
+    active_host_type        = optional(string, "Running")
+    scale_in_aggressiveness = optional(string, "Medium")
+    minutes_before_remove   = optional(number, 10)
+    scale_in_message        = optional(string, "This session host is being shut down. Please save your work and sign out.")
+    auto_heal_enabled       = optional(bool, false)
   })
   default = {}
 }
 
+variable "gallery_image_definition_ids" {
+  description = "Compute Gallery image definition ARM IDs keyed by short name (from 01-platform). Host pools can set image to a key here or to a full Marketplace/Gallery ID."
+  type        = map(string)
+  default     = {}
+}
+
 variable "host_pools" {
   description = <<-EOT
-    Pooled dynamic host pools, keyed by AVD host pool name. image is the identifier Nerdio
-    shows for a desktop image, e.g. a Marketplace path like
-    MicrosoftWindowsDesktop/office-365/win11-24h2-avd-m365/latest, or a gallery image
-    after you add it under Desktop Images.
+    Dynamic host pools (Pooled or Personal), keyed by AVD host pool name.
+    image may be a key in gallery_image_definition_ids, a Compute Gallery image definition ARM ID
+    (/subscriptions/.../galleries/<gal>/images/<def>), or a Marketplace path like
+    MicrosoftWindowsDesktop/office-365/win11-24h2-avd-m365/latest.
   EOT
   type = map(object({
-    friendly_name     = string
-    description       = optional(string, "Managed by Terraform")
-    app_group_type    = optional(string, "Desktop")
-    load_balancer     = optional(string, "BreadthFirst")
-    max_session_limit = optional(number, 10)
-    validation_env    = optional(bool, false)
-    timezone_id       = optional(string, "Central Standard Time")
-    vm_prefix         = string
-    vm_size           = optional(string, "Standard_D4s_v5")
-    image             = optional(string, "MicrosoftWindowsDesktop/office-365/win11-24h2-avd-m365/latest")
-    os_disk_type      = optional(string, "StandardSSD_LRS")
-    os_disk_size_gb   = optional(number, 128)
-    max_idle_minutes  = optional(number, 60)
-    max_disconnected  = optional(number, 120)
-    tags              = optional(map(string), {})
+    friendly_name                = string
+    description                  = optional(string, "Managed by Terraform")
+    host_pool_type               = optional(string, "Pooled")
+    assignment_type              = optional(string, "Automatic")
+    app_group_type               = optional(string, "Desktop")
+    app_group_name               = optional(string)
+    load_balancer                = optional(string)
+    max_session_limit            = optional(number, 10)
+    validation_env               = optional(bool, false)
+    start_vm_on_connect          = optional(bool, true)
+    timezone_id                  = optional(string, "Central Standard Time")
+    auto_scale_enabled           = optional(bool, true)
+    auto_scale_profile_id        = optional(string)
+    vm_prefix                    = string
+    vm_size                      = optional(string, "Standard_D4s_v5")
+    image                        = optional(string, "MicrosoftWindowsDesktop/office-365/win11-24h2-avd-m365/latest")
+    os_disk_type                 = optional(string, "StandardSSD_LRS")
+    os_disk_size_gb              = optional(number, 128)
+    disk_performance_tier        = optional(string)
+    has_ephemeral_os_disk        = optional(bool, false)
+    ephemeral_os_disk_placement  = optional(string)
+    max_idle_minutes             = optional(number, 60)
+    max_disconnected             = optional(number, 120)
+    max_connection_minutes       = optional(number)
+    remote_app_logoff_minutes    = optional(number)
+    fslogix_enabled              = optional(bool)
+    fslogix_profile_id           = optional(string)
+    scripted_action_profile_id   = optional(string)
+    scripted_action_profile_key  = optional(string)
+    security_type                = optional(string, "TrustedLaunch")
+    secure_boot_enabled          = optional(bool, true)
+    vtpm_enabled                 = optional(bool, true)
+    encryption_at_host           = optional(bool, false)
+    confidential_disk_encryption = optional(bool)
+    disk_encryption_set_ids      = optional(list(string))
+    enable_vm_deallocation       = optional(bool, true)
+    use_availability_zones       = optional(bool, true)
+    accelerated_networking       = optional(bool, true)
+    install_gpu_drivers          = optional(bool)
+    rdp_shortpath                = optional(string)
+    compliance_enforcement       = optional(string)
+    compliance_timeout           = optional(number)
+    entra_id_groups              = optional(list(string))
+    enable_timezone_redirection  = optional(bool)
+    vm_timezone                  = optional(string)
+    patch_orchestration          = optional(string)
+    preferred_disk_controller    = optional(string)
+    user_assigned_identity_ids   = optional(list(string))
+    application_security_groups  = optional(list(string))
+    enable_hevc                  = optional(bool)
+    enable_appv_client_service   = optional(bool)
+    run_app_policies             = optional(bool)
+    install_certificates         = optional(bool)
+    watermarking = optional(object({
+      enabled       = bool
+      scale         = optional(number, 1)
+      opacity       = optional(number, 0)
+      width_factor  = optional(number, 0)
+      height_factor = optional(number, 0)
+    }))
+    backup = optional(object({
+      mode      = string
+      policy_id = optional(string)
+    }))
+    console_connect = optional(object({
+      enabled = bool
+      region  = optional(string)
+    }))
+    tracking = optional(object({
+      cpu_usage               = optional(bool, true)
+      ram_usage               = optional(bool, true)
+      average_active_sessions = optional(bool, true)
+      usage_via_log_analytics = optional(bool)
+    }))
+    agent_update = optional(object({
+      type                                 = string
+      time_zone                            = optional(string)
+      use_session_host_local_time          = optional(bool)
+      exclude_drain_mode_hosts             = optional(bool)
+      power_on_hosts_in_maintenance_window = optional(bool)
+      primary_window = optional(object({
+        day_of_week = number
+        hour        = number
+      }))
+      secondary_window = optional(object({
+        day_of_week = number
+        hour        = number
+      }))
+    }))
+    tags = optional(map(string), {})
   }))
   default = {}
+}
+
+variable "static_host_pools" {
+  description = "Static host pools (Pooled or Personal without dynamic auto-scale), keyed by AVD host pool name."
+  type = map(object({
+    friendly_name               = string
+    description                 = optional(string, "Managed by Terraform")
+    host_pool_type              = optional(string, "Personal")
+    assignment_type             = optional(string, "Automatic")
+    app_group_type              = optional(string, "Desktop")
+    app_group_name              = optional(string)
+    load_balancer               = optional(string)
+    max_session_limit           = optional(number, 10)
+    validation_env              = optional(bool, false)
+    start_vm_on_connect         = optional(bool, true)
+    max_idle_minutes            = optional(number, 60)
+    max_disconnected            = optional(number, 120)
+    max_connection_minutes      = optional(number)
+    fslogix_enabled             = optional(bool)
+    fslogix_profile_id          = optional(string)
+    scripted_action_profile_id  = optional(string)
+    scripted_action_profile_key = optional(string)
+    security_type               = optional(string, "TrustedLaunch")
+    secure_boot_enabled         = optional(bool, true)
+    vtpm_enabled                = optional(bool, true)
+    encryption_at_host          = optional(bool, false)
+    enable_vm_deallocation      = optional(bool, true)
+    use_availability_zones      = optional(bool, true)
+    accelerated_networking      = optional(bool, true)
+    rdp_shortpath               = optional(string)
+    compliance_enforcement      = optional(string)
+    compliance_timeout          = optional(number)
+    entra_id_groups             = optional(list(string))
+    enable_timezone_redirection = optional(bool)
+    vm_timezone                 = optional(string)
+    patch_orchestration         = optional(string)
+    preferred_disk_controller   = optional(string)
+    enable_hevc                 = optional(bool)
+    backup = optional(object({
+      mode      = string
+      policy_id = optional(string)
+    }))
+    console_connect = optional(object({
+      enabled = bool
+      region  = optional(string)
+    }))
+    tracking = optional(object({
+      cpu_usage               = optional(bool, true)
+      ram_usage               = optional(bool, true)
+      average_active_sessions = optional(bool, true)
+      usage_via_log_analytics = optional(bool)
+    }))
+    agent_update = optional(object({
+      type                                 = string
+      time_zone                            = optional(string)
+      use_session_host_local_time          = optional(bool)
+      exclude_drain_mode_hosts             = optional(bool)
+      power_on_hosts_in_maintenance_window = optional(bool)
+      primary_window = optional(object({
+        day_of_week = number
+        hour        = number
+      }))
+      secondary_window = optional(object({
+        day_of_week = number
+        hour        = number
+      }))
+    }))
+    tags = optional(map(string), {})
+  }))
+  default = {}
+}
+
+variable "rdp_profiles" {
+  description = "Host pool RDP profiles, keyed by a logical key."
+  type = map(object({
+    name     = string
+    settings = optional(string, "drivestoredirect:s:;audiomode:i:0;videoplaybackmode:i:1;redirectclipboard:i:1;redirectprinters:i:0;devicestoredirect:s:;redirectcomports:i:0;redirectsmartcards:i:1;usbdevicestoredirect:s:;enablecredsspsupport:i:1;use multimon:i:1")
+  }))
+  default = {}
+}
+
+variable "default_rdp_profile_key" {
+  description = "Key in rdp_profiles to set as the global default RDP profile in Nerdio (null skips)."
+  type        = string
+  default     = null
+}
+
+variable "vm_deployment_profiles" {
+  description = "Reusable host pool VM deployment profiles, keyed by a logical key."
+  type = map(object({
+    name                                = string
+    description                         = optional(string, "Managed by Terraform")
+    apply_virtual_desktop_optimizations = optional(bool, true)
+    accelerated_networking_enabled      = optional(bool, true)
+    force_vm_restart                    = optional(bool, true)
+    enable_timezone_redirection         = optional(bool, true)
+    vm_timezone                         = optional(string, "UTC")
+    install_gpu_drivers                 = optional(bool, false)
+    hci_gpu_allocation_mode             = optional(string, "None")
+    use_availability_zones              = optional(bool, true)
+    availability_zones                  = optional(list(string), [])
+    is_shadow_users_enabled             = optional(bool, false)
+    enable_vm_deallocation              = optional(bool, true)
+    install_certificates                = optional(bool, false)
+    enable_appv_client_service          = optional(bool, false)
+    run_app_policies                    = optional(bool, false)
+    always_prompt_for_password          = optional(bool, false)
+    security_type                       = optional(string, "TrustedLaunch")
+    secure_boot_enabled                 = optional(bool, true)
+    vtpm_enabled                        = optional(bool, true)
+    integrity_monitoring                = optional(bool, false)
+    encryption_at_host                  = optional(bool, false)
+    confidential_disk_encryption        = optional(bool, false)
+    disk_encryption_set_ids             = optional(list(string), [])
+    use_dedicated_hosts                 = optional(bool, false)
+    hibernation_mode                    = optional(string, "Disabled")
+    boot_diagnostics_enabled            = optional(bool, true)
+    boot_diagnostics_storage_ids        = optional(list(string), [])
+    entra_id_groups                     = optional(list(string), [])
+    compliance_enforcement              = optional(string, "None")
+    compliance_timeout                  = optional(number)
+    entra_device_timeout_in_minutes     = optional(number, 30)
+    capacity_reservation_group_ids      = optional(list(string), [])
+    preferred_disk_controller_type      = optional(string, "SCSI")
+    proximity_placement_group_ids       = optional(list(string), [])
+    patch_orchestration                 = optional(string, "Default")
+    application_security_group_ids      = optional(list(string), [])
+    user_assigned_identity_ids          = optional(list(string), [])
+    enable_hevc                         = optional(bool, false)
+    watermarking = optional(object({
+      enabled       = optional(bool, false)
+      scale         = optional(number, 1)
+      opacity       = optional(number, 0)
+      width_factor  = optional(number, 0)
+      height_factor = optional(number, 0)
+    }), {})
+  }))
+  default = {}
+}
+
+variable "scripted_actions" {
+  description = "Nerdio Windows scripted actions, keyed by a logical key."
+  type = map(object({
+    name                  = string
+    description           = optional(string, "Managed by Terraform")
+    script                = string
+    execution_mode        = optional(string, "Combined")
+    execution_environment = optional(string, "CustomScript")
+    execution_timeout     = optional(number, 30)
+    tags                  = optional(list(string), ["terraform"])
+  }))
+  default = {}
+}
+
+variable "scripted_action_groups" {
+  description = "Nerdio scripted action groups, keyed by a logical key. Actions can reference scripted_action_id (number) or action_key (key in var.scripted_actions)."
+  type = map(object({
+    name        = string
+    description = optional(string, "Managed by Terraform")
+    tags        = optional(list(string), ["terraform"])
+    actions = list(object({
+      scripted_action_id = optional(number)
+      action_key         = optional(string)
+      default_params = optional(map(object({
+        value = optional(string)
+        array = optional(list(string))
+      })))
+    }))
+  }))
+  default = {}
+}
+
+variable "scripted_action_profiles" {
+  description = "Host pool scripted action profiles, keyed by a logical key. Items in each trigger can reference id (number), action_key (in var.scripted_actions), or group_key (in var.scripted_action_groups)."
+  type = map(object({
+    name        = string
+    description = optional(string, "Managed by Terraform")
+    on_vm_create = optional(object({
+      enabled             = optional(bool, false)
+      active_directory_id = optional(number)
+      actions = optional(list(object({
+        type       = optional(string, "Action")
+        id         = optional(number)
+        action_key = optional(string)
+        group_key  = optional(string)
+        params = optional(map(object({
+          value = optional(string)
+          array = optional(list(string))
+        })))
+      })), [])
+    }), {})
+    on_host_create = optional(object({
+      enabled             = optional(bool, false)
+      active_directory_id = optional(number)
+      actions = optional(list(object({
+        type       = optional(string, "Action")
+        id         = optional(number)
+        action_key = optional(string)
+        group_key  = optional(string)
+        params = optional(map(object({
+          value = optional(string)
+          array = optional(list(string))
+        })))
+      })), [])
+    }), {})
+    on_start = optional(object({
+      enabled             = optional(bool, false)
+      active_directory_id = optional(number)
+      actions = optional(list(object({
+        type       = optional(string, "Action")
+        id         = optional(number)
+        action_key = optional(string)
+        group_key  = optional(string)
+        params = optional(map(object({
+          value = optional(string)
+          array = optional(list(string))
+        })))
+      })), [])
+    }), {})
+    on_stop = optional(object({
+      enabled             = optional(bool, false)
+      active_directory_id = optional(number)
+      actions = optional(list(object({
+        type       = optional(string, "Action")
+        id         = optional(number)
+        action_key = optional(string)
+        group_key  = optional(string)
+        params = optional(map(object({
+          value = optional(string)
+          array = optional(list(string))
+        })))
+      })), [])
+    }), {})
+    on_remove = optional(object({
+      enabled             = optional(bool, false)
+      active_directory_id = optional(number)
+      actions = optional(list(object({
+        type       = optional(string, "Action")
+        id         = optional(number)
+        action_key = optional(string)
+        group_key  = optional(string)
+        params = optional(map(object({
+          value = optional(string)
+          array = optional(list(string))
+        })))
+      })), [])
+    }), {})
+  }))
+  default = {}
+}
+
+variable "workspace_user_assignments" {
+  description = "Entra user, group, or service principal object IDs to assign to the AVD workspace via nme_user_assignment."
+  type        = list(string)
+  default     = []
 }

@@ -18,14 +18,15 @@ from . import __version__, catalogue, main, report, runner
 from .model import FEATURES, STAGES
 
 # Planning values the kit derives a default for; a default here would invent a network to check.
-EXPLICIT_ONLY = {"address_space", "hub_vnet_id"}
+EXPLICIT_ONLY = {"address_space", "hub_vnet_id", "fslogix_storage_account_name"}
 # The standalone path is a manual Marketplace install unless the answers say otherwise.
 STANDALONE_DEFAULTS = {"nerdio_install": "marketplace"}
 IDENTITY_ALIASES = {"entra": "entra_joined", "entra_joined": "entra_joined", "ad_ds": "ad_ds", "entra_ds": "entra_ds"}
 FLAG_KEYS = {"location": "location", "identity_model": "identity_model", "users": "user_count", "vm_size": "vm_size",
              "nerdio_url": "nerdio_url", "resource_group": "resource_group", "vnet_id": "vnet_id",
              "hosts_subnet": "hosts_subnet", "pe_subnet": "pe_subnet", "app_subnet": "app_subnet", "ai_model": "ai_model",
-             "host_pool_subscriptions": "host_pool_subscriptions", "intune_devices": "intune_devices"}
+             "host_pool_subscriptions": "host_pool_subscriptions", "intune_devices": "intune_devices",
+             "fslogix_storage": "fslogix_storage_account_name"}
 # Inputs only the standalone check has: a Marketplace install into an existing network has no kit
 # answers for them. Everything else uses schema/parameters.json's keys.
 EXTRA_INPUTS = {"nerdio_url", "resource_group", "vnet_id", "hosts_subnet", "pe_subnet", "app_subnet", "ai_model",
@@ -119,6 +120,7 @@ def parser() -> argparse.ArgumentParser:
                    metavar="ID,...", help="other subscriptions host pools will live in")
     p.add_argument("--ai-model", help="with --features ai: the Azure OpenAI model Nerdio's Copilot uses (see its docs)")
     p.add_argument("--intune-devices", type=int, help="with --features insights: how many Intune devices")
+    p.add_argument("--fslogix-storage", help="after the wizard: the FSLogix profile storage account's name")
     p.add_argument("--answers", metavar="FILE", help="answers in the kit's format (same keys as schema/parameters.json)")
     p.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", help="answer one question (repeatable)")
     p.add_argument("--no-input", action="store_true", help="never ask; missing inputs make their checks skipped")

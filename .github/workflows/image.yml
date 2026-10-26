@@ -1,0 +1,112 @@
+name: image
+run-name: "${{ inputs.environment || 'sandbox' }} golden image build (WDOT: ${{ inputs.wdot_profile || 'safe' }})"
+
+# Build and publish a Windows 11 AVD golden image to Azure Compute Gallery with Packer
+# (packer/avd-win11). Runs in the gated <environment>-apply GitHub environment using OIDC,
+# so a reviewer approves the build and no client secret exists anywhere.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which environment?"
+        required: true
+        type: choice
+        options:
+          - sandbox
+          - dev
+          - prod
+        default: sandbox
+      wdot_profile:
+        description: "VDOT optimization profile (safe, default, or none)"
+        required: true
+        type: choice
+        options:
+          - safe
+          - default
+          - none
+        default: safe
+      run_windows_update:
+        description: "Install cumulative Windows Updates during image build?"
+        required: false
+        type: boolean
+        default: true
+      run_ansible_playbook:
+        description: "Run Ansible playbook (ansible/playbooks/avd-image.yml) during build?"
+        required: false
+        type: boolean
+        default: false
+      image_version:
+        description: "3-part image version (e.g. 1.0.0); blank uses 1.<YYYYMM>.<DD>"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ inputs.environment || 'sandbox' }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'sandbox' }}-apply
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+      TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+      NERDIO_ENV: ${{ inputs.environment || 'sandbox' }}
+      WDOT_PROFILE: ${{ inputs.wdot_profile || 'safe' }}
+      RUN_WU: ${{ inputs.run_windows_update && 'true' || 'false' }}
+      RUN_ANSIBLE: ${{ inputs.run_ansible_playbook && 'true' || 'false' }}
+      IMAGE_VERSION: ${{ inputs.image_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Ansible & WinRM dependencies (when enabled)
+        if: inputs.run_ansible_playbook
+        run: |
+          python3 -m pip install --upgrade pip ansible-core pywinrm requests-credssp
+          ansible-galaxy collection install -r ansible/requirements.yml
+      - name: Build AVD golden image with Packer
+        run: |
+          set -euo pipefail
+          redact() { sed -E 's/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/<id>/g'; }
+          mkdir -p .nerdio
+          az storage blob download --auth-mode login --only-show-errors \
+            --account-name "$TFSTATE_STORAGE_ACCOUNT" --container-name answers \
+            --name "$NERDIO_ENV.json" --file .nerdio/answers.json >/dev/null
+          location="$(jq -r '.location // "eastus2"' .nerdio/answers.json)"
+          prefix="$(jq -r '.name_prefix // "avd"' .nerdio/answers.json)"
+          compact="$(echo "$prefix" | tr -d '-')"
+          gallery_rg="rg-${prefix}-${NERDIO_ENV}-images"
+          gallery_name="gal_${compact}_${NERDIO_ENV}"
+          ver="${IMAGE_VERSION:-1.$(date -u +%Y%m).$(date -u +%d | sed 's/^0//')}"
+
+          packer init packer/avd-win11 | redact
+          packer build -color=false \
+            -var "subscription_id=$ARM_SUBSCRIPTION_ID" \
+            -var "location=$location" \
+            -var "gallery_resource_group=$gallery_rg" \
+            -var "gallery_name=$gallery_name" \
+            -var "image_version=$ver" \
+            -var "wdot_profile=$WDOT_PROFILE" \
+            -var "run_windows_update=$RUN_WU" \
+            -var "run_ansible_playbook=$RUN_ANSIBLE" \
+            packer/avd-win11 2>&1 | redact

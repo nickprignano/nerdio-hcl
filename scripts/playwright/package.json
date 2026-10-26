@@ -1,0 +1,13 @@
+{
+  "name": "nerdio-playwright-verification",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Opt-in Playwright browser automation for Nerdio's 2 API-less first-run wizard steps and Windows App web client E2E verification",
+  "scripts": {
+    "test:wizard": "playwright test wizard-complete.spec.ts",
+    "test:launch": "playwright test session-launch.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0"
+  }
+}

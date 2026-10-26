@@ -102,9 +102,50 @@ class SchemaTests(unittest.TestCase):
                 engine.validate(p, bad)
 
     def test_unsupported_choice_explains_why(self):
+        fake_param = {
+            "type": "enum",
+            "choices": [
+                {"value": "ok", "label": "OK"},
+                {"value": "legacy", "label": "Legacy", "supported": False, "reason": "not supported yet"},
+            ],
+        }
         with self.assertRaises(engine.AnswerError) as ctx:
-            engine.validate(self.params["identity_model"], "ad_ds")
-        self.assertIn("AD DS", str(ctx.exception))
+            engine.validate(fake_param, "legacy")
+        self.assertIn("not supported yet", str(ctx.exception))
+
+    def test_ad_ds_populates_active_directory_for_fslogix(self):
+        resolved = engine.resolve(self.schema, {
+            "_random4": "ab12",
+            "identity_model": "ad_ds",
+            "dns_servers": ["10.50.0.4", "10.50.0.5"],
+            "ad_domain_name": "corp.contoso.com",
+            "ad_domain_guid": ZERO,
+            "ad_netbios_name": "CONTOSO",
+        }, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        self.assertEqual(resolved.values["fslogix_identity_source"], "AD")
+        self.assertFalse(resolved.values["fslogix_entra_kerberos"])
+        rendered, _ = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(rendered["platform"]["fslogix"]["active_directory"], {
+            "domain_name": "corp.contoso.com",
+            "domain_guid": ZERO,
+            "netbios_domain_name": "CONTOSO",
+        })
+
+    def test_personal_host_pool_populates_assignment_type(self):
+        resolved = engine.resolve(self.schema, {
+            "_random4": "ab12",
+            "host_pool_name": "hp-dev",
+            "host_pool_type": "Personal",
+            "personal_assignment_type": "Direct",
+            "ephemeral_os_disk": True,
+        }, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        rendered, _ = engine.render(self.schema, resolved, placeholders=True)
+        hp = rendered["config"]["host_pools"]["hp-dev"]
+        self.assertEqual(hp["host_pool_type"], "Personal")
+        self.assertEqual(hp["assignment_type"], "Direct")
+        self.assertTrue(hp["has_ephemeral_os_disk"])
 
     def test_domain_models_need_dns_servers(self):
         resolved = engine.resolve(self.schema, {"_random4": "ab12", "identity_model": "entra_ds"}, SOURCES)
@@ -178,10 +219,13 @@ class CliTests(unittest.TestCase):
     def test_form_matches_schema(self):
         self.assertTrue(form.in_sync(self.schema))
 
-    def test_form_hides_unsupported_choices(self):
+    def test_form_includes_all_identity_models_and_hides_unsupported(self):
         block = form.inputs_block(self.schema)
         self.assertIn("- entra_joined", block)
-        self.assertNotIn("- ad_ds", block)
+        self.assertIn("- ad_ds", block)
+        fake_schema = json.loads(json.dumps(self.schema))
+        fake_schema["parameters"][1]["choices"].append({"value": "future_id", "supported": False})
+        self.assertNotIn("- future_id", form.inputs_block(fake_schema))
 
     def test_init_with_form_inputs_end_to_end(self):
         env = {"FORM_INPUTS": json.dumps({"environment": "dev", "user_count": 20, "fslogix_enabled": True, "prefix": ""})}

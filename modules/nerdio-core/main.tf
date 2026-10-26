@@ -18,6 +18,23 @@ locals {
   # Nerdio's template: uniqueString(subscription().id, resourceGroup().id), 13 characters.
   suffix = coalesce(var.name_suffix, substr(sha1("${data.azurerm_subscription.current.id}/resourceGroups/${var.resource_group_name}"), 0, 13))
 
+  cloud_endpoints = {
+    public = {
+      web_suffix     = "azurewebsites.net"
+      kv_suffix      = "vault.azure.net"
+      sql_suffix     = "database.windows.net"
+      login_endpoint = "https://login.microsoftonline.com/"
+      azure_type     = "AzureCloud"
+    }
+    usgovernment = {
+      web_suffix     = "azurewebsites.us"
+      kv_suffix      = "vault.usgovcloudapi.net"
+      sql_suffix     = "database.usgovcloudapi.net"
+      login_endpoint = "https://login.microsoftonline.us/"
+      azure_type     = "AzureUSGovernment"
+    }
+  }[var.cloud]
+
   names = {
     web_app          = "${var.app_name}-${local.suffix}"
     plan             = "${var.app_name}-plan-${local.suffix}"
@@ -38,9 +55,9 @@ locals {
     dp_blob          = "keys.xml"
     locks_container  = "locks"
     updater_runbook  = "nmwUpdateRunAs"
-    default_hostname = "${var.app_name}-${local.suffix}.azurewebsites.net"
-    key_vault_uri    = "https://${var.app_name}-kv-${local.suffix}.vault.azure.net"
-    sql_server_fqdn  = "${var.app_name}-sql-${local.suffix}.database.windows.net"
+    default_hostname = "${var.app_name}-${local.suffix}.${local.cloud_endpoints.web_suffix}"
+    key_vault_uri    = "https://${var.app_name}-kv-${local.suffix}.${local.cloud_endpoints.kv_suffix}"
+    sql_server_fqdn  = "${var.app_name}-sql-${local.suffix}.${local.cloud_endpoints.sql_suffix}"
   }
 
   paas_tags = merge(var.tags, { NMW_OBJECT_TYPE = "PAAS" })

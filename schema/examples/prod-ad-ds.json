@@ -1,0 +1,20 @@
+{
+  "_random4": "gh78",
+  "environment": "prod",
+  "identity_model": "ad_ds",
+  "user_count": 200,
+  "workload": "medium",
+  "location": "eastus2",
+  "address_space": "10.70.0.0/16",
+  "dns_servers": ["10.70.255.4", "10.70.255.5"],
+  "ad_domain_name": "corp.contoso.com",
+  "ad_domain_guid": "00000000-0000-0000-0000-000000000000",
+  "ad_domain_sid": "S-1-5-21-1000000000-2000000000-3000000000",
+  "ad_storage_sid": "S-1-5-21-1000000000-2000000000-3000000000-1105",
+  "ad_netbios_name": "CONTOSO",
+  "user_groups": ["11111111-1111-1111-1111-111111111111"],
+  "host_pool_type": "Pooled",
+  "ephemeral_os_disk": true,
+  "encryption_at_host": true,
+  "timezone_id": "Eastern Standard Time"
+}

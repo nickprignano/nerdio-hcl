@@ -131,9 +131,7 @@
         },
         {
           "value": "ad_ds",
-          "label": "Active Directory Domain Services (hybrid)",
-          "supported": false,
-          "reason": "The kit doesn't pass AD DS domain details to the FSLogix share yet (the AzFilesHybrid join is also manual). Pick Entra-joined for now, or follow the roadmap."
+          "label": "Active Directory Domain Services (hybrid)"
         }
       ],
       "default": "entra_joined",
@@ -183,6 +181,30 @@
       "form": true,
       "sources": [
         "https://learn.microsoft.com/windows-server/remote/remote-desktop-services/virtual-machine-recs"
+      ]
+    },
+    {
+      "id": "cloud",
+      "phase": "discover",
+      "type": "enum",
+      "question": "Which Azure cloud environment are you deploying into?",
+      "help": "Azure Commercial (public) or Azure US Government (usgovernment). Sets provider environment endpoints, Private DNS zones, and Nerdio Manager cloud settings.",
+      "choices": [
+        {
+          "value": "public",
+          "label": "Azure Commercial (AzureCloud)"
+        },
+        {
+          "value": "usgovernment",
+          "label": "Azure US Government (AzureUSGovernment)"
+        }
+      ],
+      "default": "public",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "cloud"
+        }
       ]
     },
     {
@@ -460,7 +482,7 @@
       "id": "fslogix_identity_source",
       "phase": "configure",
       "type": "enum",
-      "ask": "never",
+      "ask": "advanced",
       "when": {
         "fslogix_enabled": [
           true
@@ -468,17 +490,20 @@
       },
       "choices": [
         {
-          "value": "AADKERB"
+          "value": "AADKERB",
+          "label": "Entra Kerberos (cloud-only or hybrid synced identities)"
         },
         {
-          "value": "AADDS"
+          "value": "AADDS",
+          "label": "Entra Domain Services"
         },
         {
-          "value": "AD"
+          "value": "AD",
+          "label": "On-premises Active Directory Domain Services (AzFilesHybrid)"
         }
       ],
-      "question": "How hosts authenticate to the profile share",
-      "help": "Follows the identity model.",
+      "question": "How should session hosts authenticate to the FSLogix profile share?",
+      "help": "Defaults from your identity model. Hybrid AD DS hosts with synced user accounts can also choose AADKERB to skip joining the storage account to AD DS.",
       "default": {
         "map": "identity_model",
         "values": {
@@ -491,6 +516,151 @@
         {
           "stage": "platform",
           "path": "fslogix.identity_source"
+        }
+      ]
+    },
+    {
+      "id": "ad_domain_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ],
+        "fslogix_identity_source": [
+          "AD"
+        ]
+      },
+      "question": "AD DS domain FQDN for the FSLogix storage account (e.g. corp.contoso.com)?",
+      "help": "Required when authenticating the Azure Files share against on-premises AD DS. Run the ansible/playbooks/ad-ds-fslogix-join.yml playbook or AzFilesHybrid to create the computer/service account in AD.",
+      "default": "corp.contoso.com",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.active_directory.domain_name"
+        }
+      ]
+    },
+    {
+      "id": "ad_domain_guid",
+      "phase": "configure",
+      "type": "uuid",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ],
+        "fslogix_identity_source": [
+          "AD"
+        ]
+      },
+      "question": "AD DS domain GUID (`(Get-ADDomain).ObjectGUID`)?",
+      "help": "The GUID of your Active Directory domain.",
+      "default": "00000000-0000-0000-0000-000000000000",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.active_directory.domain_guid"
+        }
+      ]
+    },
+    {
+      "id": "ad_domain_sid",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^$|^S-1-5-21(-\\d+){3}$",
+      "ask": "advanced",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ],
+        "fslogix_identity_source": [
+          "AD"
+        ]
+      },
+      "question": "AD DS domain SID (`(Get-ADDomain).DomainSID.Value`, optional)?",
+      "help": "Required when specifying ad_storage_sid.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.active_directory.domain_sid",
+          "omit_empty": true
+        }
+      ]
+    },
+    {
+      "id": "ad_storage_sid",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^$|^S-1-5-21(-\\d+){4}$",
+      "ask": "advanced",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ],
+        "fslogix_identity_source": [
+          "AD"
+        ]
+      },
+      "question": "AD computer/service account SID created for the storage account (optional)?",
+      "help": "Output by Join-AzStorageAccount or ansible/playbooks/ad-ds-fslogix-join.yml.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.active_directory.storage_sid",
+          "omit_empty": true
+        }
+      ]
+    },
+    {
+      "id": "ad_netbios_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^$|^[A-Za-z0-9-]{1,15}$",
+      "ask": "advanced",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ],
+        "fslogix_identity_source": [
+          "AD"
+        ]
+      },
+      "question": "AD DS NetBIOS domain name (optional)?",
+      "help": "Up to 15 characters, e.g. CONTOSO.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.active_directory.netbios_domain_name",
+          "omit_empty": true
+        }
+      ]
+    },
+    {
+      "id": "ad_forest_name",
+      "phase": "configure",
+      "type": "string",
+      "pattern": "^$|^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$",
+      "ask": "advanced",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ],
+        "fslogix_identity_source": [
+          "AD"
+        ]
+      },
+      "question": "AD DS forest root domain name (optional)?",
+      "help": "Defaults to ad_domain_name when blank.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "fslogix.active_directory.forest_name",
+          "omit_empty": true
         }
       ]
     },
@@ -938,6 +1108,7 @@
     },
     {
       "id": "image",
+      "readiness": ["pre-install"],
       "phase": "configure",
       "type": "string",
       "pattern": "^[^\\s]+$",
@@ -956,18 +1127,168 @@
       ]
     },
     {
+      "id": "host_pool_type",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "advanced",
+      "question": "Should the first host pool be Pooled (multi-session) or Personal (dedicated 1:1 VMs)?",
+      "help": "Pooled shares hosts across users. Personal assigns each user their own dedicated VM.",
+      "choices": [
+        {
+          "value": "Pooled",
+          "label": "Pooled (multi-session shared hosts)"
+        },
+        {
+          "value": "Personal",
+          "label": "Personal (dedicated 1:1 desktops)"
+        }
+      ],
+      "default": "Pooled",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.host_pool_type"
+        }
+      ]
+    },
+    {
+      "id": "personal_assignment_type",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "advanced",
+      "when": {
+        "host_pool_type": [
+          "Personal"
+        ]
+      },
+      "question": "How should Personal desktops be assigned to users?",
+      "help": "Automatic assigns the first available host when a user signs in. Direct requires an admin to assign a specific host to each user.",
+      "choices": [
+        {
+          "value": "Automatic",
+          "label": "Automatic (assigns an available host on first sign-in)"
+        },
+        {
+          "value": "Direct",
+          "label": "Direct (admin assigns each user to a host)"
+        }
+      ],
+      "default": "Automatic",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.assignment_type"
+        }
+      ]
+    },
+    {
+      "id": "app_group_type",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "advanced",
+      "when": {
+        "host_pool_type": [
+          "Pooled"
+        ]
+      },
+      "question": "Should the pooled host pool publish a full Desktop or RemoteApp applications?",
+      "help": "Personal host pools always publish a Desktop.",
+      "choices": [
+        {
+          "value": "Desktop",
+          "label": "Full desktop"
+        },
+        {
+          "value": "RemoteApp",
+          "label": "Published RemoteApps"
+        }
+      ],
+      "default": "Desktop",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.app_group_type"
+        }
+      ]
+    },
+    {
+      "id": "ephemeral_os_disk",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Use ephemeral OS disks for session hosts?",
+      "help": "Faster, free OS disks stored on the VM host's local cache/temp storage. Best for stateless pooled hosts with FSLogix.",
+      "default": false,
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.has_ephemeral_os_disk"
+        }
+      ]
+    },
+    {
+      "id": "rdp_shortpath",
+      "phase": "configure",
+      "type": "enum",
+      "ask": "advanced",
+      "question": "RDP Shortpath (UDP) transport behavior?",
+      "help": "Controls UDP transport for lower latency.",
+      "choices": [
+        {
+          "value": "NotConfigured",
+          "label": "NotConfigured (Azure default)"
+        },
+        {
+          "value": "ForceEnable",
+          "label": "ForceEnable (enable UDP Shortpath)"
+        },
+        {
+          "value": "ForceDisable",
+          "label": "ForceDisable (TCP only)"
+        }
+      ],
+      "default": "NotConfigured",
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.rdp_shortpath",
+          "omit_empty": true
+        }
+      ]
+    },
+    {
+      "id": "encryption_at_host",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Enable Azure encryption at host on session host VMs?",
+      "help": "Encrypts temp disks and OS/data disk caches on the hypervisor host. Requires the EncryptionAtHost feature registered on the subscription.",
+      "default": false,
+      "tfvars": [
+        {
+          "stage": "config",
+          "path": "host_pools.{host_pool_name}.encryption_at_host"
+        }
+      ]
+    },
+    {
       "id": "fslogix_entra_kerberos",
       "phase": "configure",
       "type": "bool",
       "ask": "never",
+      "when": {
+        "fslogix_enabled": [
+          true
+        ]
+      },
       "question": "Use Entra Kerberos for the profile share",
-      "help": "Follows the identity model.",
+      "help": "Follows fslogix_identity_source.",
       "default": {
-        "map": "identity_model",
+        "map": "fslogix_identity_source",
         "values": {
-          "entra_joined": true,
-          "entra_ds": false,
-          "ad_ds": false
+          "AADKERB": true,
+          "AADDS": false,
+          "AD": false
         }
       },
       "tfvars": [

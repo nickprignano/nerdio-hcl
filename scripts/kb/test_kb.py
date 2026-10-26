@@ -109,7 +109,7 @@ class FeedbackTests(TempData):
         entry = kblib.load_yaml(kblib.KNOWN_ERRORS)["errors"][-1]
         self.assertEqual(entry["status"], "unverified")
         self.assertEqual(entry["source"], "https://example.com/changelog")
-        self.assertTrue(kblib.KNOWN_ERRORS.read_text().startswith("# Known errors catalog"))
+        self.assertTrue(kblib.KNOWN_ERRORS.read_text(encoding="utf-8").startswith("# Known errors catalog"))
 
     def test_rejects_unticked_and_missing_page(self):
         unticked = FEEDBACK_BODY.replace("- [X]", "- [ ]")
@@ -230,9 +230,9 @@ class FamilyTests(unittest.TestCase):
         import validate
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp)
-        (tmp / "sources.toml").write_text('[[source]]\nname = "a"\nkind = "github_commits"\nrepo = "octo/sib"\npath = "kb"\n')
+        (tmp / "sources.toml").write_text('[[source]]\nname = "a"\nkind = "github_commits"\nrepo = "octo/sib"\npath = "kb"\n', encoding="utf-8")
         validate.errors.clear()
-        with mock.patch.object(kblib, "SOURCES", tmp / "sources.toml"), mock.patch.object(validate, "ROOT", Path("/")):
+        with mock.patch.object(kblib, "SOURCES", tmp / "sources.toml"), mock.patch.object(validate, "ROOT", tmp):
             validate.check_family()
         self.assertEqual(len(validate.errors), 1)
         self.assertIn("kb/decisions", validate.errors[0])

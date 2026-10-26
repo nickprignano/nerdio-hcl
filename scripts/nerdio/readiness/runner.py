@@ -6,7 +6,7 @@ from typing import Iterable, List, Optional
 
 from . import checks  # noqa: F401  (registers every check)
 from .context import Ctx, WriteRefused
-from .model import FEATURES, REGISTRY, Check, Result
+from .model import FEATURES, INSTALLED, REGISTRY, WIZARD, Check, Result
 
 
 class UsageError(Exception):
@@ -31,6 +31,12 @@ def parse_ids(text: str) -> List[str]:
     return items
 
 
+def applies(c: Check, stage: str) -> bool:
+    """A check runs in its own stages; post-wizard also re-runs the post-install checks, since an
+    installed Nerdio Manager has to stay healthy through and after its wizard."""
+    return stage in c.stages or (stage == WIZARD and INSTALLED in c.stages)
+
+
 def select(stage: str, features: Iterable[str] = (), mode: str = "kit", only: Iterable[str] = (),
            skip: Iterable[str] = (), region_only: bool = False) -> List[Check]:
     features, only, skip = set(features), set(only), set(skip)
@@ -42,7 +48,7 @@ def select(stage: str, features: Iterable[str] = (), mode: str = "kit", only: It
             continue
         if region_only and not c.region:
             continue
-        if not only and stage not in c.stages:
+        if not only and not applies(c, stage):
             continue
         if not only and not c.core and not features & set(c.features):
             continue

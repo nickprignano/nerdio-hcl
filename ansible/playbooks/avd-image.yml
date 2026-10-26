@@ -1,0 +1,102 @@
+---
+# Golden image provisioning playbook for Windows 11 Enterprise multi-session (AVD).
+# Invoked optionally by Packer (`packer/avd-win11` with `run_ansible_playbook = true`)
+# or against a staging image VM prior to sysprep.
+- name: Configure and harden Windows 11 multi-session AVD golden image
+  hosts: all
+  gather_facts: true
+  vars:
+    fslogix_redirections_dir: 'C:\Program Files\FSLogix\Apps'
+    enable_rdp_shortpath_udp: true
+    enable_teams_avd_media_optimizations: true
+    enable_defender_fslogix_exclusions: true
+    extra_choco_packages: []
+    enterprise_root_certs: []
+
+  tasks:
+    - name: Ensure AVD WebRTC Redirector / Teams media optimization registry key exists
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Teams
+        name: IsWVDEnvironment
+        data: 1
+        type: dword
+      when: enable_teams_avd_media_optimizations | bool
+
+    - name: Enable UDP Shortpath listener on session host (port 3390)
+      ansible.windows.win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+        name: fUseUdpPortRedirector
+        data: 1
+        type: dword
+      when: enable_rdp_shortpath_udp | bool
+
+    - name: Set UDP Shortpath port to 3390
+      ansible.windows.win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+        name: UdpPortNumber
+        data: 3390
+        type: dword
+      when: enable_rdp_shortpath_udp | bool
+
+    - name: Allow RDP Shortpath UDP 3390 in Windows Defender Firewall
+      community.windows.win_firewall_rule:
+        name: "AVD RDP Shortpath (UDP-In)"
+        localport: 3390
+        action: allow
+        direction: in
+        protocol: udp
+        state: present
+        enabled: true
+      when: enable_rdp_shortpath_udp | bool
+
+    - name: Configure Microsoft Defender exclusions for FSLogix profile & Office containers
+      ansible.windows.win_powershell:
+        script: |
+          $paths = @(
+            "%ProgramFiles%\FSLogix\Apps\frxdrv.sys",
+            "%ProgramFiles%\FSLogix\Apps\frxdrvvt.sys",
+            "%ProgramFiles%\FSLogix\Apps\frxccd.sys",
+            "%TEMP%\*.VHD",
+            "%TEMP%\*.VHDX",
+            "%Windir%\TEMP\*.VHD",
+            "%Windir%\TEMP\*.VHDX",
+            "C:\ProgramData\FSLogix\Cache\*.VHD",
+            "C:\ProgramData\FSLogix\Cache\*.VHDX",
+            "C:\ProgramData\FSLogix\Proxy\*.VHD",
+            "C:\ProgramData\FSLogix\Proxy\*.VHDX"
+          )
+          $processes = @(
+            "%ProgramFiles%\FSLogix\Apps\frxccd.exe",
+            "%ProgramFiles%\FSLogix\Apps\frxccds.exe",
+            "%ProgramFiles%\FSLogix\Apps\frxsvc.exe"
+          )
+          foreach ($p in $paths) {
+            Add-MpPreference -ExclusionPath $p -ErrorAction SilentlyContinue
+          }
+          foreach ($proc in $processes) {
+            Add-MpPreference -ExclusionProcess $proc -ErrorAction SilentlyContinue
+          }
+      when: enable_defender_fslogix_exclusions | bool
+
+    - name: Disable automatic Windows Store consumer experiences (CIS / AVD baseline)
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent
+        name: DisableWindowsConsumerFeatures
+        data: 1
+        type: dword
+
+    - name: Enable time zone redirection policy for AVD sessions
+      ansible.windows.win_regedit:
+        path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services
+        name: fEnableTimeZoneRedirection
+        data: 1
+        type: dword
+
+    - name: Install enterprise root CA certificates into LocalMachine Root store
+      ansible.windows.win_certificate_store:
+        path: "{{ item }}"
+        store_location: LocalMachine
+        store_name: Root
+        state: present
+      loop: "{{ enterprise_root_certs }}"
+      when: enterprise_root_certs | length > 0
