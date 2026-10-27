@@ -16,8 +16,8 @@ variable "template_file" {
     when deploying Nerdio Manager directly from the Azure portal Marketplace; this module then
     discovers the Marketplace resources in resource_group_name without deploying an ARM template.
   EOT
-  type    = string
-  default = null
+  type        = string
+  default     = null
 }
 
 variable "parameters" {

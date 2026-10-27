@@ -40,8 +40,8 @@ variable "existing_resource_groups" {
     resource group created when deploying Nerdio Manager from the Azure portal Marketplace before
     running Terraform. Existing groups are read with a data source instead of created.
   EOT
-  type    = set(string)
-  default = []
+  type        = set(string)
+  default     = []
   validation {
     condition     = alltrue([for k in var.existing_resource_groups : contains(["nerdio", "network", "hostpools", "storage", "monitoring"], k)])
     error_message = "existing_resource_groups entries must be valid resource_groups role keys (nerdio, network, hostpools, storage, monitoring)."
