@@ -65,23 +65,20 @@ locals {
   secondary_region_dns_links = !local.hub_owns_dns ? merge([
     for reg_key, reg in var.regions : {
       for zone_key, zone_id in local.platform_private_dns_zone_ids : "${reg_key}:${zone_key}" => {
-        reg_key             = reg_key
-        zone_name           = element(split("/", zone_id), length(split("/", zone_id)) - 1)
-        resource_group_name = module.spoke_foundation[local.control_plane_region_key].resource_group_names["network"]
-        vnet_id             = module.network[reg_key].vnet_id
-        vnet_name           = module.network[reg_key].vnet_name
+        zone_id   = zone_id
+        vnet_id   = module.network[reg_key].vnet_id
+        vnet_name = module.network[reg_key].vnet_name
       }
     } if reg_key != local.control_plane_region_key
   ]...) : {}
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "secondary_regions" {
-  for_each              = local.secondary_region_dns_links
-  name                  = "link-${each.value.vnet_name}"
-  resource_group_name   = each.value.resource_group_name
-  private_dns_zone_name = each.value.zone_name
-  virtual_network_id    = each.value.vnet_id
-  tags                  = var.tags
+  for_each            = local.secondary_region_dns_links
+  name                = "link-${each.value.vnet_name}"
+  private_dns_zone_id = each.value.zone_id
+  virtual_network_id  = each.value.vnet_id
+  tags                = var.tags
 }
 
 module "fslogix" {

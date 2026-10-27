@@ -169,23 +169,18 @@ resource "azurerm_private_dns_zone_virtual_network_link" "this" {
 }
 
 locals {
-  # Parse zone name and resource group from ARM IDs when linking existing central Private DNS zones.
   linkable_existing_zones = (!var.create_private_dns_zones && var.link_existing_private_dns_zones) ? {
-    for k, id in var.existing_private_dns_zone_ids : k => {
-      id                  = id
-      name                = element(split("/", id), length(split("/", id)) - 1)
-      resource_group_name = element(split("/", id), index(split("/", id), "resourceGroups") + 1)
-    } if length(split("/", id)) >= 9 && contains(split("/", id), "resourceGroups")
+    for k, id in var.existing_private_dns_zone_ids : k => id
+    if length(split("/", id)) >= 9 && contains(split("/", id), "resourceGroups")
   } : {}
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "existing" {
-  for_each              = local.linkable_existing_zones
-  name                  = "link-${azurerm_virtual_network.avd.name}"
-  resource_group_name   = each.value.resource_group_name
-  private_dns_zone_name = each.value.name
-  virtual_network_id    = azurerm_virtual_network.avd.id
-  tags                  = var.tags
+  for_each            = local.linkable_existing_zones
+  name                = "link-${azurerm_virtual_network.avd.name}"
+  private_dns_zone_id = each.value
+  virtual_network_id  = azurerm_virtual_network.avd.id
+  tags                = var.tags
 }
 
 resource "azurerm_virtual_network_peering" "to_hub" {
