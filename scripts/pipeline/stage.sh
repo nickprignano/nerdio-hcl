@@ -163,7 +163,10 @@ if [ "$action" = plan ]; then
 
   out="$platform/setup.auto.tfvars.json"
   install="$(jq -r '.nerdio_install // "terraform"' "$out")"
-  [ "$install" = terraform ] || fail "The pipeline supports nerdio_install = terraform only; the Marketplace path needs a portal download."
+  case "$install" in
+    terraform | marketplace) ;;
+    *) fail "nerdio_install must be terraform or marketplace (found $install)." ;;
+  esac
 
   # Both deploy identities read the Nerdio REST secret (decision 0015): plan to refresh stage 2,
   # apply to configure the nme provider during the apply.
@@ -176,6 +179,10 @@ if [ "$action" = plan ]; then
     init_stage "$platform" platform
     terraform -chdir="$platform" output -json nerdio_config_inputs > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null \
       || fail "01-platform has no outputs yet. Plan and apply the platform stage first."
+    base_url="$(jq -r '.nme_base_url // empty' "$stage_dir/platform.auto.tfvars.json")"
+    [ -n "$base_url" ] || fail "01-platform has no nme_base_url yet. For a Marketplace install, deploy Nerdio Manager into the nerdio resource group and re-run the platform stage to discover it."
+    client_id="$(jq -r '.nme_client_id // empty' "$stage_dir/platform.auto.tfvars.json")"
+    [ -n "$client_id" ] || fail "01-platform has no nme_client_id yet. Set create_entra_app = true or existing_entra_app_client_id and re-run the platform stage."
     kind="$(jq -r '.nme_secret_source // "output"' "$stage_dir/platform.auto.tfvars.json")"
     [ "$kind" = key_vault ] || fail "The pipeline needs nme_secret_store = key_vault (found $kind)."
   fi

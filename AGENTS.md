@@ -21,5 +21,6 @@ Read [docs/guardrails.md](docs/guardrails.md) before changing anything. These ar
 - `scripts/nerdio/` is the engine behind `./nerdio` (Python standard library only).
 - `assistant/` is the self-hosted setup chatbot (its prompt is `assistant/prompt.md`);
   `modules/assistant` and `environments/example/00-assistant` deploy it. See [docs/assistant.md](docs/assistant.md).
-- After touching the schema, engine or chatbot, run `./nerdio schema check`,
+- After touching the schema, engine, chatbot, modules or docs, run `./nerdio docs --write` (to sync
+  generated layout, catalogue and form blocks), `./nerdio schema check`,
   `python3 -m unittest discover -s scripts/nerdio` and `python3 -m unittest discover -s assistant`.

@@ -61,6 +61,14 @@ on:
         required: true
         type: boolean
         default: true
+      nerdio_install:
+        description: "How should Nerdio Manager be installed?"
+        required: true
+        type: choice
+        options:
+          - terraform
+          - marketplace
+        default: terraform
       grant_admin_consent:
         description: "Grant admin consent for Nerdio's app from Terraform?"
         required: true

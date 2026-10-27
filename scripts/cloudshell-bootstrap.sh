@@ -56,22 +56,19 @@ ensure_terraform() {
 }
 
 ensure_template() {
-  [ -f "$template_dir/template.json" ] && { echo "Using templates/nerdio-manager/template.json"; return; }
-  # The portal's "Download a template for automation" gives a zip; upload it to Cloud Shell's home.
+  if [ -f "$template_dir/template.json" ]; then
+    echo "Using exported template templates/nerdio-manager/template.json"
+    [ -f "$platform/nerdio.auto.tfvars.json" ] || jq -n '{nerdio_template_file: "../../../templates/nerdio-manager/template.json"}' > "$platform/nerdio.auto.tfvars.json"
+    return
+  fi
+  # If the user uploaded an exported "Download a template for automation" zip to Cloud Shell, unpack it.
   local zip="" z
   while IFS= read -r z; do
     if unzip -Z1 "$z" 2>/dev/null | grep -qx 'template.json'; then zip="$z"; break; fi
   done < <(find "$HOME" "$HOME/clouddrive" -maxdepth 1 -type f -iname '*.zip' 2>/dev/null)
   if [ -z "$zip" ]; then
-    cat >&2 <<'MSG'
-No Nerdio Manager template yet. In the Azure portal:
-  1. Marketplace > Nerdio Manager for Enterprise > Create. Pick this subscription, any new
-     resource group and your region, then go to Review + create.
-  2. Choose "Download a template for automation", then Download. Don't click Create.
-  3. In Cloud Shell: Manage files > Upload, and pick the zip.
-Then run this script again.
-MSG
-    exit 2
+    echo "Portal Marketplace mode (no exported template zip): Terraform builds the landing zone and discovers Nerdio Manager in rg-<prefix>-nerdio once you deploy it from the Azure portal Marketplace."
+    return
   fi
   echo "Unpacking $(basename "$zip")"
   local tmp; tmp="$(mktemp -d)"
@@ -79,10 +76,13 @@ MSG
   cp "$tmp/template.json" "$template_dir/template.json"
   if [ -f "$tmp/parameters.json" ]; then
     jq --arg loc "$location" \
-      '{nerdio_template_parameters: (.parameters | map_values(.value)
-        | if has("location") then .location = $loc else . end)}' \
+      '{nerdio_template_file: "../../../templates/nerdio-manager/template.json",
+        nerdio_template_parameters: (.parameters | map_values(.value)
+          | if has("location") then .location = $loc else . end)}' \
       "$tmp/parameters.json" > "$platform/nerdio.auto.tfvars.json"
     echo "Wrote 01-platform/nerdio.auto.tfvars.json from parameters.json"
+  else
+    jq -n '{nerdio_template_file: "../../../templates/nerdio-manager/template.json"}' > "$platform/nerdio.auto.tfvars.json"
   fi
   rm -rf "$tmp"
 }
@@ -101,6 +101,9 @@ write_platform_tfvars() {
   prefix="nme-sbx-$suffix"
   compact="nmesbx$suffix"
   consent="${NME_GRANT_CONSENT:-true}"
+
+  local create_app="true"
+  [ "$install" = marketplace ] && create_app="${NME_CREATE_ENTRA_APP:-false}"
 
   umask 077
   cat > "$out" <<TFVARS
@@ -142,6 +145,8 @@ image_gallery = {
   name                      = "gal_${compact}"
   build_resource_group_name = "rg-$prefix-images-build"
 }
+
+create_entra_app = $create_app
 
 entra_app = {
   wvd_admin_object_ids = ["$me"]

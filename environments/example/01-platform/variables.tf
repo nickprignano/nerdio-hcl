@@ -41,6 +41,12 @@ variable "resource_groups" {
   type        = map(string)
 }
 
+variable "existing_resource_groups" {
+  description = "Role keys in resource_groups (such as [\"nerdio\"]) that already exist in Azure, for example when Nerdio Manager was deployed from the Azure portal Marketplace before running Terraform."
+  type        = set(string)
+  default     = []
+}
+
 variable "network" {
   description = "AVD spoke network settings."
   type = object({
@@ -82,7 +88,10 @@ variable "nerdio_install" {
     How Nerdio Manager gets installed:
     "terraform"   (default) builds it in Terraform (modules/nerdio-core) and deploys the app code
                   from an Automation job, so there's no install script to run.
-    "marketplace" deploys an exported Marketplace template, then you run Nerdio's install script.
+    "marketplace" deploys Nerdio Manager from the Azure Marketplace (either directly in the Azure
+                  portal with nerdio_template_file = null, or from an exported ARM template when
+                  nerdio_template_file is set), discovers its resources in the nerdio resource
+                  group, and runs Nerdio's install script.
   EOT
   type        = string
   default     = "terraform"
@@ -108,27 +117,28 @@ variable "nerdio_core" {
 }
 
 variable "nerdio_template_file" {
-  description = "Marketplace install only: path to the exported Nerdio Manager ARM template."
+  description = "Marketplace install only: optional path to an exported Nerdio Manager ARM template (for example \"../../../templates/nerdio-manager/template.json\"). Leave null (the default) when deploying Nerdio Manager directly from the Azure portal Marketplace."
   type        = string
-  default     = "../../../templates/nerdio-manager/template.json"
+  default     = null
 }
 
 variable "nerdio_template_parameters" {
-  description = "Marketplace install only: parameter values for the exported template."
+  description = "Marketplace install only: parameter values when nerdio_template_file is set."
   type        = any
   default     = {}
 }
 
 variable "create_entra_app" {
-  description = "Pre-create the nerdio-nmw-app registration in Terraform (Nerdio's \"Use existing AD app\" install path). False leaves it to Nerdio's install script."
+  description = "Pre-create the nerdio-nmw-app registration in Terraform (Nerdio's \"Use existing AD app\" install path). False leaves it to Nerdio's Marketplace install script; set entra_app.existing_client_id afterwards so Terraform can still create the REST API client app for stage 2."
   type        = bool
   default     = true
 }
 
 variable "entra_app" {
-  description = "Entra app settings when create_entra_app is true."
+  description = "Entra app settings. When create_entra_app is false (Nerdio's Marketplace install script created nerdio-nmw-app), set existing_client_id to that app's client ID so Terraform creates the REST API client app and Key Vault secret hand-off for stage 2."
   type = object({
     display_name           = optional(string, "nerdio-nmw-app")
+    existing_client_id     = optional(string)
     owner_object_ids       = optional(list(string), [])
     wvd_admin_object_ids   = optional(list(string), [])
     grant_admin_consent    = optional(bool, false)
@@ -182,8 +192,8 @@ variable "nme_secret_store" {
     error_message = "nme_secret_store must be \"key_vault\", \"openbao\" or \"output\"."
   }
   validation {
-    condition     = var.nme_secret_store != "openbao" || (var.create_entra_app && var.entra_app.create_rest_api_client)
-    error_message = "The openbao hand-off needs create_entra_app = true and entra_app.create_rest_api_client = true."
+    condition     = var.nme_secret_store != "openbao" || ((var.create_entra_app || var.entra_app.existing_client_id != null) && var.entra_app.create_rest_api_client)
+    error_message = "The openbao hand-off needs (create_entra_app = true or entra_app.existing_client_id) and entra_app.create_rest_api_client = true."
   }
   validation {
     condition     = var.nme_secret_store != "openbao" || var.openbao != null

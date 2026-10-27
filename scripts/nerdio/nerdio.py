@@ -16,6 +16,7 @@
   ./nerdio fix roles            activate eligible PIM roles the kit needs (shows them, then asks yes)
   ./nerdio schema check         check the schema against the Terraform variables (CI)
   ./nerdio form --write|--check generate or check the Actions form from the schema
+  ./nerdio docs --write|--check sync generated doc blocks and check repo Markdown links/drift
   ./nerdio assistant --admin-group "AVD Admins"   deploy the setup chatbot into this tenant
 """
 
@@ -31,6 +32,7 @@ import textwrap
 from pathlib import Path
 
 import claude_federation
+import docs
 import engine
 import fix
 import form
@@ -449,10 +451,31 @@ def cmd_schema(args) -> int:
         problems.append("the Actions form is out of date; run ./nerdio form --write")
     if not readiness_catalogue.page_in_sync():
         problems.append("the readiness catalogue in the KB is out of date; run ./nerdio preflight --list --write")
+    problems += docs.check()
     for p in problems:
         print("✗ " + p)
     if not problems:
-        print(f"✓ schema: {len(schema['parameters'])} parameters, {len(examples)} examples, form in sync")
+        print(f"✓ schema: {len(schema['parameters'])} parameters, {len(examples)} examples, form and docs in sync")
+    return 1 if problems else 0
+
+
+def cmd_docs(args) -> int:
+    if args.write:
+        schema = engine.load_schema()
+        updated = []
+        if docs.write_readme():
+            updated.append("README.md")
+        if not readiness_catalogue.page_in_sync():
+            readiness_catalogue.write_page()
+            updated.append(readiness_catalogue.KB_PAGE.relative_to(engine.ROOT).as_posix())
+        if form.write(schema):
+            updated.append(".github/workflows/configure.yml")
+        print("Updated " + ", ".join(updated) if updated else "All generated doc and form blocks already up to date")
+    problems = docs.check()
+    for p in problems:
+        print("✗ " + p, file=sys.stderr)
+    if not problems and not args.write:
+        print("✓ docs: layout, links, anchors and architecture in sync")
     return 1 if problems else 0
 
 
@@ -685,6 +708,12 @@ def main(argv: list[str]) -> int:
     g.add_argument("--check", action="store_true")
     p.set_defaults(func=cmd_form)
 
+    p = sub.add_parser("docs", help="sync generated doc blocks and check repo Markdown links and drift")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--write", action="store_true", help="rewrite generated layout, readiness catalogue and form blocks")
+    g.add_argument("--check", action="store_true", help="check layout, links, anchors, leaks and architecture alignment")
+    p.set_defaults(func=cmd_docs)
+
     p = sub.add_parser("assistant", help="deploy the setup chatbot into this tenant with Terraform")
     p.add_argument("--admin-group", help="display name of the Entra group allowed to use it")
     p.add_argument("--location", help="region for the app (default eastus2)")
@@ -712,4 +741,7 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    for _stream in (sys.stdout, sys.stderr):
+        if hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main(sys.argv[1:]))

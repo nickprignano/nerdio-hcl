@@ -4,9 +4,26 @@ variable "display_name" {
   default     = "nerdio-nmw-app"
 }
 
-variable "app_service_hostname" {
-  description = "Default hostname of the Nerdio Manager App Service, e.g. nmw-app-abc123.azurewebsites.net."
+variable "create_nerdio_app" {
+  description = "Create the nerdio-nmw-app registration in Terraform. Set false when Nerdio's Marketplace install script created it and existing_client_id is provided so Terraform still manages the REST API client app."
+  type        = bool
+  default     = true
+  validation {
+    condition     = var.create_nerdio_app || var.existing_client_id != null
+    error_message = "existing_client_id is required when create_nerdio_app is false."
+  }
+}
+
+variable "existing_client_id" {
+  description = "Application (client) ID of an existing nerdio-nmw-app created by Nerdio's Marketplace install script, used when create_nerdio_app is false."
   type        = string
+  default     = null
+}
+
+variable "app_service_hostname" {
+  description = "Default hostname of the Nerdio Manager App Service, e.g. nmw-app-abc123.azurewebsites.net. May be null before a portal Marketplace deployment exists."
+  type        = string
+  default     = null
 }
 
 variable "owner_object_ids" {

@@ -63,17 +63,17 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0018. License the kit under Apache-2.0](docs/knowledge/decisions/0018-apache-2-license.md): accepted
 - [0019. Least privilege, with every access need written down](docs/knowledge/decisions/0019-least-privilege-explicit-access.md): accepted
 - [0020. The setup chat can use the Claude API, signed in by workload identity federation](docs/knowledge/decisions/0020-claude-api-federation-for-the-chat.md): accepted
-- [0021. This KB is one of a family of knowledge bases, with the AI project as the hub for AI knowledge](docs/knowledge/decisions/0021-knowledge-base-family.md): proposed
+- [0021. This KB is aware of sibling knowledge bases, while staying separate and self-contained](docs/knowledge/decisions/0021-knowledge-base-family.md): accepted
 - [0022. Follow the family's model-selection convention, as one of its pilot projects](docs/knowledge/decisions/0022-family-model-selection-convention.md): proposed
-- [0023. The AI hub owns the family's KB format, and this kit follows it as a member](docs/knowledge/decisions/0023-ai-brain-is-the-family-format-source.md): proposed
+- [0023. The AI hub owns the family's KB format, and this kit follows it as a member](docs/knowledge/decisions/0023-ai-brain-is-the-family-format-source.md): rejected
 - [0026. Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test](docs/knowledge/decisions/0026-read-only-readiness-engine.md): accepted
 - [0027. The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner](docs/knowledge/decisions/0027-github-settings-in-terraform.md): proposed
 - [0028. Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration](docs/knowledge/decisions/0028-targeted-ansible-for-images-and-hybrid.md): accepted
 
 ## Related knowledge bases
 
-- [AI](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge): The AI research behind the family's projects. Source of truth for: The family's shared KB format and conventions; Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family
-- [AVD](https://github.com/nickprignano/avd-second-brain/tree/main/docs/knowledge): Azure Virtual Desktop itself. Source of truth for: Azure Virtual Desktop platform; FSLogix; session host images in general
+- [AI](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge): Standalone AI research and experimentation (watched read-only for awareness). Source of truth for: General AI research; model evaluations and AI workflows
+- [AVD](https://github.com/nickprignano/avd-second-brain/tree/main/docs/knowledge): Standalone Azure Virtual Desktop research (watched read-only for awareness). Source of truth for: Standalone Azure Virtual Desktop and EUC research
 
 ## Optional
 

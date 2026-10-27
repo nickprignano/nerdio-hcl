@@ -1,6 +1,6 @@
 output "nerdio_url" {
-  description = "Nerdio Manager console. Open it for the setup wizard (and, for the marketplace install, the install step first)."
-  value       = "https://${local.nerdio_hostname}"
+  description = "Nerdio Manager console. Open it for the setup wizard (and, for the marketplace install, the install step first). Null before a portal Marketplace deployment exists in the resource group."
+  value       = local.nerdio_hostname != null ? "https://${local.nerdio_hostname}" : null
 }
 
 output "avd_vnet_name" {
@@ -51,7 +51,7 @@ output "nerdio_config_inputs" {
     terraform output -json nerdio_config_inputs > ../02-nerdio-config/platform.auto.tfvars.json
   EOT
   value = {
-    nme_base_url                  = "https://${local.nerdio_hostname}"
+    nme_base_url                  = local.nerdio_hostname != null ? "https://${local.nerdio_hostname}" : null
     nme_tenant_id                 = var.tenant_id
     nme_client_id                 = try(module.nerdio_identity[0].rest_api_client_id, null)
     nme_scope                     = try("api://${module.nerdio_identity[0].client_id}/.default", null)

@@ -121,6 +121,48 @@ run "terraform_install_needs_entra_app" {
   expect_failures = [var.nerdio_install]
 }
 
+run "marketplace_portal_install_needs_no_template_file" {
+  command = plan
+
+  variables {
+    nerdio_install   = "marketplace"
+    create_entra_app = false
+  }
+
+  assert {
+    condition     = length(module.nerdio_manager) == 1 && length(module.nerdio_core) == 0
+    error_message = "Marketplace install should use modules/nerdio-manager without needing a template file."
+  }
+
+  assert {
+    condition     = length(module.nerdio_identity) == 0 && length(module.nerdio_secrets) == 0
+    error_message = "Without create_entra_app or existing_client_id, identity and secrets hand-off are skipped until Nerdio's install script runs."
+  }
+}
+
+run "marketplace_existing_rg_and_rest_client_hand_off" {
+  command = plan
+
+  variables {
+    nerdio_install           = "marketplace"
+    create_entra_app         = false
+    existing_resource_groups = ["nerdio"]
+    entra_app = {
+      existing_client_id = "33333333-3333-3333-3333-333333333333"
+    }
+  }
+
+  assert {
+    condition     = length(module.nerdio_identity) == 1 && length(module.nerdio_secrets) == 1
+    error_message = "With existing_client_id set, a Marketplace install should still build the REST API client app and Key Vault secret hand-off for stage 2."
+  }
+
+  assert {
+    condition     = output.nerdio_config_inputs.nme_scope == "api://33333333-3333-3333-3333-333333333333/.default"
+    error_message = "nme_scope should use the existing Nerdio Entra app's client ID."
+  }
+}
+
 # Decision 0015: the REST client secret goes to Key Vault by default, never to an output.
 run "secret_hand_off_defaults_to_key_vault" {
   command = plan

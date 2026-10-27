@@ -88,35 +88,26 @@ route adds an AI step to a pipeline that otherwise uses no LLM.
 
 ## Knowledge base family
 
-This kit, AI and AVD keep knowledge bases in this format. The AI KB
-([ai-brain](https://github.com/nickprignano/ai-brain)) is the hub: the source of truth for the
-shared format and for how the family uses AI ([0023](decisions/0023-ai-brain-is-the-family-format-source.md)). [family.yaml](family.yaml) lists them, what each one is the source of
-truth for, and the format version each follows. `build.py` turns it into the "Related knowledge
-bases" table in the [README](README.md#related-knowledge-bases) and a section in `llms.txt`.
+This kit's knowledge base is self-contained and grounded directly in primary Nerdio, Microsoft,
+HashiCorp and community expert sources ([sources.toml](sources.toml), [experts.md](experts.md)).
+It also stays **aware but separate** from the sibling KBs listed in [family.yaml](family.yaml)
+(`ai-brain` and `avd-second-brain`, see [0021](decisions/0021-knowledge-base-family.md) and
+[0023](decisions/0023-ai-brain-is-the-family-format-source.md)). `build.py` renders the list into
+the "Related knowledge bases" table in the [README](README.md#related-knowledge-bases) and a
+section in `llms.txt`.
 
-- **Separate but aware:** each project is fully separate. AVD is watched read-only, for the
-  digest and the prior-art check, and nothing more: no shared work, no content copied between
-  repos, and nothing from its project work lands in this repo. Only the AI hub's format and AI
-  knowledge are adopted here, and only by PR.
-- **Watch each other:** once a sibling's repo is in `family.yaml`, add two `github_commits`
-  sources for it here, one with `path = "docs/knowledge/decisions"` and one with
+- **Separate but aware:** each repository is completely independent and owns its own KB, schemas,
+  scripts and workflows. Sibling repos are watched read-only for the weekly digest and the
+  prior-art check, and nothing more: no shared work, no content copied automatically between repos,
+  and this repo never defers its source of truth to a sibling repo.
+- **Watch each other read-only:** once a sibling's repo is in `family.yaml`, two `github_commits`
+  sources watch it here, one with `path = "docs/knowledge/decisions"` and one with
   `path = "docs/knowledge"`, both pointing at this page. A private sibling repo may not be
   readable with the built-in token; keep the sources anyway.
 - **Checked, not just agreed:** `validate.py` fails if a sibling with a repo in `family.yaml` is
-  missing either source. The monthly freshness check (`--family`) reads each sibling's own
-  `family.yaml` and flags one on a different `format_version`, one it can't read, and one whose
-  repo isn't linked yet. The prior-art check searches each linked sibling's KB before GitHub.
-- **Link, don't copy:** a fact that belongs to a sibling's topic is linked, not duplicated. If we
-  learn something a sibling needs, note it for the maintainer; don't open issues or PRs on a
-  sibling's repo from here.
-- **Shared format:** schemas, scripts, checks, workflows and guardrails stay the same across the family.
-  A change starts as a "Family format" decision in the hub. Once it's accepted there, this KB
-  adopts it by PR and bumps `format_version` to match. Three extra sources watch the hub's
-  `docs/knowledge/schema`, `scripts/kb` and `.github/workflows` so a format change shows up in
-  the digest.
-- **AI knowledge:** general findings about the Claude API, Foundry, model choice, keyless sign-in
-  for AI APIs, prompts and evaluations go to the AI hub. Decisions about how this kit uses AI stay
-  here and link to it.
+  missing either source. The monthly freshness check (`--family`) can optionally compare
+  `format_version` across siblings, and the prior-art check searches linked sibling KBs alongside
+  this KB and GitHub.
 
 ## Feedback loop (`kb-feedback`)
 

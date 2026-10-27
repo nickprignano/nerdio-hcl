@@ -155,8 +155,10 @@ anyone opening the run's log. None of it goes to the public run log.
 
 ## Limits, for now
 
-- Only `nerdio_install = "terraform"` and `nme_secret_store = "key_vault"`. The Marketplace path
-  needs a portal download, and OpenBao needs a network path from the runner.
+- Requires `nme_secret_store = "key_vault"`. OpenBao needs a network path from the runner.
+  For `nerdio_install = "marketplace"`, run the `platform` stage once after deploying Nerdio
+  Manager from the Azure Marketplace (with `existing_entra_app_client_id` set if Nerdio's install
+  script created `nerdio-nmw-app`) before running the `config` stage.
 - Key Vault and the state storage must accept connections from GitHub-hosted runners. With
   hardening that turns public access off, run the pipeline on a self-hosted runner in the VNet.
 - Required reviewers on GitHub environments need a public repository or a paid GitHub plan.

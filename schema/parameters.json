@@ -762,9 +762,8 @@
       "phase": "configure",
       "readiness": ["pre-install"],
       "type": "enum",
-      "ask": "advanced",
       "question": "How should Nerdio Manager be installed?",
-      "help": "Terraform builds Nerdio Manager in the same apply, with no install script to run. Marketplace deploys an exported Marketplace template, then you run Nerdio's install script; it's the fallback if the Terraform install breaks.",
+      "help": "Terraform builds Nerdio Manager in the same apply, with no install script to run. Marketplace uses the Azure Marketplace (either deployed directly in the Azure portal or from an exported template), discovers its resources in the nerdio resource group, and runs Nerdio's install script.",
       "choices": [
         {
           "value": "terraform",
@@ -772,10 +771,11 @@
         },
         {
           "value": "marketplace",
-          "label": "Marketplace template plus Nerdio's install script"
+          "label": "Azure Marketplace plus Nerdio's install script"
         }
       ],
       "default": "terraform",
+      "form": true,
       "tfvars": [
         {
           "stage": "platform",
@@ -783,7 +783,8 @@
         }
       ],
       "kb": [
-        "docs/knowledge/decisions/0011-terraform-native-install.md"
+        "docs/knowledge/decisions/0011-terraform-native-install.md",
+        "docs/knowledge/nerdio/platform.md#marketplace-deployment"
       ]
     },
     {
@@ -793,8 +794,14 @@
       "type": "bool",
       "ask": "advanced",
       "question": "Create Nerdio's Entra app in Terraform?",
-      "help": "Yes builds nerdio-nmw-app and the REST API client in Terraform. No leaves it to Nerdio's install script, which only the Marketplace install runs, so the Terraform install needs yes.",
-      "default": true,
+      "help": "Yes builds nerdio-nmw-app and the REST API client in Terraform. No leaves it to Nerdio's Marketplace install script (the default for Marketplace so the one-line Cloud Shell script works); you can then set existing_entra_app_client_id so Terraform still builds the REST API client for stage 2.",
+      "default": {
+        "map": "nerdio_install",
+        "values": {
+          "terraform": true,
+          "marketplace": false
+        }
+      },
       "tfvars": [
         {
           "stage": "platform",
@@ -806,6 +813,31 @@
       ],
       "checks": [
         "entra_app_for_terraform_install"
+      ]
+    },
+    {
+      "id": "existing_entra_app_client_id",
+      "phase": "configure",
+      "type": "string",
+      "ask": "advanced",
+      "pattern": "^$|^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+      "when": {
+        "create_entra_app": [
+          false
+        ]
+      },
+      "question": "Existing nerdio-nmw-app Client ID (blank until Nerdio's install script runs)?",
+      "help": "After Nerdio's Marketplace install script creates nerdio-nmw-app, set its Application (client) ID here so Terraform creates the REST API client app and Key Vault secret hand-off for stage 2.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "entra_app.existing_client_id",
+          "omit_empty": true
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/entra-app.md"
       ]
     },
     {

@@ -8,10 +8,10 @@ resource "azuread_application" "rest_client" {
   # Extra owners let a secrets broker (the optional OpenBao module) add short-lived passwords
   # with Graph Application.ReadWrite.OwnedBy instead of tenant-wide Application.ReadWrite.All.
   owners = distinct(concat(local.owners, var.rest_api_client_extra_owner_object_ids))
-  tags   = ["NMW_REST_API_CLIENT:${azuread_application.nerdio.client_id}"]
+  tags   = ["NMW_REST_API_CLIENT:${local.nerdio_client_id}"]
 
   required_resource_access {
-    resource_app_id = azuread_application.nerdio.client_id
+    resource_app_id = local.nerdio_client_id
     resource_access {
       id   = local.app_roles.RestClient.id
       type = "Role"
@@ -41,5 +41,5 @@ resource "azuread_app_role_assignment" "rest_client" {
   count               = var.create_rest_api_client && var.grant_admin_consent ? 1 : 0
   app_role_id         = local.app_roles.RestClient.id
   principal_object_id = azuread_service_principal.rest_client[0].object_id
-  resource_object_id  = azuread_service_principal.nerdio.object_id
+  resource_object_id  = local.nerdio_service_principal_object_id
 }

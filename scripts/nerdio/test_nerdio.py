@@ -156,9 +156,22 @@ class SchemaTests(unittest.TestCase):
     def test_terraform_install_needs_the_entra_app(self):
         resolved = engine.resolve(self.schema, {"_random4": "ab12", "create_entra_app": False}, SOURCES)
         self.assertIn("create_entra_app", resolved.errors)
-        resolved = engine.resolve(self.schema, {"_random4": "ab12", "create_entra_app": False,
-                                                "nerdio_install": "marketplace"}, SOURCES)
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "nerdio_install": "marketplace"}, SOURCES)
         self.assertEqual(resolved.errors, {})
+        self.assertFalse(resolved.values["create_entra_app"])
+
+    def test_marketplace_install_supports_existing_entra_app_for_rest_client(self):
+        resolved = engine.resolve(self.schema, {
+            "_random4": "ab12",
+            "nerdio_install": "marketplace",
+            "existing_entra_app_client_id": ZERO,
+        }, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        rendered, problems = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(problems, [])
+        self.assertEqual(rendered["platform"]["nerdio_install"], "marketplace")
+        self.assertFalse(rendered["platform"]["create_entra_app"])
+        self.assertEqual(rendered["platform"]["entra_app"]["existing_client_id"], ZERO)
 
     def test_missing_sign_in_is_an_error_not_a_crash(self):
         resolved = engine.resolve(self.schema, {"_random4": "ab12"}, {"tenant": None, "subscription": None})

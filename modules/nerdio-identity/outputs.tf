@@ -1,16 +1,16 @@
 output "application_id" {
-  description = "Application object path (/applications/<object id>), for credentials added outside this module."
-  value       = azuread_application.nerdio.id
+  description = "Application object path (/applications/<object id>), for credentials added outside this module. Null when create_nerdio_app is false."
+  value       = try(azuread_application.nerdio[0].id, null)
 }
 
 output "client_id" {
   description = "Application (client) ID. Enter as App ID under \"Use existing AD app\" on the Nerdio install page."
-  value       = azuread_application.nerdio.client_id
+  value       = local.nerdio_client_id
 }
 
 output "service_principal_object_id" {
   description = "Enterprise application object ID. Enter as Service Principal ID on the Nerdio install page."
-  value       = azuread_service_principal.nerdio.object_id
+  value       = local.nerdio_service_principal_object_id
 }
 
 output "client_secret" {

@@ -3,7 +3,7 @@ title: "Nerdio Manager platform"
 summary: "What the Marketplace deployment creates, the install step, setup wizard, roles and hardening"
 topic: nerdio
 status: partial
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-26
 ---
 
 # Nerdio Manager platform
@@ -38,12 +38,17 @@ How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and 
   2026-10-02). It's a solution template, so there are no Marketplace terms to accept (*inferred*:
   it has no plan, and licensing is a separate offer). Pin it to a commit. Nerdio hasn't declared it
   a supported, versioned deploy path.
-- The alternative is to export the template from the portal (**Review + create > Download a
-  template for automation**) and pin it in the repo. Offer/plan IDs and a parameter list aren't published.
-- In Terraform, deploy the export with `azurerm_resource_group_template_deployment`
-  (`deployment_mode = "Incremental"`) and `ignore_changes = [template_content]`, because Nerdio
-  updates the running app itself after install. Find the generated resource names afterwards
-  with `data "azurerm_resources"`.
+- The kit's `modules/nerdio-manager` (`nerdio_install = "marketplace"`) supports both:
+  - **Normal Azure portal Marketplace deployment (`nerdio_template_file = null`, default):**
+    deploy Nerdio Manager in the Azure portal into the empty `nerdio` resource group (or set
+    `existing_resource_groups = ["nerdio"]` if you deployed it in the portal first), run Nerdio's
+    one-line Cloud Shell install script (`create_entra_app = false`), and then set
+    `entra_app.existing_client_id` so Terraform discovers the Marketplace resources (`data "azurerm_resources"`)
+    and creates the Stage 2 REST API client app + Key Vault secret hand-off.
+  - **Exported template deployment (`nerdio_template_file` set):** export the template from the
+    portal (**Review + create > Download a template for automation**), pin it in the repo, and
+    deploy with `azurerm_resource_group_template_deployment` (`deployment_mode = "Incremental"`,
+    `ignore_changes = [template_content]`). Offer/plan IDs and a parameter list aren't published.
 - Marketplace parameter names change between Nerdio releases. Always take them from your export.
 
 ## Terraform install (the kit's default)

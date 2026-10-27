@@ -1,4 +1,5 @@
 resource "azurerm_resource_group_template_deployment" "nerdio" {
+  count               = var.template_file == null ? 0 : 1
   name                = var.deployment_name
   resource_group_name = var.resource_group_name
   deployment_mode     = "Incremental"
@@ -13,7 +14,9 @@ resource "azurerm_resource_group_template_deployment" "nerdio" {
   }
 }
 
-# The Marketplace template generates resource names, so look them up afterwards.
+# The Marketplace deployment (from the Azure portal UI or an exported template) generates
+# resource names, so look them up in the target resource group. Before a portal Marketplace
+# deployment runs, the resource group is empty and web_app is null.
 data "azurerm_resources" "web_apps" {
   resource_group_name = var.resource_group_name
   type                = "Microsoft.Web/sites"
@@ -45,5 +48,5 @@ data "azurerm_resources" "storage_accounts" {
 }
 
 locals {
-  web_app = one(data.azurerm_resources.web_apps.resources)
+  web_app = try(one(data.azurerm_resources.web_apps.resources), null)
 }
