@@ -26,12 +26,12 @@ locals {
     length(var.fslogix.locations) > 0 ? var.fslogix.locations : (
       var.fslogix.cloud_cache && length(local.region_fslogix_shares) > 0 ? [
         for k in sort(keys(local.region_fslogix_shares)) : local.region_fslogix_shares[k]
-      ] : compact([
-        coalesce(
-          var.fslogix.profile_share_unc,
-          try(local.region_fslogix_shares[local.default_region_key], null),
-          try(values(local.region_fslogix_shares)[0], null)
-        )
+        ] : compact([
+          coalesce(
+            var.fslogix.profile_share_unc,
+            try(local.region_fslogix_shares[local.default_region_key], null),
+            try(values(local.region_fslogix_shares)[0], null)
+          )
       ])
     )
   )

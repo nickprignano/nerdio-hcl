@@ -66,12 +66,12 @@ resource "azapi_resource" "gallery_image" {
       name = var.custom_location_id
     }
     properties = {
-      containerId         = each.value.container_id
-      osType              = each.value.os_type
-      hyperVGeneration    = each.value.hyper_v_generation
-      cloudInitDataSource = each.value.cloud_init_data_src
+      containerId                  = each.value.container_id
+      osType                       = each.value.os_type
+      hyperVGeneration             = each.value.hyper_v_generation
+      cloudInitDataSource          = each.value.cloud_init_data_src
       vmImageRepositoryCredentials = null
-      imagePath           = each.value.image_version_id
+      imagePath                    = each.value.image_version_id
     }
   }
 }
