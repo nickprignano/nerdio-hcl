@@ -3,12 +3,12 @@ title: "azurerm 5.x and azuread 3.x"
 summary: "azurerm 5.x and azuread 3.x changes we hit, with fixes"
 topic: terraform
 status: partial
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-27
 ---
 
 # azurerm 5.x and azuread 3.x
 
-Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time: azurerm 5.10.0
+Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time: azurerm 5.11.0
 (last 4.x was 4.81.0), azuread 3.10.0, Terraform 1.16.6.
 
 ## Breaking changes and fixes
@@ -16,8 +16,10 @@ Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time: 
 | Resource | Error / warning | Fix |
 |---|---|---|
 | `azurerm_subnet` | `An argument named "service_endpoints" is not expected here.` | Use repeatable `service_endpoint { service = "..." }` blocks, e.g. `dynamic "service_endpoint"` over a list. The block also takes an optional `network_identifier`. |
-| `azurerm_private_dns_zone_virtual_network_link` | `The argument "private_dns_zone_id" is required` | Set `private_dns_zone_id`. `resource_group_name` and `private_dns_zone_name` are no longer accepted. A new `resolution_policy` argument exists. |
+| `azurerm_private_dns_zone_virtual_network_link` | `The argument "private_dns_zone_id" is required` | Set `private_dns_zone_id`. `resource_group_name` and `private_dns_zone_name` are no longer accepted (including when linking existing hub or cross-region Private DNS zones). A new `resolution_policy` argument exists. |
 | `azurerm_storage_account` | `public_network_access_enabled` deprecated, removed in 6.0 | Use `public_network_access = "Disabled"` (or `"Enabled"`). |
+| `azurerm_windows_virtual_machine_scale_set` | `An argument named "enable_accelerated_networking" is not expected here.` | Inside `network_interface {}`, use `accelerated_networking_enabled = true`. |
+| `azurerm_netapp_volume` | `This object has no argument, nested block, or exported attribute named "mount_ip_addresses".` | For SMB (`CIFS`) volumes, build the UNC path from `\\${azurerm_netapp_account.this.name}\${azurerm_netapp_volume.profiles.volume_path}`. |
 
 ## Other 5.x schema notes
 
