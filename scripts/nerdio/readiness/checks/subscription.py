@@ -332,3 +332,13 @@ def names(ctx, c):
     else:
         out.append(c.ok("the Key Vault, storage, SQL server and web app names are free"))
     return out
+
+
+@check("sub.policy_eval", "Policy evaluation", needs="none", kb="docs/knowledge/nerdio/readiness.md#policy-evaluation",
+       account=False, source="https://learn.microsoft.com/rest/api/policyinsights/policy-restrictions/check-at-subscription-scope")
+def policy_eval(ctx, c):
+    """Read-only policy evaluation is unproven (a spike, phase 3): Policy Insights'
+    checkPolicyRestrictions may miss child resources such as a SQL firewall rule. Until a live run
+    in the sandbox proves it, this stays `manual` and points at Nerdio's script."""
+    return c.manual("whether Azure Policy will deny Nerdio's resources can't yet be read without creating them; run "
+                    f"Nerdio's readiness script ({NERDIO_SCRIPT}) in a subscription where creating test resources is allowed")

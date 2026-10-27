@@ -194,3 +194,33 @@ def outbound(ctx, c):
     return c.warn(f"the session host subnet relies on default outbound access, which VNets created after "
                   f"{DEFAULT_OUTBOUND_ENDS} don't get and Microsoft is retiring",
                   "Add a NAT gateway or a 0.0.0.0/0 route to your firewall")
+
+
+@check("net.url_check", "Required URLs", needs="Reader on the subscription", kb=KB, stages=["post-wizard"],
+       source="https://learn.microsoft.com/azure/virtual-desktop/required-url-check-tool",
+       reads=["ARM hostPools/sessionHosts"])
+def url_check(ctx, c):
+    """From each session host's UrlsAccessibleCheck health result. That check is marked disabled in
+    current SDKs, so a missing result is `manual`, never `pass`; `--probe url-check` runs
+    Microsoft's tool on one host instead."""
+    from .avd import DV, arm_list, dv_list
+
+    pools = dv_list(ctx, "hostPools")
+    if pools is None:
+        return c.no_access("can't list host pools")
+    seen, failed = 0, []
+    for pool in pools:
+        for h in arm_list(ctx, f"{pool['id']}/sessionHosts?api-version={DV}") or []:
+            for r in (h.get("properties") or {}).get("sessionHostHealthCheckResults") or []:
+                if r.get("healthCheckName") != "UrlsAccessibleCheck":
+                    continue
+                seen += 1
+                if r.get("healthCheckResult") == "HealthCheckFailed":
+                    failed.append(ctx.name("host", h.get("name", "").split("/")[-1]))
+    if failed:
+        return c.fail("session hosts can't reach AVD's required URLs: " + ", ".join(failed[:5]),
+                      "Allow the URLs in Microsoft's required URL list through the firewall or proxy")
+    if not seen:
+        return c.manual("no host reports the URL health check; run ./nerdio preflight --probe url-check --vm <host> "
+                        "(it runs Microsoft's tool on that host) or check the required URL list by hand")
+    return c.ok(f"{seen} session hosts reach AVD's required URLs")

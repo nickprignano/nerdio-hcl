@@ -372,6 +372,73 @@ def rest_api(ctx, c):
     if assigned is None:
         return c.no_access("can't read who holds Nerdio's app roles")
     if any(roles.get(a.get("appRoleId")) == "RestClient" for a in assigned):
-        return c.ok("a REST client holds Nerdio's Rest client role")
+        if not ctx.nerdio_data:
+            return c.ok("a REST client holds Nerdio's Rest client role (--nerdio-data also tries a read)")
+        from ..nerdio_api import NotConfigured
+
+        try:
+            status, _ = ctx.nerdio_get("/api/v1/ad/config")
+        except NotConfigured as exc:
+            return c.warn(f"a REST client holds the role, but the data tier can't sign in: {exc}")
+        if status in (200, 404):
+            return c.ok("the REST API answers a read-only call")
+        return c.fail(f"the REST client holds the role, but a read-only call got HTTP {status}",
+                      "Check the REST client's secret and role in Nerdio: Settings > Integrations > REST API")
     return c.fail("no application holds Nerdio's Rest client role, so the REST API isn't enabled",
                   "Enable it in Nerdio under Settings > Integrations > REST API (no API for this yet)")
+
+
+GRAPH_APP_ID = "00000003-0000-0000-c000-000000000000"  # Microsoft Graph, the same in every tenant
+
+
+def graph_app_roles(ctx) -> Optional[Dict[str, str]]:
+    """Microsoft Graph's application permissions in this tenant: {value: app role id}."""
+    def read():
+        sps = graph_list(ctx, f"/servicePrincipals?$filter=appId eq '{GRAPH_APP_ID}'&$select=id,appRoles")
+        if not sps:
+            return None
+        return {r.get("value"): r.get("id") for r in sps[0].get("appRoles") or []}
+    return ctx.cached("graph_app_roles", read)
+
+
+def granted_graph_roles(ctx, principal_id: str) -> Optional[set]:
+    """Graph application permission names a service principal or managed identity holds."""
+    roles = graph_app_roles(ctx)
+    rows = graph_list(ctx, f"/servicePrincipals/{principal_id}/appRoleAssignments")
+    if roles is None or rows is None:
+        return None
+    by_id = {v: k for k, v in roles.items()}
+    return {by_id.get(r.get("appRoleId")) for r in rows} - {None}
+
+
+@check("nme.wizard", "Nerdio's wizard", needs="Nerdio's REST client (the data tier, --nerdio-data)",
+       kb="docs/knowledge/nerdio/platform.md", stages=[WIZARD],
+       source="https://nmehelp.getnerdio.com/hc/en-us/articles/27422824784269", reads=["Nerdio GET /api/v1/ad/config"])
+def wizard(ctx, c):
+    """The directory profile is set. Linked networks and resource groups have no read in Nerdio's
+    API yet, so the rest of the wizard is `manual`."""
+    from ..nerdio_api import NotConfigured, SignInFailed
+
+    if not ctx.nerdio_data:
+        return c.skip("reads Nerdio's own API; add --nerdio-data")
+    try:
+        status, body = ctx.nerdio_get("/api/v1/ad/config")
+    except SignInFailed as exc:
+        return c.warn(f"Nerdio data tier: {exc}")
+    except NotConfigured as exc:
+        return c.skip(f"Nerdio data tier: {exc}")
+    if status in (401, 403):
+        return c.no_access(f"Nerdio's API refused the REST client (HTTP {status})",
+                           "Check the REST client's role in Nerdio: Settings > Integrations > REST API")
+    if status is None:
+        return c.warn("Nerdio's API didn't answer")
+    out = []
+    if status == 404 or not body:
+        out.append(c.fail("no directory profile is set in Nerdio", "Finish the wizard's directory step (no API yet)"))
+    elif status == 200:
+        out.append(c.ok("a directory profile is set"))
+    else:
+        out.append(c.warn(f"Nerdio's API answered HTTP {status} for the directory profile"))
+    out.append(c.manual("confirm the wizard linked the AVD network and the host pool resource group "
+                        "(Nerdio's API has no read for them yet)", title="Wizard links"))
+    return out

@@ -53,3 +53,9 @@ Reader in any tenant, before any change request exists, and the same checks serv
 Approved with the readiness spec on 2026-10-19 after a red-team review; built in phases (engine,
 standalone zipapp, pre-install additions, post-install and post-wizard, features). The KB page is
 [nerdio/readiness.md](../nerdio/readiness.md).
+
+Phase 3 added the two opt-in tiers the spec allows: the Nerdio data tier (`--nerdio-data`,
+read-only REST GETs signed in with the REST client, its secret from the kit's Key Vault or the
+person's own shell) and one probe (`--probe url-check`, Run Command on one host after a typed
+yes). The read-only policy evaluation spike is a no-go until a live sandbox run proves it, so
+`sub.policy_eval` stays `manual`.
