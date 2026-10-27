@@ -3,7 +3,7 @@ title: "Nerdio Terraform provider (`nerdio/nme`)"
 summary: "Nerdio's own nerdio/nme provider: auth, resources, coverage gaps, how to build it"
 topic: nerdio
 status: verified
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-27
 ---
 
 # Nerdio Terraform provider (`nerdio/nme`)
@@ -49,6 +49,9 @@ The REST API has to be enabled first ([entra-app.md](entra-app.md#rest-api-clien
   `scripted_action_profile`, `user_assignment`.
 - Any change forces replacement: `workspace`, `linked_resource_group`, `linked_network`.
   Plan carefully; replacing a linked network or workspace under live host pools is disruptive.
+  When migrating from single-region (v1) to the peer `var.regions` map (v2), `./nerdio migrate`
+  emits Terraform `moved` blocks (`migrations.auto.tf`) that re-index `nme_linked_resource_group`
+  and `nme_linked_network` into `["<region>"]` in state without triggering replacement.
 
 15 data sources, including `linked_subscription` and `ad_config`. There are no data sources for
 host pools.
@@ -62,11 +65,13 @@ which `01-platform` outputs in `gallery_image_definition_ids`.
 ## Gaps
 
 Not covered natively by `nerdio/nme` at last review: session hosts, app groups, RemoteApps, MSIX
-app attach, schedules and monitoring. Where Nerdio's REST API exposes full CRUD (host pool user/group
-assignments, per-pool RDP profile and Shortpath bindings, UAM app groups, and Azure Files storage
-auto-scale), the kit bridges them with `modules/nerdio-rest-gaps` (`Mastercard/restapi`). Nerdio
-treats imperative actions (power, reimage, drain, run script) as out of scope for the provider by
-design. Gaps worth contributing are tracked in [upstream-contributions.md](upstream-contributions.md).
+app attach, desktop image definitions, schedules and monitoring. Where Nerdio's REST API exposes
+full CRUD (host pool user/group assignments, per-pool RDP profile and Shortpath bindings, UAM app
+groups, Azure Files storage auto-scale, MSIX App Attach packages at `/api/v1/msix-app-attach/package`,
+and Desktop Image pipelines at `/api/v1/desktop-image`), the kit bridges them with
+`modules/nerdio-rest-gaps` (`Mastercard/restapi`). Nerdio treats imperative actions (power, reimage,
+drain, run script) as out of scope for the provider by design. Gaps worth contributing are tracked in
+[upstream-contributions.md](upstream-contributions.md).
 
 ## Building it locally
 

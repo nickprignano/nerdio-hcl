@@ -3,7 +3,7 @@ title: "Nerdio Manager platform"
 summary: "What the Marketplace deployment creates, the install step, setup wizard, roles and hardening"
 topic: nerdio
 status: partial
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 ---
 
 # Nerdio Manager platform
@@ -113,6 +113,14 @@ registration/first-run state. Those two keep the wizard from being fully automat
   `MakeAppServicePrivate` and `PeerVnetId`.
 - Making the scripted-actions storage account private breaks Azure runbook scripted actions;
   use a Hybrid Runbook Worker instead.
+- `modules/nerdio-hardening` adds optional private endpoints for Storage Blob (`blob`) and Azure
+  Automation (`DSCAndHybridWorker` subresource on `privatelink.azure-automation.net`), and
+  `modules/automation-workers` deploys a Windows Server VM Scale Set with `HybridWorkerExtension`
+  (`Microsoft.Azure.Automation.HybridWorker`) registered to an `azurerm_automation_hybrid_runbook_worker_group`.
+- For control-plane HA/DR (`modules/nerdio-core`), setting `dr_location` provisions a partner
+  Entra-only SQL Server and `azurerm_mssql_failover_group` (`Automatic` read-write failover with a
+  60-minute grace period), alongside optional Key Vault purge protection (`purge_protection_enabled`),
+  an App Service `staging` slot (`enable_staging_slot`), and CPU-based `azurerm_monitor_autoscale_setting`.
 - Nerdio only lists outbound HTTPS 443 to its licensing servers as an egress requirement.
 - The kit does the same thing in Terraform as a second apply (App Service VNet integration plus
   private endpoints for SQL, Key Vault and the web app), because the Marketplace resource names
