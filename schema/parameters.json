@@ -175,6 +175,10 @@
         {
           "value": "heavy",
           "label": "Heavy: developers, large spreadsheets, many apps at once"
+        },
+        {
+          "value": "gpu",
+          "label": "GPU / Graphics: CAD, 3D modeling, video editing (NVIDIA NVadsA10_v5)"
         }
       ],
       "default": "medium",
@@ -1086,7 +1090,8 @@
         "values": {
           "light": "Standard_D4s_v5",
           "medium": "Standard_D8s_v5",
-          "heavy": "Standard_D8s_v5"
+          "heavy": "Standard_D8s_v5",
+          "gpu": "Standard_NV12ads_A10_v5"
         }
       },
       "tfvars": [
@@ -1114,7 +1119,8 @@
         "values": {
           "light": 12,
           "medium": 16,
-          "heavy": 8
+          "heavy": 8,
+          "gpu": 4
         }
       },
       "tfvars": [

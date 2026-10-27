@@ -5,6 +5,31 @@ All notable changes to `nerdio-hcl` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-10-27
+
+### Added
+
+- **Enterprise Landing Zone Root Modules (`environments/example/01-platform`):** Wired
+  `modules/avd-insights`, `modules/azure-local`, `modules/windows-365`, `modules/intune-policies`,
+  `modules/cmk-encryption`, and `modules/nerdio-rbac` as opt-in (`default = null`) root modules in
+  `01-platform`, with offline `terraform test` coverage.
+- **Customer-Managed Key Encryption (`modules/cmk-encryption`):** Added dedicated RBAC Key Vault
+  (or existing Key Vault) with purge protection, RSA CMK key with automatic rotation policy, and
+  per-region Disk Encryption Sets (DES) automatically passed to `02-nerdio-config` host pools.
+- **Custom Least-Privilege RBAC (`modules/nerdio-rbac`):** Added custom Azure RBAC role definition
+  (`Nerdio Manager Least-Privilege Operator`) scoped to managed spoke resource groups, blocking
+  `Microsoft.Authorization/*/Write` and `Delete` while replacing broad `Contributor` assignments.
+- **GPU Host Pool & Packer Presets (`modules/nerdio-config`, `packer/avd-win11`, `modules/image-gallery`):**
+  Added `"gpu"` workload tier (`Standard_NV12ads_A10_v5`), host pool `gpu_preset = true` (automatic
+  GPU driver installation + HEVC), `win11-avd-gpu` Compute Gallery image definition, and Packer
+  `gpu_preset` hardware-accelerated encoding policies.
+- **Richer Auto-Scale & Per-Workspace Assignments (`modules/nerdio-config`):** Added RAM usage and
+  `AvailableUserSessions` auto-scale triggers, `rolling_drain_mode` maintenance windows, and
+  per-workspace `user_assignments` in `var.workspaces`.
+- **Remaining Nerdio REST API Gaps (`modules/nerdio-rest-gaps`):** Added `remote_apps`
+  (`/api/v1/arm/hostpool/.../remote-app`), `uam_repositories` (`/api/v1/app-management/repository`),
+  and `host_pool_reimage_schedules` (`/api/v1/arm/hostpool/.../schedule`).
+
 ## [2.0.0-alpha.1] - 2026-10-26
 
 ### Breaking Changes

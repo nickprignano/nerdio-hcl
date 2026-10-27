@@ -24,15 +24,19 @@ resource "azapi_resource" "logical_network" {
             ipAllocationMethod = var.address_prefix == null ? "Dynamic" : "Static"
             addressPrefix      = var.address_prefix
             vlan               = var.vlan_id
-            routes = var.default_gateway == null ? [] : [
-              {
-                name = "default"
-                properties = {
-                  addressPrefix    = "0.0.0.0/0"
-                  nextHopIpAddress = var.default_gateway
-                }
+            routeTable = var.default_gateway == null ? null : {
+              properties = {
+                routes = [
+                  {
+                    name = "default"
+                    properties = {
+                      addressPrefix    = "0.0.0.0/0"
+                      nextHopIpAddress = var.default_gateway
+                    }
+                  }
+                ]
               }
-            ]
+            }
           }
         }
       ]
@@ -66,12 +70,11 @@ resource "azapi_resource" "gallery_image" {
       name = var.custom_location_id
     }
     properties = {
-      containerId                  = each.value.container_id
-      osType                       = each.value.os_type
-      hyperVGeneration             = each.value.hyper_v_generation
-      cloudInitDataSource          = each.value.cloud_init_data_src
-      vmImageRepositoryCredentials = null
-      imagePath                    = each.value.image_version_id
+      containerId         = each.value.container_id
+      osType              = each.value.os_type
+      hyperVGeneration    = each.value.hyper_v_generation
+      cloudInitDataSource = each.value.cloud_init_data_src
+      imagePath           = each.value.image_version_id
     }
   }
 }

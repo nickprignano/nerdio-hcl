@@ -36,6 +36,13 @@ variable "image_definitions" {
       accelerated_network_support_enabled = true
       hibernation_enabled                 = false
     }
+    "win11-avd-gpu" = {
+      publisher                           = "AVD"
+      offer                               = "Windows11-MultiSession"
+      sku                                 = "gpu"
+      accelerated_network_support_enabled = true
+      hibernation_enabled                 = false
+    }
   }
 }
 

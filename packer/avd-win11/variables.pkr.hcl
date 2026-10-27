@@ -145,3 +145,9 @@ variable "ansible_playbook_path" {
   default     = "../../ansible/playbooks/avd-image.yml"
   description = "Path to the Ansible playbook executed when run_ansible_playbook is true."
 }
+
+variable "gpu_preset" {
+  type        = bool
+  default     = false
+  description = "Enable GPU/Graphics preset: enables hardware-accelerated GPU frame encoding (AVX/HEVC/H.264) and multimedia redirection policies for NVIDIA/AMD GPU session hosts."
+}

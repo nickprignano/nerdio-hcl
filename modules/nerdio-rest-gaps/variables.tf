@@ -106,3 +106,53 @@ variable "desktop_images" {
   }))
   default = {}
 }
+
+variable "remote_apps" {
+  description = "Published RemoteApp definitions on AVD application groups via /api/v1/arm/hostpool/{subscriptionId}/{resourceGroup}/{hostPoolName}/remote-app."
+  type = map(object({
+    host_pool_name        = string
+    resource_group        = optional(string)
+    app_group_name        = optional(string)
+    name                  = string
+    friendly_name         = optional(string)
+    description           = optional(string, "Managed by Terraform")
+    file_path             = string
+    command_line_setting  = optional(string, "DoNotAllow")
+    required_command_line = optional(string, "")
+    icon_path             = optional(string)
+    icon_index            = optional(number, 0)
+    show_in_portal        = optional(bool, true)
+  }))
+  default = {}
+}
+
+variable "uam_repositories" {
+  description = "Custom Unified Application Management (UAM) WinGet or NuGet repositories via /api/v1/app-management/repository."
+  type = map(object({
+    name            = string
+    repository_type = optional(string, "WinGet")
+    url             = string
+    trust_level     = optional(string, "Trusted")
+  }))
+  default = {}
+}
+
+variable "host_pool_reimage_schedules" {
+  description = "Recurring host pool re-image / update schedules via /api/v1/arm/hostpool/{subscriptionId}/{resourceGroup}/{hostPoolName}/schedule."
+  type = map(object({
+    resource_group          = optional(string)
+    is_enabled              = optional(bool, true)
+    desktop_image_id        = string
+    vm_size                 = optional(string)
+    storage_type            = optional(string)
+    schedule_cron           = string
+    timezone_id             = optional(string, "Central Standard Time")
+    batch_size              = optional(number, 2)
+    failure_policy          = optional(string, "Abort")
+    drain_mode_on_start     = optional(bool, true)
+    user_notification_mins  = optional(number, 15)
+    notification_message    = optional(string, "This desktop is scheduled for maintenance and will restart shortly.")
+    staged_ring_delay_hours = optional(number, 0)
+  }))
+  default = {}
+}

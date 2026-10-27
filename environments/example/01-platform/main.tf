@@ -162,6 +162,7 @@ module "nerdio_core" {
     service_principal_object_id = module.nerdio_identity[0].service_principal_object_id
   }
   managed_resource_group_ids = local.all_managed_spoke_rg_ids
+  assign_builtin_rbac        = var.nerdio_rbac == null
 
   public_network_access_enabled         = !(var.enable_hardening && var.hardening.disable_public_access)
   web_app_public_network_access_enabled = !(var.enable_hardening && var.hardening.disable_public_access && var.hardening.private_app_service)
@@ -321,4 +322,108 @@ module "automation_workers" {
   instances                      = var.automation_workers.instances
   ephemeral_os_disk              = var.automation_workers.ephemeral_os_disk
   tags                           = var.tags
+}
+
+module "avd_insights" {
+  source = "../../../modules/avd-insights"
+  count  = var.avd_insights != null ? 1 : 0
+
+  prefix                     = var.prefix
+  location                   = var.control_plane_location
+  resource_group_name        = module.foundation.resource_group_names["monitoring"]
+  resource_group_id          = module.foundation.resource_group_ids["monitoring"]
+  log_analytics_workspace_id = module.foundation.log_analytics_workspace_id
+  alert_email_receivers      = var.avd_insights.alert_email_receivers
+  monthly_budget_amount      = var.avd_insights.monthly_budget_amount
+  budget_start_date          = var.avd_insights.budget_start_date
+  tags                       = var.tags
+}
+
+module "azure_local" {
+  source = "../../../modules/azure-local"
+  count  = var.azure_local != null ? 1 : 0
+
+  name_prefix                        = var.prefix
+  location                           = coalesce(var.azure_local.location, var.control_plane_location)
+  resource_group_id                  = var.azure_local.resource_group_id
+  custom_location_id                 = var.azure_local.custom_location_id
+  vm_switch_name                     = var.azure_local.vm_switch_name
+  vlan_id                            = var.azure_local.vlan_id
+  address_prefix                     = var.azure_local.address_prefix
+  default_gateway                    = var.azure_local.default_gateway
+  dns_servers                        = var.azure_local.dns_servers
+  nerdio_service_principal_object_id = module.nerdio_identity[0].service_principal_object_id
+  gallery_images                     = var.azure_local.gallery_images
+  tags                               = var.tags
+}
+
+locals {
+  w365_region_key = var.windows_365 != null ? coalesce(var.windows_365.region_key, local.control_plane_region_key) : local.control_plane_region_key
+}
+
+module "windows_365" {
+  source = "../../../modules/windows-365"
+  count  = var.windows_365 != null ? 1 : 0
+
+  name_prefix                   = var.prefix
+  subscription_id               = coalesce(var.regions[local.w365_region_key].subscription_id, var.subscription_id)
+  resource_group_id             = module.spoke_foundation[local.w365_region_key].resource_group_ids["hostpools"]
+  virtual_network_id            = module.network[local.w365_region_key].vnet_id
+  subnet_id                     = module.network[local.w365_region_key].subnet_ids["session_hosts"]
+  join_type                     = var.windows_365.join_type
+  image_id                      = var.windows_365.image_id
+  image_type                    = var.windows_365.image_type
+  enable_single_sign_on         = var.windows_365.enable_single_sign_on
+  local_admin_enabled           = var.windows_365.local_admin_enabled
+  restore_point_frequency_hours = var.windows_365.restore_point_frequency_hours
+  assigned_group_object_ids     = var.windows_365.assigned_group_object_ids
+}
+
+module "intune_policies" {
+  source = "../../../modules/intune-policies"
+  count  = var.intune_policies != null ? 1 : 0
+
+  name_prefix                  = var.prefix
+  fslogix_vhd_locations        = var.intune_policies.fslogix_vhd_locations
+  defender_excluded_extensions = var.intune_policies.defender_excluded_extensions
+  wufb_feature_deferral_days   = var.intune_policies.wufb_feature_deferral_days
+  wufb_quality_deferral_days   = var.intune_policies.wufb_quality_deferral_days
+  assigned_device_group_ids    = var.intune_policies.assigned_device_group_ids
+  conditional_access           = var.intune_policies.conditional_access
+}
+
+module "cmk_encryption" {
+  source = "../../../modules/cmk-encryption"
+  count  = var.cmk_encryption != null ? 1 : 0
+
+  prefix                 = var.prefix
+  control_plane_location = var.control_plane_location
+  resource_group_name    = module.foundation.resource_group_names["nerdio"]
+  existing_key_vault_id  = var.cmk_encryption.existing_key_vault_id
+  key_vault_name         = var.cmk_encryption.key_vault_name
+  key_name               = var.cmk_encryption.key_name
+  key_size               = var.cmk_encryption.key_size
+  rotation_period        = var.cmk_encryption.rotation_period
+  regions = {
+    for k, r in var.regions : k => {
+      location            = coalesce(r.location, k)
+      resource_group_name = module.spoke_foundation[k].resource_group_names["hostpools"]
+    }
+  }
+  deployer_object_id = var.deployer_object_id
+  tags               = var.tags
+}
+
+module "nerdio_rbac" {
+  source = "../../../modules/nerdio-rbac"
+  count  = var.nerdio_rbac != null && local.manage_identity ? 1 : 0
+
+  prefix                             = var.prefix
+  subscription_id                    = var.subscription_id
+  nerdio_service_principal_object_id = module.nerdio_identity[0].service_principal_object_id
+  managed_resource_group_ids = merge(
+    { nerdio = module.foundation.resource_group_ids["nerdio"] },
+    local.all_managed_spoke_rg_ids
+  )
+  extra_actions = var.nerdio_rbac.extra_actions
 }

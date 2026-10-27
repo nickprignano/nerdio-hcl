@@ -12,3 +12,18 @@ output "desktop_image_ids" {
   description = "Nerdio desktop image pipeline IDs keyed by logical key."
   value       = { for k, img in restapi_object.desktop_image : k => img.id }
 }
+
+output "remote_app_ids" {
+  description = "Published RemoteApp IDs keyed by logical key."
+  value       = { for k, app in restapi_object.remote_app : k => app.id }
+}
+
+output "uam_repository_ids" {
+  description = "Custom UAM repository IDs keyed by logical key."
+  value       = { for k, r in restapi_object.uam_repository : k => r.id }
+}
+
+output "host_pool_reimage_schedule_ids" {
+  description = "Host pool re-image schedule IDs keyed by host pool name."
+  value       = { for k, s in restapi_object.host_pool_reimage_schedule : k => s.id }
+}

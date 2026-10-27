@@ -24,6 +24,14 @@ host_pools = {
     # workspace_key       = "ws-avd"              # defaults to the first sorted workspace in var.workspaces
     # image               = "win11-24h2-avd-m365" # key from gallery_image_definition_ids once Packer builds it
   }
+  # "hp-gpu" = {
+  #   friendly_name         = "CAD & 3D Graphics desktops"
+  #   host_pool_type        = "Pooled"
+  #   vm_prefix             = "avdgpu"
+  #   gpu_preset            = true                 # defaults to Standard_NV12ads_A10_v5, installs GPU drivers & enables HEVC
+  #   has_ephemeral_os_disk = false
+  #   image                 = "win11-avd-gpu"
+  # }
   # "hp-devs" = {
   #   friendly_name   = "Developer personal desktops"
   #   host_pool_type  = "Personal"
@@ -32,6 +40,30 @@ host_pools = {
   #   vm_size         = "Standard_D8s_v5"
   # }
 }
+
+# Optional richer auto-scale triggers (RAM, available sessions, rolling drain mode):
+# auto_scale = {
+#   scale_out_cpu_percent = 75
+#   scale_in_cpu_percent  = 25
+#   scale_out_ram_percent = 80
+#   scale_in_ram_percent  = 30
+#   available_sessions = {
+#     min_available_user_sessions = 4
+#     max_available_user_sessions = 12
+#   }
+#   rolling_drain_mode = {
+#     is_enabled = true
+#     windows = [
+#       {
+#         name                    = "End of day drain"
+#         start_time              = "18:00:00"
+#         percent                 = 50
+#         load_balancing          = "DepthFirst"
+#         scale_in_aggressiveness = "High"
+#       }
+#     ]
+#   }
+# }
 
 # Optional multi-region FSLogix Cloud Cache across all regional profile shares:
 # fslogix_options = {

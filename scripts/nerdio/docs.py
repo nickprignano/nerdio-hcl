@@ -39,6 +39,8 @@ MODULES: dict[str, str] = {
     "nerdio-hardening": "private endpoints and VNet integration for Nerdio's core resources",
     "automation-workers": "optional Hybrid Runbook Worker VM Scale Set inside the AVD VNet",
     "avd-insights": "optional AVD Insights Data Collection Rule, alerts and consumption budget",
+    "cmk-encryption": "optional Customer-Managed Key encryption and per-region Disk Encryption Sets",
+    "nerdio-rbac": "optional custom least-privilege Azure RBAC role for Nerdio Manager",
     "vnet-runner": "optional ephemeral GitHub Actions runner inside the AVD VNet",
     "image-gallery": "Compute Gallery and image definitions for Packer",
     "nerdio-config": "Nerdio objects through the nerdio/nme provider",

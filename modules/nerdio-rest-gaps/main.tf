@@ -183,3 +183,81 @@ resource "restapi_object" "desktop_image" {
     stagedHostPoolNames = each.value.staged_host_pool_keys
   })
 }
+
+resource "restapi_object" "remote_app" {
+  for_each = var.remote_apps
+
+  path         = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.value.host_pool_name}/remote-app"
+  create_path  = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.value.host_pool_name}/remote-app"
+  read_path    = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.value.host_pool_name}/remote-app"
+  update_path  = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.value.host_pool_name}/remote-app/${each.value.name}"
+  destroy_path = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.value.host_pool_name}/remote-app/${each.value.name}"
+
+  create_method  = "POST"
+  update_method  = "PUT"
+  destroy_method = "DELETE"
+  object_id      = each.key
+
+  data = jsonencode({
+    appGroupName        = each.value.app_group_name
+    name                = each.value.name
+    friendlyName        = coalesce(each.value.friendly_name, each.value.name)
+    description         = each.value.description
+    filePath            = each.value.file_path
+    commandLineSetting  = each.value.command_line_setting
+    requiredCommandLine = each.value.required_command_line
+    iconPath            = coalesce(each.value.icon_path, each.value.file_path)
+    iconIndex           = each.value.icon_index
+    showInPortal        = each.value.show_in_portal
+  })
+}
+
+resource "restapi_object" "uam_repository" {
+  for_each = var.uam_repositories
+
+  path          = "/api/v1/app-management/repository"
+  create_path   = "/api/v1/app-management/repository"
+  read_path     = "/api/v1/app-management/repository/{id}"
+  update_path   = "/api/v1/app-management/repository/{id}"
+  destroy_path  = "/api/v1/app-management/repository/{id}"
+  create_method = "POST"
+  update_method = "PATCH"
+  id_attribute  = "payload/id"
+
+  data = jsonencode({
+    name           = each.value.name
+    repositoryType = each.value.repository_type
+    url            = each.value.url
+    trustLevel     = each.value.trust_level
+  })
+}
+
+resource "restapi_object" "host_pool_reimage_schedule" {
+  for_each = var.host_pool_reimage_schedules
+
+  path         = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.key}/schedule"
+  create_path  = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.key}/schedule"
+  read_path    = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.key}/schedule"
+  update_path  = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.key}/schedule"
+  destroy_path = "/api/v1/arm/hostpool/${var.subscription_id}/${coalesce(each.value.resource_group, var.hostpools_resource_group_name)}/${each.key}/schedule"
+
+  create_method  = "PUT"
+  update_method  = "PUT"
+  destroy_method = "DELETE"
+  object_id      = each.key
+
+  data = jsonencode({
+    isEnabled            = each.value.is_enabled
+    desktopImageId       = each.value.desktop_image_id
+    vmSize               = each.value.vm_size
+    storageType          = each.value.storage_type
+    scheduleCron         = each.value.schedule_cron
+    timezoneId           = each.value.timezone_id
+    batchSize            = each.value.batch_size
+    failurePolicy        = each.value.failure_policy
+    drainModeOnStart     = each.value.drain_mode_on_start
+    userNotificationMins = each.value.user_notification_mins
+    notificationMessage  = each.value.notification_message
+    stagedRingDelayHours = each.value.staged_ring_delay_hours
+  })
+}

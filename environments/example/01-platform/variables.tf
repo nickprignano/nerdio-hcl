@@ -310,3 +310,90 @@ variable "deployer_object_id" {
   type        = string
   default     = null
 }
+
+variable "avd_insights" {
+  description = "Optional Azure Monitor AVD Insights Data Collection Rule, Action Group, and monthly consumption budget in the monitoring resource group (null skips)."
+  type = object({
+    alert_email_receivers = optional(list(string), [])
+    monthly_budget_amount = optional(number)
+    budget_start_date     = optional(string, "2026-01-01T00:00:00Z")
+  })
+  default = null
+}
+
+variable "azure_local" {
+  description = "Optional Azure Local (formerly Azure Stack HCI) logical network, RBAC and gallery images for hybrid AVD host pools (null skips)."
+  type = object({
+    location           = optional(string)
+    resource_group_id  = string
+    custom_location_id = string
+    vm_switch_name     = string
+    vlan_id            = optional(number)
+    address_prefix     = optional(string)
+    default_gateway    = optional(string)
+    dns_servers        = optional(list(string), [])
+    gallery_images = optional(map(object({
+      container_id        = string
+      image_version_id    = optional(string)
+      os_type             = optional(string, "Windows")
+      hyper_v_generation  = optional(string, "V2")
+      cloud_init_data_src = optional(string, "Azure")
+    })), {})
+  })
+  default = null
+}
+
+variable "windows_365" {
+  description = "Optional Windows 365 Enterprise Cloud PC Azure Network Connection, Provisioning Policy and User Settings alongside Nerdio Manager (null skips)."
+  type = object({
+    region_key                    = optional(string)
+    join_type                     = optional(string, "azureADJoin")
+    image_id                      = optional(string, "microsoftwindowsdesktop_windows-ent-cpc_win11-24h2-ent-cpc-m365")
+    image_type                    = optional(string, "gallery")
+    enable_single_sign_on         = optional(bool, true)
+    local_admin_enabled           = optional(bool, false)
+    restore_point_frequency_hours = optional(number, 12)
+    assigned_group_object_ids     = optional(list(string), [])
+  })
+  default = null
+}
+
+variable "intune_policies" {
+  description = "Optional Intune Windows Update for Business ring, Defender AV FSLogix/App Attach exclusions, and Conditional Access MFA policy via Microsoft Graph (null skips)."
+  type = object({
+    fslogix_vhd_locations        = optional(string)
+    defender_excluded_extensions = optional(list(string), ["vhd", "vhdx", "cim"])
+    wufb_feature_deferral_days   = optional(number, 30)
+    wufb_quality_deferral_days   = optional(number, 7)
+    assigned_device_group_ids    = optional(list(string), [])
+    conditional_access = optional(object({
+      enabled           = optional(bool, false)
+      state             = optional(string, "enabledForReportingButNotEnforced")
+      include_group_ids = optional(list(string), [])
+      exclude_group_ids = optional(list(string), [])
+      built_in_controls = optional(list(string), ["mfa"])
+      sign_in_max_hours = optional(number, 12)
+    }), {})
+  })
+  default = null
+}
+
+variable "cmk_encryption" {
+  description = "Optional Customer-Managed Key (CMK) encryption with an RSA Key Vault key and per-region Disk Encryption Sets (DES) for AVD session host disks (null skips)."
+  type = object({
+    existing_key_vault_id = optional(string)
+    key_vault_name        = optional(string)
+    key_name              = optional(string, "cmk-avd-disk-encryption")
+    key_size              = optional(number, 3072)
+    rotation_period       = optional(string, "P1Y")
+  })
+  default = null
+}
+
+variable "nerdio_rbac" {
+  description = "Optional custom least-privilege Azure RBAC role definition for Nerdio Manager on managed resource groups, replacing broad Contributor role assignments (null uses built-in Contributor)."
+  type = object({
+    extra_actions = optional(list(string), [])
+  })
+  default = null
+}

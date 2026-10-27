@@ -48,7 +48,10 @@ locals {
     length(var.rest_gaps.uam_app_groups) > 0 ||
     length(var.rest_gaps.azure_files_autoscale) > 0 ||
     length(var.rest_gaps.app_attach_packages) > 0 ||
-    length(var.rest_gaps.desktop_images) > 0
+    length(var.rest_gaps.desktop_images) > 0 ||
+    length(var.rest_gaps.remote_apps) > 0 ||
+    length(var.rest_gaps.uam_repositories) > 0 ||
+    length(var.rest_gaps.host_pool_reimage_schedules) > 0
   )
 }
 
@@ -64,6 +67,9 @@ module "nerdio_rest_gaps" {
   azure_files_autoscale         = var.rest_gaps.azure_files_autoscale
   app_attach_packages           = var.rest_gaps.app_attach_packages
   desktop_images                = var.rest_gaps.desktop_images
+  remote_apps                   = var.rest_gaps.remote_apps
+  uam_repositories              = var.rest_gaps.uam_repositories
+  host_pool_reimage_schedules   = var.rest_gaps.host_pool_reimage_schedules
 
   depends_on = [module.nerdio_config]
 }

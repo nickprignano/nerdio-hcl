@@ -16,6 +16,7 @@ variable "regions" {
     })
     fslogix_profile_share_unc = optional(string)
     app_attach_share_unc      = optional(string)
+    disk_encryption_set_id    = optional(string)
   }))
   validation {
     condition     = length(var.regions) >= 1
@@ -24,12 +25,13 @@ variable "regions" {
 }
 
 variable "workspaces" {
-  description = "AVD workspaces created through Nerdio, keyed by workspace key. Each workspace is placed in region_key (or the first sorted region when omitted)."
+  description = "AVD workspaces created through Nerdio, keyed by workspace key. Each workspace is placed in region_key (or the first sorted region when omitted). user_assignments assigns Entra user/group/SP object IDs to that specific workspace."
   type = map(object({
-    name          = string
-    region_key    = optional(string)
-    friendly_name = optional(string)
-    description   = optional(string)
+    name             = string
+    region_key       = optional(string)
+    friendly_name    = optional(string)
+    description      = optional(string)
+    user_assignments = optional(list(string), [])
   }))
   validation {
     condition     = length(var.workspaces) >= 1
@@ -64,16 +66,35 @@ variable "fslogix" {
 }
 
 variable "auto_scale" {
-  description = "Default-mode auto-scale profile shared by the host pools unless a pool sets auto_scale_profile_id."
+  description = "Default-mode auto-scale profile shared by the host pools unless a pool sets auto_scale_profile_id. Supports CPU, RAM, and AvailableUserSessions triggers plus rolling drain mode windows."
   type = object({
-    name                    = optional(string, "Terraform default scaling")
-    max_sessions_per_host   = optional(number, 10)
-    load_balancing          = optional(string, "BreadthFirst")
-    host_pool_capacity      = optional(number, 4)
-    min_active_hosts_count  = optional(number, 1)
-    burst_capacity          = optional(number, 2)
-    scale_out_cpu_percent   = optional(number, 80)
-    scale_in_cpu_percent    = optional(number, 20)
+    name                   = optional(string, "Terraform default scaling")
+    max_sessions_per_host  = optional(number, 10)
+    load_balancing         = optional(string, "BreadthFirst")
+    host_pool_capacity     = optional(number, 4)
+    min_active_hosts_count = optional(number, 1)
+    burst_capacity         = optional(number, 2)
+    scale_out_cpu_percent  = optional(number, 80)
+    scale_in_cpu_percent   = optional(number, 20)
+    scale_out_ram_percent  = optional(number)
+    scale_in_ram_percent   = optional(number)
+    available_sessions = optional(object({
+      min_available_user_sessions   = number
+      max_available_user_sessions   = number
+      available_session_restriction = optional(string, "Always")
+      outside_work_hours_sessions   = optional(number)
+      end_work_hours                = optional(string)
+    }))
+    rolling_drain_mode = optional(object({
+      is_enabled = optional(bool, false)
+      windows = optional(list(object({
+        name                    = string
+        start_time              = string
+        percent                 = number
+        load_balancing          = optional(string, "DepthFirst")
+        scale_in_aggressiveness = optional(string, "High")
+      })), [])
+    }), {})
     start_vm_on_connect     = optional(bool, true)
     active_host_type        = optional(string, "Running")
     scale_in_aggressiveness = optional(string, "Medium")
@@ -140,6 +161,7 @@ variable "host_pools" {
     enable_vm_deallocation       = optional(bool, true)
     use_availability_zones       = optional(bool, true)
     accelerated_networking       = optional(bool, true)
+    gpu_preset                   = optional(bool, false)
     install_gpu_drivers          = optional(bool)
     rdp_shortpath                = optional(string)
     compliance_enforcement       = optional(string)

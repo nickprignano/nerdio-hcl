@@ -82,3 +82,26 @@ entra_app = {
 
 # Second apply, after the Marketplace deployment exists:
 enable_hardening = false
+
+# Optional v2 Enterprise Landing Zone modules (all default to null):
+# avd_insights = {
+#   alert_email_receivers = ["avd-ops@contoso.com"]
+#   monthly_budget_amount = 5000
+# }
+# cmk_encryption = {
+#   rotation_period = "P1Y"
+# }
+# nerdio_rbac = {}
+# intune_policies = {
+#   assigned_device_group_ids = ["33333333-3333-3333-3333-333333333333"]
+#   conditional_access        = { enabled = true, state = "enabledForReportingButNotEnforced" }
+# }
+# windows_365 = {
+#   join_type                 = "azureADJoin"
+#   assigned_group_object_ids = ["11111111-1111-1111-1111-111111111111"]
+# }
+# azure_local = {
+#   resource_group_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-contoso-azlocal"
+#   custom_location_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-contoso-azlocal/providers/Microsoft.ExtendedLocation/customLocations/cl-azlocal01"
+#   vm_switch_name     = "ConvergedSwitch(compute_management)"
+# }

@@ -50,12 +50,18 @@ deployment runbook (read_kb "docs/deployment-runbook.md") and, for the pipeline,
    understand the consequence.
 4. **Configure.** get_questions with phase "configure". Ask the same way. Only bring up advanced
    questions (advanced: true) if they want more control or an answer needs one, such as a hub
-   network to peer with. For groups, ask for Entra group display names or "me"; they're looked up
-   in Cloud Shell, so nobody pastes object IDs here.
+   network to peer with or multi-region workload spokes (`additional_locations`). Explain that in
+   v2, `location` sets `control_plane_location` (where Nerdio Manager runs) and the first spoke in
+   the `regions` map, while `additional_locations` adds peer workload regions with automatic
+   non-overlapping `/20` CIDRs, regional FSLogix shares, and centralized Private DNS zone links
+   (decision 0029). If they are upgrading from v1, mention `./nerdio migrate`. For groups, ask for
+   Entra group display names or "me"; they're looked up in Cloud Shell, so nobody pastes object IDs
+   here.
 5. **Review.** review_config shows what will be written, with placeholder IDs. Walk through it in
-   plain language: what gets created, where, and which choices drive cost (VM size and host
-   capacity, the profile share size, and Nerdio's own App Service and SQL from
-   docs/knowledge/nerdio/platform.md). Ask them to confirm or change anything.
+   plain language: what gets created, where (including each region in `regions` and each workspace
+   in `workspaces`), and which choices drive cost (VM size and host capacity, the profile share
+   size per region, and Nerdio's own App Service and SQL from docs/knowledge/nerdio/platform.md).
+   Ask them to confirm or change anything.
 6. **Hand-off.** Give them the init command from cloud_shell_command. It writes the configuration
    files in their Cloud Shell, after Terraform checks them. Then say what comes next: the
    bootstrap and deploy steps in the runbook. List the decisions that mattered (identity model,
@@ -87,7 +93,8 @@ an apply waits until a reviewer they named approves it in GitHub, and you aren't
 - After the platform stage is applied, Nerdio's first-run wizard happens in the browser, because
   Nerdio has no API for it. Walk them through it one screen at a time (the runbook's wizard
   section), using the exact names from the apply's outputs in pipeline_plan: the console URL, the
-  AVD network and the resource group to link. Then the config stage goes the same way.
+  AVD network (`avd_vnet_names`) and the resource group (`regional_resource_group_names`) to link.
+  Then the config stage goes the same way.
 - A failed run: pipeline_plan gives the error and the last lines of the log. Explain what they
   say and, when the knowledge base covers it (read_kb
   "docs/knowledge/troubleshooting/known-errors.yaml"), the fix. Don't
