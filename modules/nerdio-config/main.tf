@@ -1,39 +1,85 @@
 # Nerdio Manager configuration through the official nerdio/nme provider (Nerdio REST API).
 # Runs after Nerdio is installed, its setup wizard is finished and the REST API is enabled.
 
+locals {
+  sorted_region_keys    = sort(keys(var.regions))
+  default_region_key    = local.sorted_region_keys[0]
+  sorted_workspace_keys = sort(keys(var.workspaces))
+  default_workspace_key = local.sorted_workspace_keys[0]
+
+  region_subscriptions = toset([
+    for k, r in var.regions : coalesce(r.subscription_id, var.subscription_id)
+  ])
+
+  region_fslogix_shares = {
+    for k, r in var.regions : k => r.fslogix_profile_share_unc
+    if r.fslogix_profile_share_unc != null && r.fslogix_profile_share_unc != ""
+  }
+
+  has_fslogix = var.fslogix != null && (
+    length(var.fslogix.locations) > 0 ||
+    (var.fslogix.profile_share_unc != null && var.fslogix.profile_share_unc != "") ||
+    length(local.region_fslogix_shares) > 0
+  )
+
+  primary_fslogix_locations = !local.has_fslogix ? [] : (
+    length(var.fslogix.locations) > 0 ? var.fslogix.locations : (
+      var.fslogix.cloud_cache && length(local.region_fslogix_shares) > 0 ? [
+        for k in sort(keys(local.region_fslogix_shares)) : local.region_fslogix_shares[k]
+      ] : compact([
+        coalesce(
+          var.fslogix.profile_share_unc,
+          try(local.region_fslogix_shares[local.default_region_key], null),
+          try(values(local.region_fslogix_shares)[0], null)
+        )
+      ])
+    )
+  )
+}
+
 data "nme_linked_subscription" "this" {
-  subscription_id = var.subscription_id
+  for_each        = local.region_subscriptions
+  subscription_id = each.value
 }
 
 resource "nme_linked_resource_group" "hostpools" {
-  subscription_id = data.nme_linked_subscription.this.id
-  name            = var.hostpools_resource_group_name
-  is_default      = true
+  for_each        = var.regions
+  subscription_id = data.nme_linked_subscription.this[coalesce(each.value.subscription_id, var.subscription_id)].id
+  name            = each.value.hostpools_resource_group_name
+  is_default      = each.key == local.default_region_key
 }
 
 resource "nme_linked_resource_group" "network" {
-  count           = var.network.resource_group_name == var.hostpools_resource_group_name ? 0 : 1
-  subscription_id = data.nme_linked_subscription.this.id
-  name            = var.network.resource_group_name
+  for_each = {
+    for k, r in var.regions : k => r
+    if r.network.resource_group_name != r.hostpools_resource_group_name
+  }
+  subscription_id = data.nme_linked_subscription.this[coalesce(each.value.subscription_id, var.subscription_id)].id
+  name            = each.value.network.resource_group_name
   is_default      = false
 }
 
 locals {
-  network_rg_id = try(nme_linked_resource_group.network[0].id, nme_linked_resource_group.hostpools.id)
+  network_rg_ids = {
+    for k, r in var.regions :
+    k => try(nme_linked_resource_group.network[k].id, nme_linked_resource_group.hostpools[k].id)
+  }
 }
 
 resource "nme_linked_network" "session_hosts" {
-  resource_group_id = local.network_rg_id
-  name              = var.network.vnet_name
-  subnet            = var.network.subnet_name
+  for_each          = var.regions
+  resource_group_id = local.network_rg_ids[each.key]
+  name              = each.value.network.vnet_name
+  subnet            = each.value.network.subnet_name
 }
 
 resource "nme_workspace" "this" {
-  resource_group_id = nme_linked_resource_group.hostpools.id
-  name              = var.workspace.name
-  location          = var.location
-  friendly_name     = coalesce(var.workspace.friendly_name, var.workspace.name)
-  description       = var.workspace.description
+  for_each          = var.workspaces
+  resource_group_id = nme_linked_resource_group.hostpools[coalesce(each.value.region_key, local.default_region_key)].id
+  name              = each.value.name
+  location          = var.regions[coalesce(each.value.region_key, local.default_region_key)].location
+  friendly_name     = coalesce(each.value.friendly_name, each.value.name)
+  description       = each.value.description
 }
 
 data "nme_ad_config" "this" {
@@ -42,7 +88,7 @@ data "nme_ad_config" "this" {
 }
 
 resource "nme_fslogix_profile" "this" {
-  count             = var.fslogix == null ? 0 : 1
+  count             = local.has_fslogix ? 1 : 0
   name              = var.fslogix.name
   cloud_cache       = var.fslogix.cloud_cache
   page_blobs        = var.fslogix.page_blobs
@@ -59,7 +105,44 @@ resource "nme_fslogix_profile" "this" {
   }
 
   profile_container = {
-    locations = [var.fslogix.profile_share_unc]
+    locations = local.primary_fslogix_locations
+    options   = var.fslogix.profile_options
+  }
+
+  office_container = {
+    locations = var.fslogix.office_share_unc
+    options   = var.fslogix.office_options
+  }
+
+  exclusions = {
+    exclusion_mode           = var.fslogix.exclusion_mode
+    excluded_domain_accounts = var.fslogix.excluded_domain_accounts
+  }
+}
+
+resource "nme_fslogix_profile" "regional" {
+  for_each = local.has_fslogix && !var.fslogix.cloud_cache && length(var.fslogix.locations) == 0 ? {
+    for k, unc in local.region_fslogix_shares : k => unc
+    if k != local.default_region_key
+  } : {}
+
+  name              = "${var.fslogix.name} (${each.key})"
+  cloud_cache       = false
+  page_blobs        = var.fslogix.page_blobs
+  entra_id_kerberos = var.fslogix.entra_id_kerberos
+  redirections_xml = coalesce(var.fslogix.redirections_xml, <<-XML
+    <FrxProfileFolderRedirection ExcludeCommonFolders="0">
+    </FrxProfileFolderRedirection>
+  XML
+  )
+
+  installer = {
+    version      = ""
+    force_update = false
+  }
+
+  profile_container = {
+    locations = [each.value]
     options   = var.fslogix.profile_options
   }
 
@@ -75,7 +158,7 @@ resource "nme_fslogix_profile" "this" {
 }
 
 resource "nme_fslogix_default_profile" "this" {
-  count      = var.fslogix != null && try(var.fslogix.set_as_default, false) ? 1 : 0
+  count      = local.has_fslogix && try(var.fslogix.set_as_default, false) ? 1 : 0
   profile_id = nme_fslogix_profile.this[0].id
 }
 
@@ -211,8 +294,8 @@ resource "nme_user_assignment" "workspace" {
   object_id = each.value
 
   avd_workspaces = [
-    {
-      workspace_id = nme_workspace.this.id
+    for k in local.sorted_workspace_keys : {
+      workspace_id = nme_workspace.this[k].id
     }
   ]
 }
@@ -284,7 +367,7 @@ resource "nme_auto_scale_profile" "this" {
 resource "nme_dynamic_host_pool" "this" {
   for_each = var.host_pools
 
-  resource_group_id   = nme_linked_resource_group.hostpools.id
+  resource_group_id   = nme_linked_resource_group.hostpools[coalesce(each.value.region_key, local.default_region_key)].id
   name                = each.key
   friendly_name       = each.value.friendly_name
   description         = each.value.description
@@ -298,16 +381,20 @@ resource "nme_dynamic_host_pool" "this" {
   start_vm_on_connect = each.value.start_vm_on_connect
 
   workspace = {
-    id = nme_workspace.this.id
+    id = nme_workspace.this[coalesce(each.value.workspace_key, local.default_workspace_key)].id
   }
 
   active_directory = var.ad_config_friendly_name == null ? null : {
     id = data.nme_ad_config.this[0].id
   }
 
-  fslogix = coalesce(each.value.fslogix_enabled, var.fslogix != null) ? {
+  fslogix = coalesce(each.value.fslogix_enabled, local.has_fslogix) ? {
     enabled = true
-    id      = coalesce(each.value.fslogix_profile_id, try(nme_fslogix_profile.this[0].id, null))
+    id = coalesce(
+      each.value.fslogix_profile_id,
+      try(nme_fslogix_profile.regional[coalesce(each.value.region_key, local.default_region_key)].id, null),
+      try(nme_fslogix_profile.this[0].id, null)
+    )
   } : { enabled = false, id = null }
 
   scripted_actions = (each.value.scripted_action_profile_id != null || each.value.scripted_action_profile_key != null) ? {
@@ -331,8 +418,8 @@ resource "nme_dynamic_host_pool" "this" {
       disk_performance_tier       = each.value.disk_performance_tier
       has_ephemeral_os_disk       = each.value.has_ephemeral_os_disk
       ephemeral_os_disk_placement = each.value.ephemeral_os_disk_placement
-      resource_group_id           = nme_linked_resource_group.hostpools.id
-      linked_network_id           = nme_linked_network.session_hosts.id
+      resource_group_id           = nme_linked_resource_group.hostpools[coalesce(each.value.region_key, local.default_region_key)].id
+      linked_network_id           = nme_linked_network.session_hosts[coalesce(each.value.region_key, local.default_region_key)].id
     }
   }
 
@@ -383,7 +470,7 @@ resource "nme_dynamic_host_pool" "this" {
 resource "nme_static_host_pool" "this" {
   for_each = var.static_host_pools
 
-  resource_group_id   = nme_linked_resource_group.hostpools.id
+  resource_group_id   = nme_linked_resource_group.hostpools[coalesce(each.value.region_key, local.default_region_key)].id
   name                = each.key
   friendly_name       = each.value.friendly_name
   description         = each.value.description
@@ -397,16 +484,20 @@ resource "nme_static_host_pool" "this" {
   start_vm_on_connect = each.value.start_vm_on_connect
 
   workspace = {
-    id = nme_workspace.this.id
+    id = nme_workspace.this[coalesce(each.value.workspace_key, local.default_workspace_key)].id
   }
 
   active_directory = var.ad_config_friendly_name == null ? null : {
     id = data.nme_ad_config.this[0].id
   }
 
-  fslogix = coalesce(each.value.fslogix_enabled, var.fslogix != null) ? {
+  fslogix = coalesce(each.value.fslogix_enabled, local.has_fslogix) ? {
     enabled = true
-    id      = coalesce(each.value.fslogix_profile_id, try(nme_fslogix_profile.this[0].id, null))
+    id = coalesce(
+      each.value.fslogix_profile_id,
+      try(nme_fslogix_profile.regional[coalesce(each.value.region_key, local.default_region_key)].id, null),
+      try(nme_fslogix_profile.this[0].id, null)
+    )
   } : { enabled = false, id = null }
 
   scripted_actions = (each.value.scripted_action_profile_id != null || each.value.scripted_action_profile_key != null) ? {

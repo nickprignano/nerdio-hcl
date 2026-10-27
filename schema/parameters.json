@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "The one list of deployment parameters. The chat setup skill, ./nerdio init and the GitHub Actions form all read it, and each parameter maps onto a Terraform variable. Format: schema/README.md.",
   "phases": [
     {
@@ -51,7 +51,7 @@
   "roots": [
     {
       "stage": "platform",
-      "path": "fslogix",
+      "path": "regions.{location}.fslogix",
       "null_unless": {
         "fslogix_enabled": true
       }
@@ -214,15 +214,25 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9]{2,30}$",
       "question": "Which Azure region? Pick one close to most users.",
-      "help": "Use the short name, like eastus2 or westeurope (`az account list-locations -o table`). Preflight checks that AVD's services and your VM size are available there.",
+      "help": "Use the short name, like eastus2 or westeurope (`az account list-locations -o table`). Sets control_plane_location and the first region in the regions map. Preflight checks that AVD's services and your VM size are available there.",
       "default": "eastus2",
       "form": true,
       "tfvars": [
         {
           "stage": "platform",
-          "path": "location"
+          "path": "control_plane_location"
         }
       ]
+    },
+    {
+      "id": "additional_locations",
+      "phase": "configure",
+      "type": "string",
+      "ask": "advanced",
+      "pattern": "^$|^[a-z][a-z0-9]{2,30}(,[a-z][a-z0-9]{2,30})*$",
+      "question": "Additional Azure workload regions (comma-separated, e.g. westeurope,centralus; blank for single-region)?",
+      "help": "Each additional region gets its own spoke VNet (with non-overlapping /20 CIDR carved automatically), spoke resource groups, and optional FSLogix profile share, linked to the control-plane Private DNS zones.",
+      "default": ""
     },
     {
       "id": "tenant_id",
@@ -277,13 +287,18 @@
       "pattern": "^[A-Za-z0-9._(){}-]*\\{role\\}[A-Za-z0-9._(){}-]*$",
       "ask": "advanced",
       "question": "Resource group naming pattern?",
-      "help": "{role} becomes nerdio, network, hostpools, storage and monitoring. {prefix} is your prefix. Nerdio's resource group must be new and empty.",
+      "help": "{role} becomes nerdio and monitoring in control-plane resource_groups, and network, hostpools and storage in each region's resource_groups. {prefix} is your prefix. Nerdio's resource group must be new and empty.",
       "default": "rg-{prefix}-{role}",
       "tfvars": [
         {
           "stage": "platform",
           "path": "resource_groups",
-          "render": "resource_groups"
+          "render": "control_plane_resource_groups"
+        },
+        {
+          "stage": "platform",
+          "path": "regions.{location}.resource_groups",
+          "render": "region_resource_groups"
         }
       ],
       "kb": [
@@ -303,7 +318,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.address_space",
+          "path": "regions.{location}.network.address_space",
           "render": "list"
         }
       ],
@@ -324,7 +339,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.subnets.session_hosts"
+          "path": "regions.{location}.network.subnets.session_hosts"
         }
       ]
     },
@@ -341,7 +356,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.subnets.private_endpoints"
+          "path": "regions.{location}.network.subnets.private_endpoints"
         }
       ]
     },
@@ -358,7 +373,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.subnets.app_integration"
+          "path": "regions.{location}.network.subnets.app_integration"
         }
       ]
     },
@@ -379,7 +394,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.dns_servers"
+          "path": "regions.{location}.network.dns_servers"
         }
       ]
     },
@@ -396,7 +411,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.hub_vnet_id",
+          "path": "regions.{location}.network.hub_vnet_id",
           "omit_empty": true
         }
       ]
@@ -412,7 +427,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "network.create_nat_gateway"
+          "path": "regions.{location}.network.create_nat_gateway"
         }
       ],
       "kb": [
@@ -445,7 +460,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.storage_account_name"
+          "path": "regions.{location}.fslogix.storage_account_name"
         }
       ]
     },
@@ -474,7 +489,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.share_quota_gb"
+          "path": "regions.{location}.fslogix.share_quota_gb"
         }
       ]
     },
@@ -515,7 +530,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.identity_source"
+          "path": "regions.{location}.fslogix.identity_source"
         }
       ]
     },
@@ -538,7 +553,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.active_directory.domain_name"
+          "path": "regions.{location}.fslogix.active_directory.domain_name"
         }
       ]
     },
@@ -560,7 +575,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.active_directory.domain_guid"
+          "path": "regions.{location}.fslogix.active_directory.domain_guid"
         }
       ]
     },
@@ -584,7 +599,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.active_directory.domain_sid",
+          "path": "regions.{location}.fslogix.active_directory.domain_sid",
           "omit_empty": true
         }
       ]
@@ -609,7 +624,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.active_directory.storage_sid",
+          "path": "regions.{location}.fslogix.active_directory.storage_sid",
           "omit_empty": true
         }
       ]
@@ -634,7 +649,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.active_directory.netbios_domain_name",
+          "path": "regions.{location}.fslogix.active_directory.netbios_domain_name",
           "omit_empty": true
         }
       ]
@@ -659,7 +674,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.active_directory.forest_name",
+          "path": "regions.{location}.fslogix.active_directory.forest_name",
           "omit_empty": true
         }
       ]
@@ -679,7 +694,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.user_group_object_ids"
+          "path": "regions.{location}.fslogix.user_group_object_ids"
         }
       ]
     },
@@ -699,7 +714,7 @@
       "tfvars": [
         {
           "stage": "platform",
-          "path": "fslogix.admin_group_object_ids"
+          "path": "regions.{location}.fslogix.admin_group_object_ids"
         }
       ]
     },
@@ -988,6 +1003,16 @@
       ]
     },
     {
+      "id": "workspace_name",
+      "phase": "configure",
+      "type": "string",
+      "ask": "never",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,62}$",
+      "question": "AVD workspace resource name",
+      "help": "Derived from prefix.",
+      "default": "ws-{prefix}"
+    },
+    {
       "id": "workspace_friendly_name",
       "phase": "configure",
       "type": "string",
@@ -998,12 +1023,12 @@
       "tfvars": [
         {
           "stage": "config",
-          "path": "workspace.friendly_name"
+          "path": "workspaces.{workspace_name}.friendly_name"
         },
         {
           "stage": "config",
-          "path": "workspace.name",
-          "value": "ws-{prefix}"
+          "path": "workspaces.{workspace_name}.name",
+          "value": "{workspace_name}"
         }
       ]
     },

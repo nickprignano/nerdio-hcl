@@ -121,3 +121,33 @@ variable "cloud" {
     error_message = "cloud must be public or usgovernment."
   }
 }
+
+variable "dr_location" {
+  description = "Optional paired Azure region for Azure SQL geo-replication and automatic failover group (null skips)."
+  type        = string
+  default     = null
+}
+
+variable "purge_protection_enabled" {
+  description = "Enable Key Vault purge protection (recommended true for production; false allows clean teardown in sandbox/dev)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_staging_slot" {
+  description = "Create a staging deployment slot on the Nerdio Manager App Service for blue/green version upgrades."
+  type        = bool
+  default     = false
+}
+
+variable "autoscale" {
+  description = "Optional CPU-based autoscale settings for the Nerdio Manager App Service Plan (null keeps a fixed instance count)."
+  type = object({
+    min_capacity          = optional(number, 1)
+    default_capacity      = optional(number, 1)
+    max_capacity          = optional(number, 3)
+    scale_out_cpu_percent = optional(number, 75)
+    scale_in_cpu_percent  = optional(number, 25)
+  })
+  default = null
+}

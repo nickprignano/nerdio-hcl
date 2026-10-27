@@ -33,4 +33,5 @@ marked *Superseded by NNNN*.
 | [0026](0026-read-only-readiness-engine.md) | Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test | Accepted |
 | [0027](0027-github-settings-in-terraform.md) | The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner | Proposed |
 | [0028](0028-targeted-ansible-for-images-and-hybrid.md) | Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration | Accepted |
+| [0029](0029-v2-multi-region-enterprise-landing-zone.md) | v2 multi-region peer `regions` map, `./nerdio migrate` and enterprise landing zone architecture | Accepted |
 <!-- END GENERATED: decision-index -->

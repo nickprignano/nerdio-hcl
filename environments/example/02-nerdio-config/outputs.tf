@@ -1,5 +1,10 @@
+output "workspace_ids" {
+  description = "AVD workspace IDs keyed by workspace key."
+  value       = module.nerdio_config.workspace_ids
+}
+
 output "workspace_id" {
-  description = "AVD workspace ID."
+  description = "Default AVD workspace ID (first sorted workspace key)."
   value       = module.nerdio_config.workspace_id
 }
 
@@ -14,8 +19,13 @@ output "static_host_pool_ids" {
 }
 
 output "fslogix_profile_id" {
-  description = "Nerdio FSLogix profile ID, or null."
+  description = "Primary Nerdio FSLogix profile ID, or null."
   value       = module.nerdio_config.fslogix_profile_id
+}
+
+output "regional_fslogix_profile_ids" {
+  description = "Secondary regional Nerdio FSLogix profile IDs keyed by region key."
+  value       = module.nerdio_config.regional_fslogix_profile_ids
 }
 
 output "auto_scale_profile_id" {

@@ -4,7 +4,7 @@ variable "prefix" {
 }
 
 variable "location" {
-  description = "Azure region for all foundation resources."
+  description = "Azure region for all foundation resources in this module instance."
   type        = string
 }
 
@@ -16,8 +16,8 @@ variable "tags" {
 
 variable "resource_groups" {
   description = <<-EOT
-    Resource groups to create, keyed by role. Nerdio recommends separating the
-    Nerdio Manager core resources from host pools, storage and networking.
+    Resource groups to create, keyed by role (nerdio, monitoring for the control plane;
+    network, hostpools, storage for each regional spoke).
     The "nerdio" group must stay empty until the Marketplace template deploys into it.
   EOT
   type        = map(string)
@@ -29,8 +29,8 @@ variable "resource_groups" {
     monitoring = "rg-avd-monitoring"
   }
   validation {
-    condition     = alltrue([for k in ["nerdio", "network", "hostpools", "storage", "monitoring"] : contains(keys(var.resource_groups), k)])
-    error_message = "resource_groups must contain the keys nerdio, network, hostpools, storage and monitoring."
+    condition     = length(var.resource_groups) > 0 && alltrue([for k in keys(var.resource_groups) : contains(["nerdio", "network", "hostpools", "storage", "monitoring"], k)])
+    error_message = "resource_groups keys must be from: nerdio, network, hostpools, storage, monitoring."
   }
 }
 

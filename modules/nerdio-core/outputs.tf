@@ -14,8 +14,21 @@ output "app_service_hostname" {
 }
 
 output "sql_server_ids" {
-  description = "Map of name to ID: the Nerdio SQL server."
-  value       = { (local.names.sql_server) = azurerm_mssql_server.this.id }
+  description = "Map of name to ID: the Nerdio SQL server (and DR partner SQL server when dr_location is set)."
+  value = merge(
+    { (local.names.sql_server) = azurerm_mssql_server.this.id },
+    var.dr_location != null ? { (local.names.sql_server_dr) = azurerm_mssql_server.dr[0].id } : {},
+  )
+}
+
+output "sql_failover_group_id" {
+  description = "Azure SQL auto-failover group ID when dr_location is set, else null."
+  value       = try(azurerm_mssql_failover_group.this[0].id, null)
+}
+
+output "staging_slot_id" {
+  description = "App Service staging slot ID when enable_staging_slot = true, else null."
+  value       = try(azurerm_windows_web_app_slot.staging[0].id, null)
 }
 
 output "key_vault_ids" {

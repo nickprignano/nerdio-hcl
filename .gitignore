@@ -11,6 +11,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 backend.tf
+migrations.auto.tf
 .terraformrc
 terraform.rc
 *.tfplan

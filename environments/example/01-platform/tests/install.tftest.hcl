@@ -1,4 +1,4 @@
-# Plan-only test with mocked providers: both install paths wire up without a tenant.
+# Plan-only test with mocked providers: both install paths and multi-region spokes wire up without a tenant.
 
 mock_provider "azurerm" {
   mock_data "azurerm_subscription" {
@@ -77,22 +77,29 @@ mock_provider "http" {
 }
 
 variables {
-  tenant_id       = "11111111-1111-1111-1111-111111111111"
-  subscription_id = "00000000-0000-0000-0000-000000000000"
-  prefix          = "example-nme"
+  tenant_id              = "11111111-1111-1111-1111-111111111111"
+  subscription_id        = "00000000-0000-0000-0000-000000000000"
+  prefix                 = "example-nme"
+  control_plane_location = "eastus2"
   resource_groups = {
     nerdio     = "rg-example-nerdio"
-    network    = "rg-example-network"
-    hostpools  = "rg-example-hostpools"
-    storage    = "rg-example-storage"
     monitoring = "rg-example-monitoring"
   }
-  network = {
-    address_space = ["10.50.0.0/20"]
-    subnets = {
-      session_hosts     = "10.50.0.0/22"
-      private_endpoints = "10.50.4.0/27"
-      app_integration   = "10.50.4.32/27"
+  regions = {
+    eastus2 = {
+      resource_groups = {
+        network   = "rg-example-network"
+        hostpools = "rg-example-hostpools"
+        storage   = "rg-example-storage"
+      }
+      network = {
+        address_space = ["10.50.0.0/20"]
+        subnets = {
+          session_hosts     = "10.50.0.0/22"
+          private_endpoints = "10.50.4.0/27"
+          app_integration   = "10.50.4.32/27"
+        }
+      }
     }
   }
 }
@@ -108,6 +115,50 @@ run "terraform_install" {
   assert {
     condition     = startswith(output.nerdio_url, "https://nmw-app-")
     error_message = "nerdio_url should point at the Terraform-built web app."
+  }
+}
+
+run "multi_region_spokes_link_to_platform_dns" {
+  command = plan
+
+  variables {
+    regions = {
+      eastus2 = {
+        resource_groups = {
+          network   = "rg-example-eastus2-network"
+          hostpools = "rg-example-eastus2-hostpools"
+          storage   = "rg-example-eastus2-storage"
+        }
+        network = {
+          address_space = ["10.50.0.0/20"]
+          subnets = {
+            session_hosts     = "10.50.0.0/22"
+            private_endpoints = "10.50.4.0/27"
+            app_integration   = "10.50.4.32/27"
+          }
+        }
+      }
+      westeurope = {
+        resource_groups = {
+          network   = "rg-example-westeurope-network"
+          hostpools = "rg-example-westeurope-hostpools"
+          storage   = "rg-example-westeurope-storage"
+        }
+        network = {
+          address_space = ["10.50.16.0/20"]
+          subnets = {
+            session_hosts     = "10.50.16.0/22"
+            private_endpoints = "10.50.20.0/27"
+            app_integration   = "10.50.20.32/27"
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.network) == 2 && length(azurerm_private_dns_zone_virtual_network_link.secondary_regions) == 5
+    error_message = "Both regions should have spoke VNets, and secondary region should link to the 5 platform Private DNS zones."
   }
 }
 

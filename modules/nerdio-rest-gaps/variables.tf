@@ -76,3 +76,33 @@ variable "azure_files_autoscale" {
   }))
   default = {}
 }
+
+variable "app_attach_packages" {
+  description = "MSIX / App Attach packages registered in Nerdio Manager via /api/v1/msix-app-attach/package."
+  type = map(object({
+    name            = string
+    image_path      = string
+    package_name    = optional(string)
+    version         = optional(string)
+    certificate_id  = optional(string)
+    host_pool_names = optional(list(string), [])
+  }))
+  default = {}
+}
+
+variable "desktop_images" {
+  description = "Nerdio Manager desktop image pipeline schedules and ring-based host pool updates via /api/v1/desktop-image."
+  type = map(object({
+    name                  = string
+    resource_group        = string
+    source_image          = string
+    vm_size               = optional(string, "Standard_D4s_v5")
+    storage_type          = optional(string, "StandardSSD_LRS")
+    gallery_resource_id   = optional(string)
+    replica_regions       = optional(list(string), [])
+    scripted_action_ids   = optional(list(number), [])
+    schedule_cron         = optional(string)
+    staged_host_pool_keys = optional(list(string), [])
+  }))
+  default = {}
+}

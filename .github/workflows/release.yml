@@ -1,0 +1,78 @@
+name: release
+
+# Publishes a versioned kit release when a maintainer pushes a v<version> tag (e.g. v1.0.0,
+# v2.0.0-alpha.1). Checks that VERSION matches the tag, runs the test suite, builds the
+# reproducible standalone readiness check (nerdio-preflight.pyz) with SLSA build provenance,
+# and extracts the matching section from CHANGELOG.md.
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: tag matches VERSION and CHANGELOG.md
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have="$(tr -d '[:space:]' < VERSION)"
+          [ "$want" = "$have" ] || { echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($have)"; exit 1; }
+          grep -qE "^## \[$want\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no ## [$want] section"; exit 1; }
+      - name: unit tests and docs check
+        run: |
+          python3 -m unittest discover -s scripts/nerdio -v
+          ./nerdio docs --check
+      - name: build reproducible preflight zipapp
+        run: |
+          python3 scripts/build-preflight-pyz.py --out dist/nerdio-preflight.pyz
+          (cd dist && sha256sum nerdio-preflight.pyz > nerdio-preflight.pyz.sha256)
+          python3 -I dist/nerdio-preflight.pyz --version
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/nerdio-preflight.pyz
+      - name: publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          sha="$(cut -d' ' -f1 dist/nerdio-preflight.pyz.sha256)"
+          awk -v ver="$ver" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          cat >> notes.md <<EOF
+
+          ---
+          ### Standalone Readiness Check (\`nerdio-preflight.pyz\`)
+          \`\`\`bash
+          V=$GITHUB_REF_NAME
+          curl -fsSLO "https://github.com/$GITHUB_REPOSITORY/releases/download/\$V/nerdio-preflight.pyz"
+          echo "$sha  nerdio-preflight.pyz" | sha256sum -c && python3 nerdio-preflight.pyz
+          \`\`\`
+          EOF
+          prerelease_flag=""
+          if [[ "$ver" == *-* ]]; then
+            prerelease_flag="--prerelease"
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            dist/nerdio-preflight.pyz \
+            dist/nerdio-preflight.pyz.sha256 \
+            --title "nerdio-hcl $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            $prerelease_flag

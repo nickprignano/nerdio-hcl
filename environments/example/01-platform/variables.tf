@@ -4,7 +4,7 @@ variable "tenant_id" {
 }
 
 variable "subscription_id" {
-  description = "Subscription that hosts Nerdio Manager and AVD."
+  description = "Primary subscription that hosts Nerdio Manager and (by default) AVD spokes."
   type        = string
 }
 
@@ -13,10 +13,16 @@ variable "prefix" {
   type        = string
 }
 
-variable "location" {
-  description = "Azure region close to the admin team and the primary AVD users."
+variable "control_plane_location" {
+  description = "Azure region that hosts the Nerdio Manager control plane (App Service, SQL, Key Vault, Automation, Monitoring)."
   type        = string
   default     = "eastus2"
+}
+
+variable "control_plane_dr_location" {
+  description = "Optional paired Azure region for Nerdio control-plane disaster recovery metadata."
+  type        = string
+  default     = null
 }
 
 variable "cloud" {
@@ -37,8 +43,12 @@ variable "tags" {
 }
 
 variable "resource_groups" {
-  description = "Resource group names keyed by role (nerdio, network, hostpools, storage, monitoring)."
+  description = "Control-plane resource group names keyed by role (nerdio, monitoring)."
   type        = map(string)
+  validation {
+    condition     = alltrue([for k in ["nerdio", "monitoring"] : contains(keys(var.resource_groups), k)])
+    error_message = "resource_groups must contain at least the control-plane keys: nerdio and monitoring."
+  }
 }
 
 variable "existing_resource_groups" {
@@ -47,40 +57,79 @@ variable "existing_resource_groups" {
   default     = []
 }
 
-variable "network" {
-  description = "AVD spoke network settings."
-  type = object({
-    address_space = list(string)
-    subnets = object({
-      session_hosts     = string
-      private_endpoints = string
-      app_integration   = string
-    })
-    dns_servers         = optional(list(string), [])
-    hub_vnet_id         = optional(string)
-    use_remote_gateways = optional(bool, false)
-    create_nat_gateway  = optional(bool, true)
-  })
+variable "existing_private_dns_zone_ids" {
+  description = "Optional map of existing central hub Private DNS zone IDs (sql, vault, file, blob, web, automation, wvd). When empty, the kit creates them once in the primary/control-plane spoke and links all regional VNets."
+  type        = map(string)
+  default     = {}
 }
 
-variable "fslogix" {
-  description = "FSLogix profile storage. Set to null to skip."
-  type = object({
-    storage_account_name   = string
-    share_quota_gb         = optional(number, 1024)
-    identity_source        = optional(string, "AADKERB")
-    user_group_object_ids  = optional(list(string), [])
-    admin_group_object_ids = optional(list(string), [])
-    active_directory = optional(object({
-      domain_name         = string
-      domain_guid         = string
-      domain_sid          = optional(string)
-      forest_name         = optional(string)
-      netbios_domain_name = optional(string)
-      storage_sid         = optional(string)
+variable "extra_private_dns_zones" {
+  description = "Optional extra privatelink zones to create (automation, wvd)."
+  type        = set(string)
+  default     = []
+}
+
+variable "regions" {
+  description = <<-EOT
+    Peer map of AVD workload regions keyed by Azure region name (e.g. "eastus2", "westeurope").
+    Each region gets its own spoke resource groups (network, hostpools, storage), spoke VNet
+    (standalone NAT gateway, hub VNet peering, or Virtual WAN connection + optional firewall UDR),
+    and optional FSLogix (Azure Files or Azure NetApp Files) profile storage.
+  EOT
+  type = map(object({
+    location        = optional(string)
+    subscription_id = optional(string)
+    resource_groups = object({
+      network   = string
+      hostpools = string
+      storage   = string
+    })
+    existing_resource_groups = optional(set(string), [])
+    network = object({
+      address_space = list(string)
+      subnets = object({
+        session_hosts     = string
+        private_endpoints = string
+        app_integration   = string
+      })
+      dns_servers                          = optional(list(string), [])
+      connectivity_mode                    = optional(string, "standalone")
+      hub_vnet_id                          = optional(string)
+      use_remote_gateways                  = optional(bool, false)
+      virtual_hub_id                       = optional(string)
+      vwan_internet_security_enabled       = optional(bool, true)
+      firewall_next_hop_ip                 = optional(string)
+      bypass_avd_control_plane_on_internet = optional(bool, true)
+      create_nat_gateway                   = optional(bool, true)
+    })
+    fslogix = optional(object({
+      storage_account_name      = string
+      share_quota_gb            = optional(number, 1024)
+      app_attach_share_quota_gb = optional(number)
+      identity_source           = optional(string, "AADKERB")
+      user_group_object_ids     = optional(list(string), [])
+      admin_group_object_ids    = optional(list(string), [])
+      active_directory = optional(object({
+        domain_name         = string
+        domain_guid         = string
+        domain_sid          = optional(string)
+        forest_name         = optional(string)
+        netbios_domain_name = optional(string)
+        storage_sid         = optional(string)
+      }))
     }))
-  })
-  default = null
+    anf = optional(object({
+      subnet_cidr        = string
+      service_level      = optional(string, "Premium")
+      pool_size_in_tb    = optional(number, 4)
+      volume_quota_in_gb = optional(number, 1024)
+      volume_path        = optional(string, "fslogix-profiles")
+    }))
+  }))
+  validation {
+    condition     = length(var.regions) > 0
+    error_message = "regions must contain at least one workload region."
+  }
 }
 
 variable "nerdio_install" {
@@ -108,12 +157,32 @@ variable "nerdio_install" {
 variable "nerdio_core" {
   description = "Settings for the terraform install (see modules/nerdio-core)."
   type = object({
-    package_version      = optional(string, "latest")
-    app_service_plan_sku = optional(string, "B3")
-    database_sku         = optional(string, "S1")
-    name_suffix          = optional(string)
+    package_version          = optional(string, "latest")
+    app_service_plan_sku     = optional(string, "B3")
+    database_sku             = optional(string, "S1")
+    name_suffix              = optional(string)
+    purge_protection_enabled = optional(bool, false)
+    enable_staging_slot      = optional(bool, false)
+    autoscale = optional(object({
+      min_capacity          = optional(number, 1)
+      default_capacity      = optional(number, 1)
+      max_capacity          = optional(number, 3)
+      scale_out_cpu_percent = optional(number, 75)
+      scale_in_cpu_percent  = optional(number, 25)
+    }))
   })
   default = {}
+}
+
+variable "automation_workers" {
+  description = "Optional custom Hybrid Runbook Worker VM Scale Set inside the control-plane AVD VNet for private runbooks and scripted actions (null skips)."
+  type = object({
+    instances         = optional(number, 2)
+    vm_size           = optional(string, "Standard_D2s_v5")
+    ephemeral_os_disk = optional(bool, false)
+    worker_group_name = optional(string, "nerdio-hybrid-workers")
+  })
+  default = null
 }
 
 variable "nerdio_template_file" {
@@ -173,7 +242,6 @@ variable "image_gallery" {
   default = null
 }
 
-
 variable "nme_secret_store" {
   description = <<-EOT
     How stage 2 gets the Nerdio REST API client secret (decision 0015):
@@ -221,9 +289,9 @@ variable "nme_secret" {
 variable "openbao" {
   description = <<-EOT
     The optional OpenBao server for nme_secret_store = "openbao" (modules/openbao). subnet_cidr
-    is a free /28 in the AVD VNet. allowed_source_addresses limits who can reach it: CIDRs, or
-    ["Internet"] for Cloud Shell and GitHub-hosted runners. login_object_ids are extra users
-    allowed to sign in from Cloud Shell (you are always included).
+    is a free /28 in the control-plane AVD VNet. allowed_source_addresses limits who can reach it:
+    CIDRs, or ["Internet"] for Cloud Shell and GitHub-hosted runners. login_object_ids are extra
+    users allowed to sign in from Cloud Shell (you are always included).
   EOT
   type = object({
     subnet_cidr              = string

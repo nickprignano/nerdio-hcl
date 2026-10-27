@@ -134,3 +134,52 @@ resource "restapi_object" "azure_files_autoscale" {
 
   depends_on = [restapi_object.azure_files_link]
 }
+
+resource "restapi_object" "app_attach_package" {
+  for_each = var.app_attach_packages
+
+  path          = "/api/v1/msix-app-attach/package"
+  create_path   = "/api/v1/msix-app-attach/package"
+  read_path     = "/api/v1/msix-app-attach/package/{id}"
+  update_path   = "/api/v1/msix-app-attach/package/{id}"
+  destroy_path  = "/api/v1/msix-app-attach/package/{id}"
+  create_method = "POST"
+  update_method = "PATCH"
+  id_attribute  = "payload/id"
+
+  data = jsonencode({
+    name          = each.value.name
+    imagePath     = each.value.image_path
+    packageName   = each.value.package_name
+    version       = each.value.version
+    certificateId = each.value.certificate_id
+    hostPools     = each.value.host_pool_names
+  })
+}
+
+resource "restapi_object" "desktop_image" {
+  for_each = var.desktop_images
+
+  path          = "/api/v1/desktop-image"
+  create_path   = "/api/v1/desktop-image"
+  read_path     = "/api/v1/desktop-image/{id}"
+  update_path   = "/api/v1/desktop-image/{id}"
+  destroy_path  = "/api/v1/desktop-image/{id}"
+  create_method = "POST"
+  update_method = "PUT"
+  id_attribute  = "payload/id"
+
+  data = jsonencode({
+    name                = each.value.name
+    subscriptionId      = var.subscription_id
+    resourceGroup       = each.value.resource_group
+    sourceImage         = each.value.source_image
+    vmSize              = each.value.vm_size
+    storageType         = each.value.storage_type
+    galleryResourceId   = each.value.gallery_resource_id
+    replicaRegions      = each.value.replica_regions
+    scriptedActionIds   = each.value.scripted_action_ids
+    scheduleCron        = each.value.schedule_cron
+    stagedHostPoolNames = each.value.staged_host_pool_keys
+  })
+}

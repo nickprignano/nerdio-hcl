@@ -74,33 +74,34 @@ variable "openbao_jwt" {
 }
 
 variable "subscription_id" {
-  description = "Subscription linked in Nerdio."
+  description = "Default subscription linked in Nerdio."
   type        = string
 }
 
-variable "location" {
-  description = "Azure region for the AVD workspace."
+variable "control_plane_location" {
+  description = "Azure region where Nerdio Manager's control plane is deployed (from 01-platform)."
   type        = string
+  default     = "eastus2"
 }
 
-variable "hostpools_resource_group_name" {
-  description = "Resource group for AVD objects and session hosts."
-  type        = string
-}
-
-variable "network" {
-  description = "Session host network."
-  type = object({
-    resource_group_name = string
-    vnet_name           = string
-    subnet_name         = string
-  })
-}
-
-variable "fslogix_profile_share_unc" {
-  description = "FSLogix profile share UNC from 01-platform. Null skips the FSLogix profile."
-  type        = string
-  default     = null
+variable "regions" {
+  description = "Workload regions to link in Nerdio Manager, keyed by region key (from 01-platform's nerdio_config_inputs)."
+  type = map(object({
+    location                      = string
+    subscription_id               = optional(string)
+    hostpools_resource_group_name = string
+    network = object({
+      resource_group_name = string
+      vnet_name           = string
+      subnet_name         = string
+    })
+    fslogix_profile_share_unc = optional(string)
+    app_attach_share_unc      = optional(string)
+  }))
+  validation {
+    condition     = length(var.regions) >= 1
+    error_message = "At least one region must be defined in regions."
+  }
 }
 
 variable "fslogix_entra_kerberos" {
@@ -110,9 +111,10 @@ variable "fslogix_entra_kerberos" {
 }
 
 variable "fslogix_options" {
-  description = "Extra FSLogix profile settings when fslogix_profile_share_unc is set (cloud_cache, office_share_unc, set_as_default, redirections_xml, etc.)."
+  description = "Extra FSLogix profile settings when regional fslogix_profile_share_unc or locations are set (cloud_cache, office_share_unc, set_as_default, redirections_xml, etc.)."
   type = object({
     name                     = optional(string, "Terraform FSLogix profile")
+    locations                = optional(list(string), [])
     office_share_unc         = optional(list(string), [])
     cloud_cache              = optional(bool, false)
     page_blobs               = optional(bool, false)
@@ -132,16 +134,19 @@ variable "gallery_image_definition_ids" {
   default     = {}
 }
 
-variable "workspace" {
-  description = "AVD workspace."
-  type = object({
+variable "workspaces" {
+  description = "AVD workspaces keyed by workspace key. Each workspace is placed in region_key (or the first sorted region when omitted)."
+  type = map(object({
     name          = string
+    region_key    = optional(string)
     friendly_name = optional(string)
     description   = optional(string)
-  })
+  }))
   default = {
-    name          = "ws-avd"
-    friendly_name = "Virtual Desktops"
+    default = {
+      name          = "ws-avd"
+      friendly_name = "Virtual Desktops"
+    }
   }
 }
 
@@ -206,7 +211,7 @@ variable "scripted_action_profiles" {
 }
 
 variable "workspace_user_assignments" {
-  description = "Entra user, group, or service principal object IDs to assign to the AVD workspace."
+  description = "Entra user, group, or service principal object IDs to assign to the AVD workspaces."
   type        = list(string)
   default     = []
 }
@@ -267,6 +272,26 @@ variable "rest_gaps" {
         scale_in_interval     = optional(number, 15)
         transaction_threshold = optional(number, 100)
       }), {})
+    })), {})
+    app_attach_packages = optional(map(object({
+      name            = string
+      image_path      = string
+      package_name    = optional(string)
+      version         = optional(string)
+      certificate_id  = optional(string)
+      host_pool_names = optional(list(string), [])
+    })), {})
+    desktop_images = optional(map(object({
+      name                  = string
+      resource_group        = string
+      source_image          = string
+      vm_size               = optional(string, "Standard_D4s_v5")
+      storage_type          = optional(string, "StandardSSD_LRS")
+      gallery_resource_id   = optional(string)
+      replica_regions       = optional(list(string), [])
+      scripted_action_ids   = optional(list(number), [])
+      schedule_cron         = optional(string)
+      staged_host_pool_keys = optional(list(string), [])
     })), {})
   })
   default = {}

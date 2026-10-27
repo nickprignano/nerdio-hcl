@@ -76,12 +76,15 @@ modules/
   foundation/        resource groups, providers, Log Analytics
   network/           AVD spoke network and private DNS
   fslogix-storage/   profile storage
+  anf-storage/       optional Azure NetApp Files high-IOPS SMB profile volume
   nerdio-core/       Nerdio Manager built in Terraform, plus the app code deploy job (default)
   nerdio-manager/    Azure Marketplace resource discovery + optional template deployment
   nerdio-identity/   Nerdio's Entra app, app roles, consent and REST API client
   nerdio-secrets/    Key Vault hand-off of the REST API secret to stage 2 (default)
   openbao/           optional OpenBao server that mints a short-lived REST API secret per run
   nerdio-hardening/  private endpoints and VNet integration for Nerdio's core resources
+  automation-workers/optional Hybrid Runbook Worker VM Scale Set inside the AVD VNet
+  avd-insights/      optional AVD Insights Data Collection Rule, alerts and consumption budget
   vnet-runner/       optional ephemeral GitHub Actions runner inside the AVD VNet
   image-gallery/     Compute Gallery and image definitions for Packer
   nerdio-config/     Nerdio objects through the nerdio/nme provider

@@ -20,8 +20,8 @@ run "defaults" {
   }
 
   assert {
-    condition     = length(azurerm_virtual_network_peering.to_hub) == 0
-    error_message = "No peering without hub_vnet_id."
+    condition     = length(azurerm_virtual_network_peering.to_hub) == 0 && length(azurerm_virtual_hub_connection.to_vwan) == 0
+    error_message = "No peering or vWAN connection without hub_vnet_id or virtual_hub_id."
   }
 
   assert {
@@ -34,12 +34,15 @@ run "hub_owns_dns_and_egress" {
   command = plan
 
   variables {
+    connectivity_mode        = "hub_peering"
     hub_vnet_id              = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-hub/providers/Microsoft.Network/virtualNetworks/vnet-hub"
     create_private_dns_zones = false
     create_nat_gateway       = false
+    firewall_next_hop_ip     = "10.0.1.4"
     existing_private_dns_zone_ids = {
-      sql = "/zones/sql"
+      sql = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-dns/providers/Microsoft.Network/privateDnsZones/privatelink.database.windows.net"
     }
+    link_existing_private_dns_zones = true
   }
 
   assert {
@@ -48,7 +51,38 @@ run "hub_owns_dns_and_egress" {
   }
 
   assert {
-    condition     = output.private_dns_zone_ids["sql"] == "/zones/sql"
+    condition     = length(azurerm_private_dns_zone_virtual_network_link.existing) == 1
+    error_message = "Existing Private DNS zone should be linked to the spoke VNet."
+  }
+
+  assert {
+    condition     = length(azurerm_route_table.session_hosts) == 1 && length(azurerm_route_table.session_hosts[0].route) == 2
+    error_message = "Expected a firewall UDR route table with 0.0.0.0/0 and WindowsVirtualDesktop bypass."
+  }
+
+  assert {
+    condition     = output.private_dns_zone_ids["sql"] == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-dns/providers/Microsoft.Network/privateDnsZones/privatelink.database.windows.net"
     error_message = "Existing zone IDs should pass through."
+  }
+}
+
+run "vwan_spoke_and_extra_dns_zones" {
+  command = plan
+
+  variables {
+    connectivity_mode       = "vwan"
+    virtual_hub_id          = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-vwan/providers/Microsoft.Network/virtualHubs/vhub-eastus2"
+    create_nat_gateway      = false
+    extra_private_dns_zones = ["automation", "wvd"]
+  }
+
+  assert {
+    condition     = length(azurerm_virtual_hub_connection.to_vwan) == 1
+    error_message = "Expected Virtual WAN hub connection."
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone.this) == 7
+    error_message = "Expected 7 Private DNS zones when automation and wvd are enabled."
   }
 }

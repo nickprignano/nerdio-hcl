@@ -1,6 +1,11 @@
+output "workspace_ids" {
+  description = "AVD workspace IDs keyed by workspace key."
+  value       = { for k, ws in nme_workspace.this : k => ws.id }
+}
+
 output "workspace_id" {
-  description = "AVD workspace ID."
-  value       = nme_workspace.this.id
+  description = "Default AVD workspace ID (first sorted workspace key)."
+  value       = nme_workspace.this[local.default_workspace_key].id
 }
 
 output "host_pool_ids" {
@@ -14,8 +19,13 @@ output "static_host_pool_ids" {
 }
 
 output "fslogix_profile_id" {
-  description = "Nerdio FSLogix profile ID, or null."
+  description = "Primary Nerdio FSLogix profile ID, or null."
   value       = try(nme_fslogix_profile.this[0].id, null)
+}
+
+output "regional_fslogix_profile_ids" {
+  description = "Secondary regional Nerdio FSLogix profile IDs keyed by region key."
+  value       = { for k, p in nme_fslogix_profile.regional : k => p.id }
 }
 
 output "auto_scale_profile_id" {

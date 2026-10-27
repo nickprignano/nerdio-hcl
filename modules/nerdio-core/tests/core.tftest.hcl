@@ -118,3 +118,27 @@ run "private_mode" {
     error_message = "Private mode should close Key Vault and SQL and drop the Azure services firewall rule."
   }
 }
+
+run "enterprise_ha_and_dr" {
+  command = plan
+
+  variables {
+    dr_location              = "westus2"
+    purge_protection_enabled = true
+    enable_staging_slot      = true
+    autoscale = {
+      min_capacity = 1
+      max_capacity = 3
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_mssql_server.dr) == 1 && length(azurerm_mssql_failover_group.this) == 1
+    error_message = "dr_location should create a partner SQL server and automatic failover group."
+  }
+
+  assert {
+    condition     = azurerm_key_vault.this.purge_protection_enabled && length(azurerm_windows_web_app_slot.staging) == 1 && length(azurerm_monitor_autoscale_setting.plan) == 1
+    error_message = "Enterprise HA should enable Key Vault purge protection, staging slot, and App Service Plan autoscale."
+  }
+}

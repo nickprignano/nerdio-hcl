@@ -90,6 +90,100 @@ resource "azurerm_windows_web_app" "this" {
   }
 }
 
+resource "azurerm_windows_web_app_slot" "staging" {
+  count                         = var.enable_staging_slot ? 1 : 0
+  name                          = "staging"
+  app_service_id                = azurerm_windows_web_app.this.id
+  https_only                    = true
+  client_affinity_enabled       = true
+  public_network_access_enabled = var.web_app_public_network_access_enabled
+  app_settings                  = local.app_settings
+  tags                          = local.paas_tags
+
+  ftp_publish_basic_authentication_enabled       = false
+  webdeploy_publish_basic_authentication_enabled = false
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    always_on           = true
+    http2_enabled       = true
+    ftps_state          = "Disabled"
+    minimum_tls_version = "1.2"
+    use_32_bit_worker   = false
+
+    application_stack {
+      current_stack  = "dotnet"
+      dotnet_version = "v10.0"
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [app_settings, virtual_network_subnet_id, site_config[0].application_stack]
+  }
+}
+
+resource "azurerm_monitor_autoscale_setting" "plan" {
+  count               = var.autoscale != null ? 1 : 0
+  name                = "${local.names.plan}-autoscale"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  target_resource_id  = azurerm_service_plan.this.id
+  tags                = var.tags
+
+  profile {
+    name = "default"
+
+    capacity {
+      default = var.autoscale.default_capacity
+      minimum = var.autoscale.min_capacity
+      maximum = var.autoscale.max_capacity
+    }
+
+    rule {
+      metric_trigger {
+        metric_name        = "CpuPercentage"
+        metric_resource_id = azurerm_service_plan.this.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_window        = "PT5M"
+        time_aggregation   = "Average"
+        operator           = "GreaterThan"
+        threshold          = var.autoscale.scale_out_cpu_percent
+      }
+
+      scale_action {
+        direction = "Increase"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT5M"
+      }
+    }
+
+    rule {
+      metric_trigger {
+        metric_name        = "CpuPercentage"
+        metric_resource_id = azurerm_service_plan.this.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_window        = "PT10M"
+        time_aggregation   = "Average"
+        operator           = "LessThan"
+        threshold          = var.autoscale.scale_in_cpu_percent
+      }
+
+      scale_action {
+        direction = "Decrease"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT10M"
+      }
+    }
+  }
+}
+
 # Contributor on its own resource group and on the groups it manages; Reader and Backup Reader
 # on the subscription, which Nerdio uses for discovery and backup reporting.
 locals {
