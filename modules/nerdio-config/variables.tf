@@ -68,16 +68,16 @@ variable "fslogix" {
 variable "auto_scale" {
   description = "Default-mode auto-scale profile shared by the host pools unless a pool sets auto_scale_profile_id. Supports CPU, RAM, and AvailableUserSessions triggers plus rolling drain mode windows."
   type = object({
-    name                    = optional(string, "Terraform default scaling")
-    max_sessions_per_host   = optional(number, 10)
-    load_balancing          = optional(string, "BreadthFirst")
-    host_pool_capacity      = optional(number, 4)
-    min_active_hosts_count  = optional(number, 1)
-    burst_capacity          = optional(number, 2)
-    scale_out_cpu_percent   = optional(number, 80)
-    scale_in_cpu_percent    = optional(number, 20)
-    scale_out_ram_percent   = optional(number)
-    scale_in_ram_percent    = optional(number)
+    name                   = optional(string, "Terraform default scaling")
+    max_sessions_per_host  = optional(number, 10)
+    load_balancing         = optional(string, "BreadthFirst")
+    host_pool_capacity     = optional(number, 4)
+    min_active_hosts_count = optional(number, 1)
+    burst_capacity         = optional(number, 2)
+    scale_out_cpu_percent  = optional(number, 80)
+    scale_in_cpu_percent   = optional(number, 20)
+    scale_out_ram_percent  = optional(number)
+    scale_in_ram_percent   = optional(number)
     available_sessions = optional(object({
       min_available_user_sessions   = number
       max_available_user_sessions   = number
