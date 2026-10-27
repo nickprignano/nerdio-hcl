@@ -30,6 +30,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    msgraph = {
+      source  = "microsoft/msgraph"
+      version = "~> 0.2"
+    }
   }
 
   # Copy backend.tf.example to backend.tf (or use HCP Terraform) before a real deployment.
@@ -68,4 +72,8 @@ provider "azapi" {
   environment     = var.cloud
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
+}
+
+provider "msgraph" {
+  tenant_id = var.tenant_id
 }

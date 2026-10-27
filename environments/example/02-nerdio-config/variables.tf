@@ -97,6 +97,7 @@ variable "regions" {
     })
     fslogix_profile_share_unc = optional(string)
     app_attach_share_unc      = optional(string)
+    disk_encryption_set_id    = optional(string)
   }))
   validation {
     condition     = length(var.regions) >= 1
@@ -135,12 +136,13 @@ variable "gallery_image_definition_ids" {
 }
 
 variable "workspaces" {
-  description = "AVD workspaces keyed by workspace key. Each workspace is placed in region_key (or the first sorted region when omitted)."
+  description = "AVD workspaces keyed by workspace key. Each workspace is placed in region_key (or the first sorted region when omitted). user_assignments assigns Entra user/group/SP object IDs to that specific workspace."
   type = map(object({
-    name          = string
-    region_key    = optional(string)
-    friendly_name = optional(string)
-    description   = optional(string)
+    name             = string
+    region_key       = optional(string)
+    friendly_name    = optional(string)
+    description      = optional(string)
+    user_assignments = optional(list(string), [])
   }))
   default = {
     default = {
@@ -292,6 +294,41 @@ variable "rest_gaps" {
       scripted_action_ids   = optional(list(number), [])
       schedule_cron         = optional(string)
       staged_host_pool_keys = optional(list(string), [])
+    })), {})
+    remote_apps = optional(map(object({
+      host_pool_name        = string
+      resource_group        = optional(string)
+      app_group_name        = optional(string)
+      name                  = string
+      friendly_name         = optional(string)
+      description           = optional(string, "Managed by Terraform")
+      file_path             = string
+      command_line_setting  = optional(string, "DoNotAllow")
+      required_command_line = optional(string, "")
+      icon_path             = optional(string)
+      icon_index            = optional(number, 0)
+      show_in_portal        = optional(bool, true)
+    })), {})
+    uam_repositories = optional(map(object({
+      name            = string
+      repository_type = optional(string, "WinGet")
+      url             = string
+      trust_level     = optional(string, "Trusted")
+    })), {})
+    host_pool_reimage_schedules = optional(map(object({
+      resource_group          = optional(string)
+      is_enabled              = optional(bool, true)
+      desktop_image_id        = string
+      vm_size                 = optional(string)
+      storage_type            = optional(string)
+      schedule_cron           = string
+      timezone_id             = optional(string, "Central Standard Time")
+      batch_size              = optional(number, 2)
+      failure_policy          = optional(string, "Abort")
+      drain_mode_on_start     = optional(bool, true)
+      user_notification_mins  = optional(number, 15)
+      notification_message    = optional(string, "This desktop is scheduled for maintenance and will restart shortly.")
+      staged_ring_delay_hours = optional(number, 0)
     })), {})
   })
   default = {}

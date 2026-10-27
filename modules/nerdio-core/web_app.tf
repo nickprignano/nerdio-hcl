@@ -187,13 +187,13 @@ resource "azurerm_monitor_autoscale_setting" "plan" {
 # Contributor on its own resource group and on the groups it manages; Reader and Backup Reader
 # on the subscription, which Nerdio uses for discovery and backup reporting.
 locals {
-  nerdio_rbac = merge(
+  nerdio_rbac = var.assign_builtin_rbac ? merge(
     { for k, id in merge({ nerdio = "${data.azurerm_subscription.current.id}/resourceGroups/${var.resource_group_name}" }, var.managed_resource_group_ids) : "contributor-${k}" => { scope = id, role = "Contributor" } },
     {
       reader        = { scope = data.azurerm_subscription.current.id, role = "Reader" }
       backup-reader = { scope = data.azurerm_subscription.current.id, role = "Backup Reader" }
     },
-  )
+  ) : {}
 }
 
 resource "azurerm_role_assignment" "nerdio_app" {

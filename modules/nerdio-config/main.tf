@@ -289,12 +289,75 @@ resource "nme_scripted_action_profile" "this" {
   }
 }
 
+locals {
+  all_workspace_user_ids = toset(distinct(concat(
+    var.workspace_user_assignments,
+    flatten([for k, ws in var.workspaces : ws.user_assignments])
+  )))
+
+  workspace_assignments_by_user = {
+    for uid in local.all_workspace_user_ids : uid => [
+      for wk in local.sorted_workspace_keys : wk
+      if contains(var.workspace_user_assignments, uid) || contains(var.workspaces[wk].user_assignments, uid)
+    ]
+  }
+
+  auto_scale_triggers = concat(
+    [
+      {
+        trigger_type = "CPUUsage"
+        cpu = {
+          scale_out = {
+            host_change_count             = 1
+            value                         = var.auto_scale.scale_out_cpu_percent
+            average_time_range_in_minutes = 5
+          }
+          scale_in = {
+            host_change_count             = 1
+            value                         = var.auto_scale.scale_in_cpu_percent
+            average_time_range_in_minutes = 15
+          }
+        }
+      }
+    ],
+    var.auto_scale.scale_out_ram_percent != null && var.auto_scale.scale_in_ram_percent != null ? [
+      {
+        trigger_type = "RAMUsage"
+        ram = {
+          scale_out = {
+            host_change_count             = 1
+            value                         = var.auto_scale.scale_out_ram_percent
+            average_time_range_in_minutes = 5
+          }
+          scale_in = {
+            host_change_count             = 1
+            value                         = var.auto_scale.scale_in_ram_percent
+            average_time_range_in_minutes = 15
+          }
+        }
+      }
+    ] : [],
+    var.auto_scale.available_sessions != null ? [
+      {
+        trigger_type = "AvailableUserSessions"
+        available_sessions = {
+          min_available_user_sessions   = var.auto_scale.available_sessions.min_available_user_sessions
+          max_available_user_sessions   = var.auto_scale.available_sessions.max_available_user_sessions
+          available_session_restriction = var.auto_scale.available_sessions.available_session_restriction
+          outside_work_hours_sessions   = var.auto_scale.available_sessions.outside_work_hours_sessions
+          end_work_hours                = var.auto_scale.available_sessions.end_work_hours
+        }
+      }
+    ] : []
+  )
+}
+
 resource "nme_user_assignment" "workspace" {
-  for_each  = toset(var.workspace_user_assignments)
-  object_id = each.value
+  for_each  = local.workspace_assignments_by_user
+  object_id = each.key
 
   avd_workspaces = [
-    for k in local.sorted_workspace_keys : {
+    for k in each.value : {
       workspace_id = nme_workspace.this[k].id
     }
   ]
@@ -319,23 +382,7 @@ resource "nme_auto_scale_profile" "this" {
       burst_capacity         = var.auto_scale.burst_capacity
     }
 
-    triggers = [
-      {
-        trigger_type = "CPUUsage"
-        cpu = {
-          scale_out = {
-            host_change_count             = 1
-            value                         = var.auto_scale.scale_out_cpu_percent
-            average_time_range_in_minutes = 5
-          }
-          scale_in = {
-            host_change_count             = 1
-            value                         = var.auto_scale.scale_in_cpu_percent
-            average_time_range_in_minutes = 15
-          }
-        }
-      }
-    ]
+    triggers = local.auto_scale_triggers
 
     scale_in_policy = {
       restriction = {
@@ -350,8 +397,16 @@ resource "nme_auto_scale_profile" "this" {
     }
 
     rolling_drain_mode = {
-      is_enabled = false
-      windows    = []
+      is_enabled = var.auto_scale.rolling_drain_mode.is_enabled
+      windows = [
+        for w in var.auto_scale.rolling_drain_mode.windows : {
+          name                    = w.name
+          start_time              = w.start_time
+          percent                 = w.percent
+          load_balancing          = w.load_balancing
+          scale_in_aggressiveness = w.scale_in_aggressiveness
+        }
+      ]
     }
 
     pre_stage = {
@@ -411,7 +466,7 @@ resource "nme_dynamic_host_pool" "this" {
 
     vm_template = {
       prefix                      = each.value.vm_prefix
-      size                        = each.value.vm_size
+      size                        = each.value.gpu_preset && each.value.vm_size == "Standard_D4s_v5" ? "Standard_NV12ads_A10_v5" : each.value.vm_size
       image                       = lookup(var.gallery_image_definition_ids, each.value.image, each.value.image)
       storage_type                = each.value.os_disk_type
       disk_size                   = each.value.os_disk_size_gb
@@ -437,16 +492,19 @@ resource "nme_dynamic_host_pool" "this" {
   agent_update    = each.value.agent_update
 
   vm_deployment = {
-    security_type                  = each.value.security_type
-    secure_boot_enabled            = each.value.secure_boot_enabled
-    vtpm_enabled                   = each.value.vtpm_enabled
-    encryption_at_host             = each.value.encryption_at_host
-    confidential_disk_encryption   = each.value.confidential_disk_encryption
-    disk_encryption_set_ids        = each.value.disk_encryption_set_ids
+    security_type                = each.value.security_type
+    secure_boot_enabled          = each.value.secure_boot_enabled
+    vtpm_enabled                 = each.value.vtpm_enabled
+    encryption_at_host           = each.value.encryption_at_host
+    confidential_disk_encryption = each.value.confidential_disk_encryption
+    disk_encryption_set_ids = coalesce(
+      each.value.disk_encryption_set_ids,
+      try(var.regions[coalesce(each.value.region_key, local.default_region_key)].disk_encryption_set_id, null) != null ? [var.regions[coalesce(each.value.region_key, local.default_region_key)].disk_encryption_set_id] : null
+    )
     enable_vm_deallocation         = each.value.enable_vm_deallocation
     use_availability_zones         = each.value.use_availability_zones
     accelerated_networking_enabled = each.value.accelerated_networking
-    install_gpu_drivers            = each.value.install_gpu_drivers
+    install_gpu_drivers            = coalesce(each.value.install_gpu_drivers, each.value.gpu_preset ? true : null)
     rdp_shortpath                  = each.value.rdp_shortpath
     compliance_enforcement         = each.value.compliance_enforcement
     compliance_timeout             = each.value.compliance_timeout
@@ -457,7 +515,7 @@ resource "nme_dynamic_host_pool" "this" {
     preferred_disk_controller_type = each.value.preferred_disk_controller
     user_assigned_identity_ids     = each.value.user_assigned_identity_ids
     application_security_group_ids = each.value.application_security_groups
-    enable_hevc                    = each.value.enable_hevc
+    enable_hevc                    = coalesce(each.value.enable_hevc, each.value.gpu_preset ? true : null)
     enable_appv_client_service     = each.value.enable_appv_client_service
     run_app_policies               = each.value.run_app_policies
     install_certificates           = each.value.install_certificates

@@ -67,6 +67,7 @@ mock_provider "azapi" {}
 mock_provider "time" {}
 mock_provider "random" {}
 mock_provider "tls" {}
+mock_provider "msgraph" {}
 
 mock_provider "http" {
   mock_data "http" {
@@ -256,5 +257,39 @@ run "openbao_replaces_the_long_lived_secret" {
   assert {
     condition     = length(azurerm_user_assigned_identity.openbao) == 1 && output.nme_client_secret == null
     error_message = "OpenBao should get its own identity, and no long-lived secret should be output."
+  }
+}
+
+run "enterprise_opt_in_modules_wire_up" {
+  command = plan
+
+  variables {
+    avd_insights = {
+      alert_email_receivers = ["avd-ops@contoso.com"]
+      monthly_budget_amount = 2500
+    }
+    cmk_encryption = {
+      rotation_period = "P1Y"
+    }
+    nerdio_rbac = {}
+    intune_policies = {
+      assigned_device_group_ids = ["44444444-4444-4444-4444-444444444444"]
+      conditional_access = {
+        enabled = true
+      }
+    }
+    windows_365 = {
+      join_type = "azureADJoin"
+    }
+    azure_local = {
+      resource_group_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-azlocal"
+      custom_location_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-azlocal/providers/Microsoft.ExtendedLocation/customLocations/cl-01"
+      vm_switch_name     = "ConvergedSwitch"
+    }
+  }
+
+  assert {
+    condition     = length(module.avd_insights) == 1 && length(module.cmk_encryption) == 1 && length(module.nerdio_rbac) == 1 && length(module.intune_policies) == 1 && length(module.windows_365) == 1 && length(module.azure_local) == 1
+    error_message = "All six opt-in enterprise landing zone modules should instantiate when configured."
   }
 }

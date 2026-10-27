@@ -52,7 +52,7 @@ jobs:
           terraform validate -no-color 2>&1 | tee validate.log || { grep -v '^$' validate.log | tail -n 8 | sed 's/^/::error::/'; exit 1; }
       - name: module tests
         run: |
-          for dir in modules/assistant modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao modules/deploy-pipeline modules/github-settings github environments/example/01-platform; do
+          for dir in modules/assistant modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao modules/automation-workers modules/cmk-encryption modules/nerdio-rbac modules/deploy-pipeline modules/github-settings github environments/example/01-platform; do
             echo "::group::$dir"
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" test

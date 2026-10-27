@@ -56,7 +56,8 @@ build {
   provisioner "powershell" {
     script = "${path.root}/scripts/01-base.ps1"
     env = {
-      TIMEZONE = var.timezone
+      TIMEZONE   = var.timezone
+      GPU_PRESET = var.gpu_preset ? "True" : "False"
     }
   }
 

@@ -27,4 +27,13 @@ if (-not (Test-Path 'C:\Program Files\FSLogix\Apps\frx.exe')) {
     Start-Process "$env:TEMP\fslogix\x64\Release\FSLogixAppsSetup.exe" -ArgumentList '/install /quiet /norestart' -Wait
 }
 
+if ($env:GPU_PRESET -eq 'True') {
+    Write-Host 'Applying GPU hardware acceleration and H.264/HEVC encoding policies'
+    $tsPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+    Set-ItemProperty -Path $tsPath -Name bEnumerateHWBeforeSW -Value 1 -Type DWord
+    Set-ItemProperty -Path $tsPath -Name AVC444ModePreferred -Value 1 -Type DWord
+    Set-ItemProperty -Path $tsPath -Name AVCHardwareEncodePreferred -Value 1 -Type DWord
+    Set-ItemProperty -Path $tsPath -Name MaxCompressionLevel -Value 1 -Type DWord
+}
+
 Write-Host 'Base configuration complete'

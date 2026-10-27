@@ -69,6 +69,12 @@ variable "managed_resource_group_ids" {
   default     = {}
 }
 
+variable "assign_builtin_rbac" {
+  description = "Grant Nerdio's service principal built-in Contributor on its resource groups plus Reader and Backup Reader on the subscription. Set false when modules/nerdio-rbac assigns a custom least-privilege role instead."
+  type        = bool
+  default     = true
+}
+
 variable "grant_admin_consent" {
   description = "Grant the SQL server's identity the Graph read roles it needs to resolve the Entra admin group. Needs Global Administrator or Privileged Role Administrator."
   type        = bool

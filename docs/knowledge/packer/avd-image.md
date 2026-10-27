@@ -3,7 +3,7 @@ title: "Windows 11 multi-session image with Packer"
 summary: "Building a Windows 11 multi-session image for Nerdio with Packer"
 topic: packer
 status: partial
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-27
 ---
 
 # Windows 11 multi-session image with Packer
@@ -68,3 +68,6 @@ and the kit's profile are in `packer/avd-win11/README.md`. Checked against the W
   run `ansible/playbooks/avd-image.yml` over WinRM before sysprep (Teams media optimization, RDP
   Shortpath UDP 3390, Defender FSLogix exclusions, enterprise root certificates; see
   [decision 0028](../decisions/0028-targeted-ansible-for-images-and-hybrid.md)).
+- **GPU / Graphics preset:** set `gpu_preset = true` in `packer/avd-win11` (and `image_definition = "win11-avd-gpu"`)
+  to enable hardware-accelerated GPU frame encoding (`bEnumerateHWBeforeSW`, `AVC444ModePreferred`,
+  `AVCHardwareEncodePreferred`), pairing with `gpu_preset = true` on `02-nerdio-config` host pools.

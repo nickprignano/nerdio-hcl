@@ -3,7 +3,7 @@ title: "Security baselines and hardening"
 summary: "Security baselines Nerdio publishes, kit hardening, and how to record accepted risks"
 topic: security
 status: partial
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-27
 ---
 
 # Security baselines and hardening
@@ -27,8 +27,17 @@ All in [Get-Nerdio/NMW](https://github.com/Get-Nerdio/NMW):
 
 ## Kit hardening
 
-- Private App Service, SQL and Key Vault through the kit's second apply; see
+- Private App Service, SQL, Key Vault, Storage and Automation (`DSCAndHybridWorker`) through
+  `modules/nerdio-hardening` and `modules/automation-workers`; see
   [../nerdio/platform.md](../nerdio/platform.md#hardening-private-endpoints).
+- Customer-Managed Key (CMK) encryption with an RSA Key Vault key (automatic rotation) and
+  per-region Disk Encryption Sets (DES) via `modules/cmk-encryption` (`cmk_encryption` in
+  `01-platform`), passed automatically to `02-nerdio-config` host pools.
+- Custom least-privilege Azure RBAC role (`modules/nerdio-rbac`, `nerdio_rbac` in `01-platform`)
+  that replaces built-in `Contributor` on managed resource groups and explicitly blocks
+  `Microsoft.Authorization/*/Write` and `Delete`.
+- Intune Windows Update rings, Defender FSLogix/App Attach exclusions, and Entra Conditional Access
+  MFA policies via `modules/intune-policies`.
 - The golden image is Gen2 with Trusted Launch; see [../packer/avd-image.md](../packer/avd-image.md).
 
 ## Accepted risks
