@@ -5,5 +5,5 @@ output "volume_id" {
 
 output "profile_share_unc" {
   description = "UNC path for the ANF SMB volume."
-  value       = "\\\\${try(azurerm_netapp_volume.profiles.mount_ip_addresses[0], "anf-${var.prefix}")}\\${var.volume_path}"
+  value       = "\\\\${azurerm_netapp_account.this.name}\\${azurerm_netapp_volume.profiles.volume_path}"
 }

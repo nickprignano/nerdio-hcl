@@ -57,9 +57,9 @@ resource "azurerm_windows_virtual_machine_scale_set" "this" {
   }
 
   network_interface {
-    name                          = "nic-hrw"
-    primary                       = true
-    enable_accelerated_networking = true
+    name                           = "nic-hrw"
+    primary                        = true
+    accelerated_networking_enabled = true
 
     ip_configuration {
       name      = "ipconfig1"
