@@ -53,6 +53,14 @@ resource "azurerm_storage_share" "profiles" {
   enabled_protocol   = "SMB"
 }
 
+resource "azurerm_storage_share" "app_attach" {
+  count              = var.app_attach_share_quota_gb == null ? 0 : 1
+  name               = "appattach"
+  storage_account_id = azurerm_storage_account.profiles.id
+  quota              = var.app_attach_share_quota_gb
+  enabled_protocol   = "SMB"
+}
+
 resource "azurerm_private_endpoint" "file" {
   name                = "pe-${var.name}-file"
   location            = var.location

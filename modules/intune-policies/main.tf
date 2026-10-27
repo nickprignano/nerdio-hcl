@@ -57,3 +57,36 @@ resource "msgraph_resource_action" "wufb_assignments" {
     ]
   }
 }
+
+resource "msgraph_resource" "avd_conditional_access" {
+  count = try(var.conditional_access.enabled, false) ? 1 : 0
+  url   = "identity/conditionalAccess/policies"
+  body = {
+    displayName = "ca-${var.name_prefix}-avd-w365-mfa"
+    state       = coalesce(var.conditional_access.state, "enabledForReportingButNotEnforced")
+    conditions = {
+      applications = {
+        includeApplications = [
+          "9cdead84-a844-4324-93f2-b2e6bb768d07", # Azure Virtual Desktop
+          "270efc09-cd0d-444b-a71f-39af4910ec45", # Windows Cloud Login
+        ]
+      }
+      users = {
+        includeGroups = var.conditional_access.include_group_ids
+        excludeGroups = var.conditional_access.exclude_group_ids
+      }
+    }
+    grantControls = {
+      operator        = "AND"
+      builtInControls = var.conditional_access.built_in_controls
+    }
+    sessionControls = {
+      signInFrequency = {
+        value              = var.conditional_access.sign_in_max_hours
+        type               = "hours"
+        isEnabled          = true
+        authenticationType = "primaryAndSecondaryAuthentication"
+      }
+    }
+  }
+}

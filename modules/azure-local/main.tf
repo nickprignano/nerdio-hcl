@@ -45,3 +45,33 @@ resource "azurerm_role_assignment" "nerdio_hci_vm_contributor" {
   role_definition_name = "Azure Stack HCI VM Contributor"
   principal_id         = var.nerdio_service_principal_object_id
 }
+
+resource "azurerm_role_assignment" "nerdio_arc_machine_admin" {
+  scope                = var.resource_group_id
+  role_definition_name = "Azure Connected Machine Resource Administrator"
+  principal_id         = var.nerdio_service_principal_object_id
+}
+
+resource "azapi_resource" "gallery_image" {
+  for_each  = var.gallery_images
+  type      = "Microsoft.AzureStackHCI/galleryImages@2024-01-01"
+  name      = each.key
+  location  = var.location
+  parent_id = var.resource_group_id
+  tags      = var.tags
+
+  body = {
+    extendedLocation = {
+      type = "CustomLocation"
+      name = var.custom_location_id
+    }
+    properties = {
+      containerId                  = each.value.container_id
+      osType                       = each.value.os_type
+      hyperVGeneration             = each.value.hyper_v_generation
+      cloudInitDataSource          = each.value.cloud_init_data_src
+      vmImageRepositoryCredentials = null
+      imagePath                    = each.value.image_version_id
+    }
+  }
+}

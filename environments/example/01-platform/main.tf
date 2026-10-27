@@ -1,42 +1,120 @@
+locals {
+  control_plane_rgs = {
+    for k, v in var.resource_groups : k => v if contains(["nerdio", "monitoring"], k)
+  }
+  control_plane_existing_rgs = toset([
+    for k in var.existing_resource_groups : k if contains(["nerdio", "monitoring"], k)
+  ])
+  # The region in var.regions that hosts Nerdio control-plane VNet integration and platform Private DNS zones.
+  control_plane_region_key = contains(keys(var.regions), var.control_plane_location) ? var.control_plane_location : sort(keys(var.regions))[0]
+  hub_owns_dns             = length(var.existing_private_dns_zone_ids) > 0
+  multi_region             = length(var.regions) > 1
+}
+
 module "foundation" {
   source                   = "../../../modules/foundation"
   prefix                   = var.prefix
-  location                 = var.location
+  location                 = var.control_plane_location
   tags                     = var.tags
-  resource_groups          = var.resource_groups
-  existing_resource_groups = var.existing_resource_groups
+  resource_groups          = local.control_plane_rgs
+  existing_resource_groups = local.control_plane_existing_rgs
+}
+
+module "spoke_foundation" {
+  source   = "../../../modules/foundation"
+  for_each = var.regions
+
+  prefix                   = local.multi_region ? "${var.prefix}-${each.key}" : var.prefix
+  location                 = coalesce(each.value.location, each.key)
+  tags                     = var.tags
+  create_log_analytics     = false
+  resource_groups          = each.value.resource_groups
+  existing_resource_groups = each.value.existing_resource_groups
 }
 
 module "network" {
-  source              = "../../../modules/network"
-  prefix              = var.prefix
-  location            = var.location
-  resource_group_name = module.foundation.resource_group_names["network"]
+  source   = "../../../modules/network"
+  for_each = var.regions
+
+  prefix                               = local.multi_region ? "${var.prefix}-${each.key}" : var.prefix
+  location                             = coalesce(each.value.location, each.key)
+  resource_group_name                  = module.spoke_foundation[each.key].resource_group_names["network"]
+  tags                                 = var.tags
+  address_space                        = each.value.network.address_space
+  subnets                              = each.value.network.subnets
+  dns_servers                          = each.value.network.dns_servers
+  connectivity_mode                    = each.value.network.connectivity_mode
+  hub_vnet_id                          = each.value.network.hub_vnet_id
+  use_remote_gateways                  = each.value.network.use_remote_gateways
+  virtual_hub_id                       = each.value.network.virtual_hub_id
+  vwan_internet_security_enabled       = each.value.network.vwan_internet_security_enabled
+  firewall_next_hop_ip                 = each.value.network.firewall_next_hop_ip
+  bypass_avd_control_plane_on_internet = each.value.network.bypass_avd_control_plane_on_internet
+  create_nat_gateway                   = each.value.network.create_nat_gateway
+  cloud                                = var.cloud
+
+  create_private_dns_zones        = !local.hub_owns_dns && each.key == local.control_plane_region_key
+  extra_private_dns_zones         = toset(concat(tolist(var.extra_private_dns_zones), (var.enable_hardening || var.automation_workers != null) ? ["automation"] : []))
+  existing_private_dns_zone_ids   = local.hub_owns_dns ? var.existing_private_dns_zone_ids : {}
+  link_existing_private_dns_zones = local.hub_owns_dns
+}
+
+locals {
+  platform_private_dns_zone_ids = module.network[local.control_plane_region_key].private_dns_zone_ids
+  # Link additional regional VNets to the platform Private DNS zones created in control_plane_region_key.
+  secondary_region_dns_links = !local.hub_owns_dns ? merge([
+    for reg_key, reg in var.regions : {
+      for zone_key, zone_id in local.platform_private_dns_zone_ids : "${reg_key}:${zone_key}" => {
+        zone_id   = zone_id
+        vnet_id   = module.network[reg_key].vnet_id
+        vnet_name = module.network[reg_key].vnet_name
+      }
+    } if reg_key != local.control_plane_region_key
+  ]...) : {}
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "secondary_regions" {
+  for_each            = local.secondary_region_dns_links
+  name                = "link-${each.value.vnet_name}"
+  private_dns_zone_id = each.value.zone_id
+  virtual_network_id  = each.value.vnet_id
   tags                = var.tags
-  address_space       = var.network.address_space
-  subnets             = var.network.subnets
-  dns_servers         = var.network.dns_servers
-  hub_vnet_id         = var.network.hub_vnet_id
-  use_remote_gateways = var.network.use_remote_gateways
-  create_nat_gateway  = var.network.create_nat_gateway
-  cloud               = var.cloud
 }
 
 module "fslogix" {
-  source = "../../../modules/fslogix-storage"
-  count  = var.fslogix == null ? 0 : 1
+  source   = "../../../modules/fslogix-storage"
+  for_each = { for k, r in var.regions : k => r if r.fslogix != null }
 
-  name                       = var.fslogix.storage_account_name
-  location                   = var.location
-  resource_group_name        = module.foundation.resource_group_names["storage"]
+  name                       = each.value.fslogix.storage_account_name
+  location                   = coalesce(each.value.location, each.key)
+  resource_group_name        = module.spoke_foundation[each.key].resource_group_names["storage"]
   tags                       = var.tags
-  share_quota_gb             = var.fslogix.share_quota_gb
-  identity_source            = var.fslogix.identity_source
-  active_directory           = var.fslogix.active_directory
-  private_endpoint_subnet_id = module.network.subnet_ids["private_endpoints"]
-  private_dns_zone_id        = module.network.private_dns_zone_ids["file"]
-  user_group_object_ids      = var.fslogix.user_group_object_ids
-  admin_group_object_ids     = var.fslogix.admin_group_object_ids
+  share_quota_gb             = each.value.fslogix.share_quota_gb
+  app_attach_share_quota_gb  = each.value.fslogix.app_attach_share_quota_gb
+  identity_source            = each.value.fslogix.identity_source
+  active_directory           = each.value.fslogix.active_directory
+  private_endpoint_subnet_id = module.network[each.key].subnet_ids["private_endpoints"]
+  private_dns_zone_id        = local.platform_private_dns_zone_ids["file"]
+  user_group_object_ids      = each.value.fslogix.user_group_object_ids
+  admin_group_object_ids     = each.value.fslogix.admin_group_object_ids
+  cloud                      = var.cloud
+}
+
+module "anf" {
+  source   = "../../../modules/anf-storage"
+  for_each = { for k, r in var.regions : k => r if r.anf != null }
+
+  prefix                   = var.prefix
+  location                 = coalesce(each.value.location, each.key)
+  resource_group_name      = module.spoke_foundation[each.key].resource_group_names["storage"]
+  vnet_name                = module.network[each.key].vnet_name
+  vnet_resource_group_name = module.spoke_foundation[each.key].resource_group_names["network"]
+  subnet_cidr              = each.value.anf.subnet_cidr
+  service_level            = each.value.anf.service_level
+  pool_size_in_tb          = each.value.anf.pool_size_in_tb
+  volume_quota_in_gb       = each.value.anf.volume_quota_in_gb
+  volume_path              = each.value.anf.volume_path
+  tags                     = var.tags
 }
 
 module "image_gallery" {
@@ -44,36 +122,46 @@ module "image_gallery" {
   count  = var.image_gallery == null ? 0 : 1
 
   gallery_name              = var.image_gallery.name
-  location                  = var.location
-  resource_group_name       = module.foundation.resource_group_names["hostpools"]
+  location                  = var.control_plane_location
+  resource_group_name       = module.spoke_foundation[local.control_plane_region_key].resource_group_names["hostpools"]
   build_resource_group_name = var.image_gallery.build_resource_group_name
   packer_principal_id       = var.image_gallery.packer_principal_id
   tags                      = var.tags
+}
+
+locals {
+  all_managed_spoke_rg_ids = merge([
+    for reg_key, sf in module.spoke_foundation : {
+      for role, id in sf.resource_group_ids : "${reg_key}-${role}" => id if contains(["hostpools", "network", "storage"], role)
+    }
+  ]...)
 }
 
 module "nerdio_core" {
   source = "../../../modules/nerdio-core"
   count  = var.nerdio_install == "terraform" ? 1 : 0
 
-  resource_group_name  = module.foundation.resource_group_names["nerdio"]
-  location             = var.location
-  tags                 = var.tags
-  name_suffix          = var.nerdio_core.name_suffix
-  app_service_plan_sku = var.nerdio_core.app_service_plan_sku
-  database_sku         = var.nerdio_core.database_sku
-  package_version      = var.nerdio_core.package_version
-  grant_admin_consent  = var.entra_app.grant_admin_consent
-  deployer_object_id   = var.deployer_object_id
-  cloud                = var.cloud
+  resource_group_name      = module.foundation.resource_group_names["nerdio"]
+  location                 = var.control_plane_location
+  dr_location              = var.control_plane_dr_location
+  tags                     = var.tags
+  name_suffix              = var.nerdio_core.name_suffix
+  app_service_plan_sku     = var.nerdio_core.app_service_plan_sku
+  database_sku             = var.nerdio_core.database_sku
+  package_version          = var.nerdio_core.package_version
+  purge_protection_enabled = var.nerdio_core.purge_protection_enabled
+  enable_staging_slot      = var.nerdio_core.enable_staging_slot
+  autoscale                = var.nerdio_core.autoscale
+  grant_admin_consent      = var.entra_app.grant_admin_consent
+  deployer_object_id       = var.deployer_object_id
+  cloud                    = var.cloud
 
   entra_app = {
     application_id              = module.nerdio_identity[0].application_id
     client_id                   = module.nerdio_identity[0].client_id
     service_principal_object_id = module.nerdio_identity[0].service_principal_object_id
   }
-  managed_resource_group_ids = {
-    for k, id in module.foundation.resource_group_ids : k => id if contains(["hostpools", "network", "storage"], k)
-  }
+  managed_resource_group_ids = local.all_managed_spoke_rg_ids
 
   public_network_access_enabled         = !(var.enable_hardening && var.hardening.disable_public_access)
   web_app_public_network_access_enabled = !(var.enable_hardening && var.hardening.disable_public_access && var.hardening.private_app_service)
@@ -92,10 +180,12 @@ module "nerdio_manager" {
 # One of the two install modules exists. Separate locals keep the Entra app (which needs only the
 # hostname) from depending on the resources that need the Entra app.
 locals {
-  nerdio_hostname       = var.nerdio_install == "terraform" ? module.nerdio_core[0].app_service_hostname : module.nerdio_manager[0].app_service_hostname
-  nerdio_app_service_id = one(concat(module.nerdio_core[*].app_service_id, module.nerdio_manager[*].app_service_id))
-  nerdio_sql_server_ids = merge(concat(module.nerdio_core[*].sql_server_ids, module.nerdio_manager[*].sql_server_ids)...)
-  nerdio_key_vault_ids  = merge(concat(module.nerdio_core[*].key_vault_ids, module.nerdio_manager[*].key_vault_ids)...)
+  nerdio_hostname               = var.nerdio_install == "terraform" ? module.nerdio_core[0].app_service_hostname : module.nerdio_manager[0].app_service_hostname
+  nerdio_app_service_id         = one(concat(module.nerdio_core[*].app_service_id, module.nerdio_manager[*].app_service_id))
+  nerdio_sql_server_ids         = merge(concat(module.nerdio_core[*].sql_server_ids, module.nerdio_manager[*].sql_server_ids)...)
+  nerdio_key_vault_ids          = merge(concat(module.nerdio_core[*].key_vault_ids, module.nerdio_manager[*].key_vault_ids)...)
+  nerdio_storage_account_ids    = merge(concat(module.nerdio_core[*].storage_account_ids, module.nerdio_manager[*].storage_account_ids)...)
+  nerdio_automation_account_ids = merge(concat(module.nerdio_core[*].automation_account_ids, module.nerdio_manager[*].automation_account_ids)...)
 }
 
 module "nerdio_identity" {
@@ -135,7 +225,7 @@ module "nerdio_secrets" {
   count  = local.nme_secret_store == "key_vault" ? 1 : 0
 
   key_vault_name         = coalesce(var.nme_secret.key_vault_name, "kvnme${local.compact_prefix}${local.secret_suffix}")
-  location               = var.location
+  location               = var.control_plane_location
   resource_group_name    = module.foundation.resource_group_names["nerdio"]
   tags                   = var.tags
   secret_value           = module.nerdio_identity[0].rest_api_client_secret
@@ -151,7 +241,7 @@ module "nerdio_secrets" {
 resource "azurerm_user_assigned_identity" "openbao" {
   count               = local.nme_secret_store == "openbao" ? 1 : 0
   name                = "id-${local.openbao_name}"
-  location            = var.location
+  location            = var.control_plane_location
   resource_group_name = module.foundation.resource_group_names["nerdio"]
   tags                = var.tags
 }
@@ -166,13 +256,13 @@ module "openbao" {
 
   name                = local.openbao_name
   key_vault_name      = coalesce(var.openbao.key_vault_name, "kvbao${local.compact_prefix}${local.secret_suffix}")
-  location            = var.location
+  location            = var.control_plane_location
   resource_group_name = module.foundation.resource_group_names["nerdio"]
   tags                = var.tags
   subscription_id     = var.subscription_id
   virtual_network = {
-    name                = module.network.vnet_name
-    resource_group_name = module.foundation.resource_group_names["network"]
+    name                = module.network[local.control_plane_region_key].vnet_name
+    resource_group_name = module.spoke_foundation[local.control_plane_region_key].resource_group_names["network"]
   }
   subnet_cidr                       = var.openbao.subnet_cidr
   allowed_source_addresses          = var.openbao.allowed_source_addresses
@@ -192,17 +282,43 @@ module "nerdio_hardening" {
   source = "../../../modules/nerdio-hardening"
   count  = var.enable_hardening ? 1 : 0
 
-  location                   = var.location
+  location                   = coalesce(var.regions[local.control_plane_region_key].location, local.control_plane_region_key)
   resource_group_name        = module.foundation.resource_group_names["nerdio"]
   tags                       = var.tags
   app_service_id             = local.nerdio_app_service_id
-  app_integration_subnet_id  = module.network.subnet_ids["app_integration"]
-  private_endpoint_subnet_id = module.network.subnet_ids["private_endpoints"]
-  private_dns_zone_ids       = module.network.private_dns_zone_ids
+  app_integration_subnet_id  = module.network[local.control_plane_region_key].subnet_ids["app_integration"]
+  private_endpoint_subnet_id = module.network[local.control_plane_region_key].subnet_ids["private_endpoints"]
+  private_dns_zone_ids       = local.platform_private_dns_zone_ids
   sql_server_ids             = local.nerdio_sql_server_ids
   key_vault_ids              = local.nerdio_key_vault_ids
+  storage_account_ids        = local.nerdio_storage_account_ids
+  automation_account_ids     = local.nerdio_automation_account_ids
   private_app_service        = var.hardening.private_app_service
   disable_public_access      = var.hardening.disable_public_access
   # Terraform owns the core resources in the terraform install and sets public access itself.
   lockdown_with_cli = var.nerdio_install == "marketplace"
+}
+
+locals {
+  scripted_actions_automation_key = try([
+    for k in sort(keys(local.nerdio_automation_account_ids)) : k if strcontains(k, "scripted-actions")
+  ][0], try(sort(keys(local.nerdio_automation_account_ids))[0], null))
+}
+
+module "automation_workers" {
+  source = "../../../modules/automation-workers"
+  count  = var.automation_workers != null ? 1 : 0
+
+  prefix                         = var.prefix
+  location                       = coalesce(var.regions[local.control_plane_region_key].location, local.control_plane_region_key)
+  resource_group_name            = module.spoke_foundation[local.control_plane_region_key].resource_group_names["hostpools"]
+  subnet_id                      = module.network[local.control_plane_region_key].subnet_ids["session_hosts"]
+  automation_account_id          = local.nerdio_automation_account_ids[local.scripted_actions_automation_key]
+  automation_resource_group_name = module.foundation.resource_group_names["nerdio"]
+  automation_account_name        = local.scripted_actions_automation_key
+  worker_group_name              = var.automation_workers.worker_group_name
+  vm_size                        = var.automation_workers.vm_size
+  instances                      = var.automation_workers.instances
+  ephemeral_os_disk              = var.automation_workers.ephemeral_os_disk
+  tags                           = var.tags
 }

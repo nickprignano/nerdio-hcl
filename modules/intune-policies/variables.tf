@@ -32,3 +32,16 @@ variable "assigned_device_group_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "conditional_access" {
+  description = "Optional Entra Conditional Access policy for AVD and Windows 365 Cloud Login."
+  type = object({
+    enabled           = optional(bool, false)
+    state             = optional(string, "enabledForReportingButNotEnforced")
+    include_group_ids = optional(list(string), [])
+    exclude_group_ids = optional(list(string), [])
+    built_in_controls = optional(list(string), ["mfa"])
+    sign_in_max_hours = optional(number, 12)
+  })
+  default = {}
+}

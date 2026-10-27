@@ -17,6 +17,7 @@
   ./nerdio schema check         check the schema against the Terraform variables (CI)
   ./nerdio form --write|--check generate or check the Actions form from the schema
   ./nerdio docs --write|--check sync generated doc blocks and check repo Markdown links/drift
+  ./nerdio migrate              upgrade v1 tfvars and write Terraform moved blocks for v2
   ./nerdio assistant --admin-group "AVD Admins"   deploy the setup chatbot into this tenant
 """
 
@@ -36,6 +37,7 @@ import docs
 import engine
 import fix
 import form
+import migrate
 import preflight
 import profiles
 import redact
@@ -512,6 +514,15 @@ def cmd_form(args) -> int:
     return 0
 
 
+def cmd_migrate(args) -> int:
+    schema = engine.load_schema()
+    written = migrate.migrate_environment(schema, args.env)
+    for path in written:
+        print(f"Wrote {path.relative_to(engine.ROOT)} (gitignored)")
+    print("✓ v1 -> v2 migration ready. Run `terraform plan` in 01-platform and 02-nerdio-config to verify moved blocks.")
+    return 0
+
+
 def pipeline_link(pipeline_stage: Path) -> tuple[dict, str]:
     """The assistant's pipeline settings, from 00-pipeline's outputs and this checkout's origin."""
     res = subprocess.run(["terraform", f"-chdir={pipeline_stage}", "output", "-json"], capture_output=True, text=True, check=False)
@@ -737,6 +748,10 @@ def main(argv: list[str]) -> int:
     g.add_argument("--write", action="store_true", help="rewrite generated layout, readiness catalogue and form blocks")
     g.add_argument("--check", action="store_true", help="check layout, links, anchors, leaks and architecture alignment")
     p.set_defaults(func=cmd_docs)
+
+    p = sub.add_parser("migrate", help="upgrade v1 tfvars and write Terraform moved blocks for v2")
+    p.add_argument("--env", default="example", help="environment folder under environments/ (default: example)")
+    p.set_defaults(func=cmd_migrate)
 
     p = sub.add_parser("assistant", help="deploy the setup chatbot into this tenant with Terraform")
     p.add_argument("--admin-group", help="display name of the Entra group allowed to use it")

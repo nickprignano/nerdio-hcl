@@ -6,7 +6,7 @@ resource "azurerm_key_vault" "this" {
   sku_name                      = "standard"
   rbac_authorization_enabled    = true
   soft_delete_retention_days    = 90
-  purge_protection_enabled      = false
+  purge_protection_enabled      = var.purge_protection_enabled
   public_network_access_enabled = var.public_network_access_enabled
   tags                          = local.paas_tags
 
@@ -28,10 +28,15 @@ locals {
     app_secrets      = { principal = var.entra_app.service_principal_object_id, role = "Key Vault Secrets User" }
     app_certs        = { principal = var.entra_app.service_principal_object_id, role = "Key Vault Certificates Officer" }
   }
+  staging_key_vault_roles = var.enable_staging_slot ? {
+    slot_secrets = { principal = azurerm_windows_web_app_slot.staging[0].identity[0].principal_id, role = "Key Vault Secrets Officer" }
+    slot_crypto  = { principal = azurerm_windows_web_app_slot.staging[0].identity[0].principal_id, role = "Key Vault Crypto User" }
+    slot_certs   = { principal = azurerm_windows_web_app_slot.staging[0].identity[0].principal_id, role = "Key Vault Certificate User" }
+  } : {}
 }
 
 resource "azurerm_role_assignment" "key_vault" {
-  for_each             = local.key_vault_roles
+  for_each             = merge(local.key_vault_roles, local.staging_key_vault_roles)
   scope                = azurerm_key_vault.this.id
   role_definition_name = each.value.role
   principal_id         = each.value.principal

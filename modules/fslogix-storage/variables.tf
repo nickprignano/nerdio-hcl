@@ -35,6 +35,12 @@ variable "share_quota_gb" {
   default     = 1024
 }
 
+variable "app_attach_share_quota_gb" {
+  description = "Optional provisioned size in GiB for a dedicated App Attach (MSIX / CIM / VHDX) SMB share on the same storage account. Null skips the share."
+  type        = number
+  default     = null
+}
+
 variable "identity_source" {
   description = "How session hosts authenticate to the share: AADKERB (Entra Kerberos, Entra-joined or hybrid hosts), AADDS (Entra Domain Services) or AD (on-prem AD DS)."
   type        = string
@@ -78,4 +84,15 @@ variable "admin_group_object_ids" {
   description = "Entra groups of profile admins, granted Storage File Data SMB Share Elevated Contributor."
   type        = list(string)
   default     = []
+}
+
+variable "cloud" {
+  description = "Azure cloud environment: public (AzureCloud) or usgovernment (AzureUSGovernment)."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgovernment"], var.cloud)
+    error_message = "cloud must be public or usgovernment."
+  }
 }

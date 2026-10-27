@@ -26,6 +26,8 @@ ASK = {"always", "advanced", "never"}
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 TEMPLATE_RE = re.compile(r"\{([a-z0-9_]+)(?:\|([a-z_]+)(?::(\d+))?)?\}")
 ROLES = ["nerdio", "network", "hostpools", "storage", "monitoring"]
+CONTROL_PLANE_ROLES = ["nerdio", "monitoring"]
+REGION_ROLES = ["network", "hostpools", "storage"]
 READINESS_STAGES = ("pre-install", "post-install", "post-wizard")
 
 
@@ -173,6 +175,18 @@ def expand(template: str, values: dict, extra: dict | None = None) -> str:
 def _quarters(cidr: str) -> list[ipaddress.IPv4Network]:
     net = ipaddress.IPv4Network(cidr)
     return list(net.subnets(prefixlen_diff=2))
+
+
+def _carve_region_cidr(base_cidr: str, index: int) -> str:
+    """Return a non-overlapping CIDR block for additional region `index` (1-based)."""
+    net = ipaddress.IPv4Network(base_cidr)
+    if net.prefixlen < 20:
+        blocks = list(net.subnets(new_prefix=20))
+        if index < len(blocks):
+            return str(blocks[index])
+    step = net.num_addresses * index
+    start_ip = ipaddress.IPv4Address(int(net.network_address) + step)
+    return str(ipaddress.IPv4Network(f"{start_ip}/{net.prefixlen}"))
 
 
 DERIVATIONS = {
@@ -356,6 +370,45 @@ def _set_path(tree: dict, path: list[str], value) -> None:
     node[path[-1]] = value
 
 
+def _expand_additional_regions(stages: dict, values: dict) -> None:
+    """Populate secondary regions in stages['platform']['regions'] with carved CIDRs and unique names."""
+    raw_extra = (values.get("additional_locations") or "").strip()
+    if not raw_extra:
+        return
+    primary = values.get("location", "eastus2")
+    extra_locs = [r.strip() for r in raw_extra.split(",") if r.strip() and r.strip() != primary]
+    if not extra_locs:
+        return
+    regions = stages.get("platform", {}).setdefault("regions", {})
+    primary_cfg = regions.get(primary, {})
+    base_cidr = values.get("address_space", "10.50.0.0/20")
+    rg_pattern = values.get("resource_group_pattern", "rg-{prefix}-{role}")
+    compact_prefix = re.sub(r"[^a-z0-9]", "", values.get("prefix", "nme").lower())[:11]
+
+    for idx, loc in enumerate(extra_locs, start=1):
+        region_cidr = _carve_region_cidr(base_cidr, idx)
+        quarters = _quarters(region_cidr)
+        net_copy = json.loads(json.dumps(primary_cfg.get("network", {})))
+        net_copy["address_space"] = [region_cidr]
+        net_copy["subnets"] = {
+            "session_hosts": str(quarters[0]),
+            "private_endpoints": str(list(quarters[1].subnets(new_prefix=27))[0]),
+            "app_integration": str(list(quarters[1].subnets(new_prefix=27))[1]),
+        }
+        primary_fslogix = primary_cfg.get("fslogix")
+        if primary_fslogix is not None:
+            fslogix_copy = json.loads(json.dumps(primary_fslogix))
+            compact_loc = re.sub(r"[^a-z0-9]", "", loc.lower())[:6]
+            fslogix_copy["storage_account_name"] = f"st{compact_prefix}{compact_loc}fsl"[:24]
+        else:
+            fslogix_copy = None
+        regions[loc] = {
+            "resource_groups": {role: expand(rg_pattern, values, {"role": f"{loc}-{role}"}) for role in REGION_ROLES},
+            "network": net_copy,
+            "fslogix": fslogix_copy,
+        }
+
+
 def render(schema: dict, resolved: Resolved, placeholders: bool = False) -> tuple[dict, list[str]]:
     """Return ({stage: tfvars dict}, problems). Lookups for group names happen here."""
     values = resolved.values
@@ -375,6 +428,10 @@ def render(schema: dict, resolved: Resolved, placeholders: bool = False) -> tupl
                 value = [value]
             elif how == "resource_groups":
                 value = {role: expand(value, values, {"role": role}) for role in ROLES}
+            elif how == "control_plane_resource_groups":
+                value = {role: expand(value, values, {"role": role}) for role in CONTROL_PLANE_ROLES}
+            elif how == "region_resource_groups":
+                value = {role: expand(value, values, {"role": role}) for role in REGION_ROLES}
             if p["type"] in ("group_list", "principal_list"):
                 value, issues = resolve_principals(value, placeholders)
                 problems += [f"{p['id']}: {i}" for i in issues]
@@ -384,7 +441,9 @@ def render(schema: dict, resolved: Resolved, placeholders: bool = False) -> tupl
             _set_path(stages[target["stage"]], path, value)
     for root in schema.get("roots", []):
         if not all(values.get(k) == v for k, v in root["null_unless"].items()):
-            stages[root["stage"]][root["path"]] = None
+            path = expand(root["path"], values).split(".")
+            _set_path(stages[root["stage"]], path, None)
+    _expand_additional_regions(stages, values)
     return stages, problems
 
 

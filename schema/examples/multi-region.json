@@ -1,0 +1,11 @@
+{
+  "_random4": "mr90",
+  "environment": "prod",
+  "identity_model": "entra_joined",
+  "user_count": 300,
+  "workload": "medium",
+  "location": "eastus2",
+  "additional_locations": "westeurope",
+  "address_space": "10.50.0.0/20",
+  "user_groups": ["11111111-1111-1111-1111-111111111111"]
+}

@@ -126,7 +126,7 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(resolved.values["fslogix_identity_source"], "AD")
         self.assertFalse(resolved.values["fslogix_entra_kerberos"])
         rendered, _ = engine.render(self.schema, resolved, placeholders=True)
-        self.assertEqual(rendered["platform"]["fslogix"]["active_directory"], {
+        self.assertEqual(rendered["platform"]["regions"]["eastus2"]["fslogix"]["active_directory"], {
             "domain_name": "corp.contoso.com",
             "domain_guid": ZERO,
             "netbios_domain_name": "CONTOSO",
@@ -181,17 +181,40 @@ class SchemaTests(unittest.TestCase):
         resolved = engine.resolve(self.schema, {"_random4": "ab12", "fslogix_enabled": False, "image_gallery_enabled": False}, SOURCES)
         rendered, problems = engine.render(self.schema, resolved, placeholders=True)
         self.assertEqual(problems, [])
-        self.assertIsNone(rendered["platform"]["fslogix"])
+        self.assertIsNone(rendered["platform"]["regions"]["eastus2"]["fslogix"])
         self.assertIsNone(rendered["platform"]["image_gallery"])
 
     def test_render_maps_onto_nested_variables(self):
         resolved = engine.resolve(self.schema, {"_random4": "ab12", "host_pool_name": "hp-x"}, SOURCES)
         rendered, _ = engine.render(self.schema, resolved, placeholders=True)
-        self.assertEqual(rendered["platform"]["resource_groups"]["storage"], "rg-nme-sandbox-ab12-storage")
-        self.assertEqual(rendered["platform"]["network"]["address_space"], ["10.50.0.0/20"])
-        self.assertNotIn("hub_vnet_id", rendered["platform"]["network"])
+        self.assertEqual(rendered["platform"]["control_plane_location"], "eastus2")
+        self.assertEqual(rendered["platform"]["resource_groups"]["nerdio"], "rg-nme-sandbox-ab12-nerdio")
+        self.assertEqual(rendered["platform"]["regions"]["eastus2"]["resource_groups"]["storage"], "rg-nme-sandbox-ab12-storage")
+        self.assertEqual(rendered["platform"]["regions"]["eastus2"]["network"]["address_space"], ["10.50.0.0/20"])
+        self.assertNotIn("hub_vnet_id", rendered["platform"]["regions"]["eastus2"]["network"])
         self.assertEqual(rendered["config"]["host_pools"]["hp-x"]["max_session_limit"], 16)
-        self.assertEqual(rendered["config"]["workspace"]["name"], "ws-nme-sandbox-ab12")
+        self.assertEqual(rendered["config"]["workspaces"]["ws-nme-sandbox-ab12"]["name"], "ws-nme-sandbox-ab12")
+
+    def test_multi_region_carves_non_overlapping_cidrs_and_unique_storage(self):
+        resolved = engine.resolve(self.schema, {
+            "_random4": "ab12",
+            "location": "eastus2",
+            "additional_locations": "westeurope,centralus",
+            "address_space": "10.50.0.0/20",
+        }, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        rendered, problems = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(problems, [])
+        regions = rendered["platform"]["regions"]
+        self.assertEqual(set(regions.keys()), {"eastus2", "westeurope", "centralus"})
+        self.assertEqual(regions["eastus2"]["network"]["address_space"], ["10.50.0.0/20"])
+        self.assertEqual(regions["westeurope"]["network"]["address_space"], ["10.50.16.0/20"])
+        self.assertEqual(regions["westeurope"]["network"]["subnets"]["session_hosts"], "10.50.16.0/22")
+        self.assertEqual(regions["centralus"]["network"]["address_space"], ["10.50.32.0/20"])
+        self.assertNotEqual(
+            regions["eastus2"]["fslogix"]["storage_account_name"],
+            regions["westeurope"]["fslogix"]["storage_account_name"],
+        )
 
     def test_group_names_are_looked_up(self):
         def fake(args):
@@ -254,7 +277,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(code, 0, out.getvalue())
             platform = json.loads(stage_files[0].read_text())
             self.assertEqual(platform["tags"]["environment"], "dev")
-            self.assertEqual(platform["fslogix"]["share_quota_gb"], 256)
+            self.assertEqual(platform["regions"]["eastus2"]["fslogix"]["share_quota_gb"], 256)
         finally:
             tmp_answers.unlink(missing_ok=True)
             for f in stage_files:
@@ -302,6 +325,41 @@ class AssistantPipelineLinkTests(unittest.TestCase):
     def test_needs_the_pipeline(self):
         _, problem = self.run_with({}, "git@github.com:contoso/nerdio-hcl.git")
         self.assertIn("bootstrap.sh", problem)
+
+
+class MigrateTests(unittest.TestCase):
+    def test_upgrade_platform_and_config_tfvars(self):
+        import migrate
+        v1_plat = {
+            "location": "eastus2",
+            "resource_groups": {
+                "nerdio": "rg-nme-nerdio",
+                "monitoring": "rg-nme-monitoring",
+                "network": "rg-nme-network",
+                "hostpools": "rg-nme-hostpools",
+                "storage": "rg-nme-storage",
+            },
+            "network": {"address_space": ["10.50.0.0/20"]},
+            "fslogix": {"storage_account_name": "stnmefslogix"},
+        }
+        v2_plat = migrate.upgrade_platform_tfvars(v1_plat)
+        self.assertEqual(v2_plat["control_plane_location"], "eastus2")
+        self.assertEqual(set(v2_plat["resource_groups"].keys()), {"nerdio", "monitoring"})
+        self.assertIn("eastus2", v2_plat["regions"])
+        self.assertEqual(v2_plat["regions"]["eastus2"]["network"], {"address_space": ["10.50.0.0/20"]})
+        self.assertEqual(v2_plat["regions"]["eastus2"]["fslogix"], {"storage_account_name": "stnmefslogix"})
+
+        v1_cfg = {
+            "location": "eastus2",
+            "workspace": {"name": "ws-contoso", "friendly_name": "Virtual Desktops"},
+            "host_pools": {"hp-general": {"friendly_name": "General"}},
+        }
+        v2_cfg = migrate.upgrade_config_tfvars(v1_cfg)
+        self.assertNotIn("workspace", v2_cfg)
+        self.assertNotIn("location", v2_cfg)
+        self.assertEqual(v2_cfg["workspaces"]["ws-contoso"]["friendly_name"], "Virtual Desktops")
+        self.assertIn('module.network["eastus2"]', migrate.platform_moved_blocks("eastus2"))
+        self.assertIn('module.nerdio_config.nme_workspace.this["ws-contoso"]', migrate.config_moved_blocks("eastus2", "ws-contoso"))
 
 
 if __name__ == "__main__":

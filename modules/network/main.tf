@@ -1,5 +1,5 @@
 locals {
-  private_dns_zones = var.cloud == "usgovernment" ? {
+  base_private_dns_zones = var.cloud == "usgovernment" ? {
     sql   = "privatelink.database.usgovcloudapi.net"
     vault = "privatelink.vaultcore.usgovcloudapi.net"
     file  = "privatelink.file.core.usgovcloudapi.net"
@@ -12,6 +12,19 @@ locals {
     blob  = "privatelink.blob.core.windows.net"
     web   = "privatelink.azurewebsites.net"
   }
+
+  optional_private_dns_zones = var.cloud == "usgovernment" ? {
+    automation = "privatelink.azure-automation.us"
+    wvd        = "privatelink.wvd.azure.us"
+    } : {
+    automation = "privatelink.azure-automation.net"
+    wvd        = "privatelink.wvd.microsoft.com"
+  }
+
+  private_dns_zones = merge(
+    local.base_private_dns_zones,
+    { for k in var.extra_private_dns_zones : k => local.optional_private_dns_zones[k] }
+  )
 }
 
 resource "azurerm_virtual_network" "avd" {
@@ -155,6 +168,21 @@ resource "azurerm_private_dns_zone_virtual_network_link" "this" {
   tags                = var.tags
 }
 
+locals {
+  linkable_existing_zones = (!var.create_private_dns_zones && var.link_existing_private_dns_zones) ? {
+    for k, id in var.existing_private_dns_zone_ids : k => id
+    if length(split("/", id)) >= 9 && contains(split("/", id), "resourceGroups")
+  } : {}
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "existing" {
+  for_each            = local.linkable_existing_zones
+  name                = "link-${azurerm_virtual_network.avd.name}"
+  private_dns_zone_id = each.value
+  virtual_network_id  = azurerm_virtual_network.avd.id
+  tags                = var.tags
+}
+
 resource "azurerm_virtual_network_peering" "to_hub" {
   count                     = var.hub_vnet_id == null ? 0 : 1
   name                      = "peer-to-hub"
@@ -165,8 +193,47 @@ resource "azurerm_virtual_network_peering" "to_hub" {
   use_remote_gateways       = var.use_remote_gateways
 }
 
+resource "azurerm_virtual_hub_connection" "to_vwan" {
+  count                     = var.virtual_hub_id == null ? 0 : 1
+  name                      = "vhc-${azurerm_virtual_network.avd.name}"
+  virtual_hub_id            = var.virtual_hub_id
+  remote_virtual_network_id = azurerm_virtual_network.avd.id
+  internet_security_enabled = var.vwan_internet_security_enabled
+}
+
+resource "azurerm_route_table" "session_hosts" {
+  count                         = var.firewall_next_hop_ip == null ? 0 : 1
+  name                          = "rt-${var.prefix}-session-hosts"
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  bgp_route_propagation_enabled = false
+  tags                          = var.tags
+
+  route {
+    name                   = "default-to-firewall"
+    address_prefix         = "0.0.0.0/0"
+    next_hop_type          = "VirtualAppliance"
+    next_hop_in_ip_address = var.firewall_next_hop_ip
+  }
+
+  dynamic "route" {
+    for_each = var.bypass_avd_control_plane_on_internet ? [1] : []
+    content {
+      name           = "avd-control-plane-direct"
+      address_prefix = "WindowsVirtualDesktop"
+      next_hop_type  = "Internet"
+    }
+  }
+}
+
+resource "azurerm_subnet_route_table_association" "session_hosts" {
+  count          = var.firewall_next_hop_ip == null ? 0 : 1
+  subnet_id      = azurerm_subnet.session_hosts.id
+  route_table_id = azurerm_route_table.session_hosts[0].id
+}
+
 # New subnets get no default outbound internet access, so session hosts need an explicit path
-# out. Use this NAT gateway, or route 0.0.0.0/0 to a hub firewall and disable it.
+# out. Use this NAT gateway, or route 0.0.0.0/0 to a hub firewall / vWAN and disable it.
 resource "azurerm_public_ip" "nat" {
   count               = var.create_nat_gateway ? 1 : 0
   name                = "pip-${var.prefix}-nat"

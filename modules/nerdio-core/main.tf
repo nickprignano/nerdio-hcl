@@ -39,6 +39,8 @@ locals {
     web_app          = "${var.app_name}-${local.suffix}"
     plan             = "${var.app_name}-plan-${local.suffix}"
     sql_server       = "${var.app_name}-sql-${local.suffix}"
+    sql_server_dr    = "${var.app_name}-sql-dr-${local.suffix}"
+    sql_failover     = "${var.app_name}-fog-${local.suffix}"
     database         = "${var.app_name}-db"
     key_vault        = "${var.app_name}-kv-${local.suffix}"
     app_insights     = "${var.app_name}-insights-${local.suffix}"
@@ -57,7 +59,7 @@ locals {
     updater_runbook  = "nmwUpdateRunAs"
     default_hostname = "${var.app_name}-${local.suffix}.${local.cloud_endpoints.web_suffix}"
     key_vault_uri    = "https://${var.app_name}-kv-${local.suffix}.${local.cloud_endpoints.kv_suffix}"
-    sql_server_fqdn  = "${var.app_name}-sql-${local.suffix}.${local.cloud_endpoints.sql_suffix}"
+    sql_server_fqdn  = "${var.dr_location != null ? "${var.app_name}-fog-${local.suffix}" : "${var.app_name}-sql-${local.suffix}"}.${local.cloud_endpoints.sql_suffix}"
   }
 
   paas_tags = merge(var.tags, { NMW_OBJECT_TYPE = "PAAS" })

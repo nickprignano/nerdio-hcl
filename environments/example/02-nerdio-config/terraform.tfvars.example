@@ -1,10 +1,13 @@
-# Connection details, the secret hand-off, subscription, network, FSLogix share and gallery
-# image definition IDs come from platform.auto.tfvars.json, written by 01-platform
+# Connection details, the secret hand-off, subscription, regions (networks + FSLogix shares) and
+# gallery image definition IDs come from platform.auto.tfvars.json, written by 01-platform
 # (see docs/deployment-runbook.md).
 
-workspace = {
-  name          = "ws-avd"
-  friendly_name = "Virtual Desktops"
+workspaces = {
+  "ws-avd" = {
+    name          = "ws-avd"
+    friendly_name = "Virtual Desktops"
+    # region_key  = "eastus2"
+  }
 }
 
 # ad_config_friendly_name = "Entra ID joined"   # the directory profile name from the setup wizard
@@ -17,7 +20,9 @@ host_pools = {
     vm_size               = "Standard_D4s_v5"
     has_ephemeral_os_disk = false
     encryption_at_host    = false
-    # image = "win11-24h2-avd-m365"             # key from gallery_image_definition_ids once Packer builds it
+    # region_key          = "eastus2"             # defaults to the first sorted region in var.regions
+    # workspace_key       = "ws-avd"              # defaults to the first sorted workspace in var.workspaces
+    # image               = "win11-24h2-avd-m365" # key from gallery_image_definition_ids once Packer builds it
   }
   # "hp-devs" = {
   #   friendly_name   = "Developer personal desktops"
@@ -27,6 +32,11 @@ host_pools = {
   #   vm_size         = "Standard_D8s_v5"
   # }
 }
+
+# Optional multi-region FSLogix Cloud Cache across all regional profile shares:
+# fslogix_options = {
+#   cloud_cache = true
+# }
 
 # Optional static host pools, RDP profiles, VM deployment profiles, scripted actions and REST gap fillers:
 # rdp_profiles = {

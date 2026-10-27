@@ -1,34 +1,40 @@
 variable "subscription_id" {
-  description = "Subscription linked to Nerdio Manager during the setup wizard."
+  description = "Default subscription linked to Nerdio Manager during the setup wizard."
   type        = string
 }
 
-variable "location" {
-  description = "Azure region for the AVD workspace."
-  type        = string
+variable "regions" {
+  description = "Workload regions to link in Nerdio Manager, keyed by region key (e.g. eastus2, westeurope)."
+  type = map(object({
+    location                      = string
+    subscription_id               = optional(string)
+    hostpools_resource_group_name = string
+    network = object({
+      resource_group_name = string
+      vnet_name           = string
+      subnet_name         = string
+    })
+    fslogix_profile_share_unc = optional(string)
+    app_attach_share_unc      = optional(string)
+  }))
+  validation {
+    condition     = length(var.regions) >= 1
+    error_message = "At least one region must be defined in regions."
+  }
 }
 
-variable "hostpools_resource_group_name" {
-  description = "Resource group for AVD objects and session hosts. Linked in Nerdio as the default group."
-  type        = string
-}
-
-variable "network" {
-  description = "Session host network to link in Nerdio."
-  type = object({
-    resource_group_name = string
-    vnet_name           = string
-    subnet_name         = string
-  })
-}
-
-variable "workspace" {
-  description = "AVD workspace created through Nerdio."
-  type = object({
+variable "workspaces" {
+  description = "AVD workspaces created through Nerdio, keyed by workspace key. Each workspace is placed in region_key (or the first sorted region when omitted)."
+  type = map(object({
     name          = string
+    region_key    = optional(string)
     friendly_name = optional(string)
     description   = optional(string)
-  })
+  }))
+  validation {
+    condition     = length(var.workspaces) >= 1
+    error_message = "At least one workspace must be defined in workspaces."
+  }
 }
 
 variable "ad_config_friendly_name" {
@@ -38,10 +44,11 @@ variable "ad_config_friendly_name" {
 }
 
 variable "fslogix" {
-  description = "FSLogix profile pointing at the profile share. Null skips it."
+  description = "FSLogix profile configuration. Null skips it. Supports single-share, per-region shares, or multi-share Cloud Cache across regions."
   type = object({
     name                     = optional(string, "Terraform FSLogix profile")
-    profile_share_unc        = string
+    profile_share_unc        = optional(string)
+    locations                = optional(list(string), [])
     office_share_unc         = optional(list(string), [])
     entra_id_kerberos        = optional(bool, true)
     cloud_cache              = optional(bool, false)
@@ -86,6 +93,8 @@ variable "gallery_image_definition_ids" {
 variable "host_pools" {
   description = <<-EOT
     Dynamic host pools (Pooled or Personal), keyed by AVD host pool name.
+    region_key selects the entry in var.regions (defaults to the first sorted region key).
+    workspace_key selects the entry in var.workspaces (defaults to the first sorted workspace key).
     image may be a key in gallery_image_definition_ids, a Compute Gallery image definition ARM ID
     (/subscriptions/.../galleries/<gal>/images/<def>), or a Marketplace path like
     MicrosoftWindowsDesktop/office-365/win11-24h2-avd-m365/latest.
@@ -93,6 +102,8 @@ variable "host_pools" {
   type = map(object({
     friendly_name                = string
     description                  = optional(string, "Managed by Terraform")
+    region_key                   = optional(string)
+    workspace_key                = optional(string)
     host_pool_type               = optional(string, "Pooled")
     assignment_type              = optional(string, "Automatic")
     app_group_type               = optional(string, "Desktop")
@@ -190,6 +201,8 @@ variable "static_host_pools" {
   type = map(object({
     friendly_name               = string
     description                 = optional(string, "Managed by Terraform")
+    region_key                  = optional(string)
+    workspace_key               = optional(string)
     host_pool_type              = optional(string, "Personal")
     assignment_type             = optional(string, "Automatic")
     app_group_type              = optional(string, "Desktop")
@@ -435,7 +448,7 @@ variable "scripted_action_profiles" {
 }
 
 variable "workspace_user_assignments" {
-  description = "Entra user, group, or service principal object IDs to assign to the AVD workspace via nme_user_assignment."
+  description = "Entra user, group, or service principal object IDs to assign to all AVD workspaces in var.workspaces via nme_user_assignment."
   type        = list(string)
   default     = []
 }

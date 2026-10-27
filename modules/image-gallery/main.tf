@@ -8,15 +8,17 @@ resource "azurerm_shared_image_gallery" "this" {
 
 # Gen2 + Trusted Launch to match the Packer build and current AVD guidance.
 resource "azurerm_shared_image" "this" {
-  for_each                 = var.image_definitions
-  name                     = each.key
-  gallery_name             = azurerm_shared_image_gallery.this.name
-  location                 = var.location
-  resource_group_name      = var.resource_group_name
-  os_type                  = "Windows"
-  hyper_v_generation       = "V2"
-  trusted_launch_supported = true
-  tags                     = var.tags
+  for_each                            = var.image_definitions
+  name                                = each.key
+  gallery_name                        = azurerm_shared_image_gallery.this.name
+  location                            = var.location
+  resource_group_name                 = var.resource_group_name
+  os_type                             = "Windows"
+  hyper_v_generation                  = "V2"
+  trusted_launch_supported            = true
+  accelerated_network_support_enabled = each.value.accelerated_network_support_enabled
+  hibernation_enabled                 = each.value.hibernation_enabled
+  tags                                = var.tags
 
   identifier {
     publisher = each.value.publisher

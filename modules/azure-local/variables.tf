@@ -57,3 +57,15 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "gallery_images" {
+  description = "Optional Azure Local gallery images imported from Azure Compute Gallery or Marketplace onto CSV storage."
+  type = map(object({
+    container_id        = string
+    image_version_id    = optional(string)
+    os_type             = optional(string, "Windows")
+    hyper_v_generation  = optional(string, "V2")
+    cloud_init_data_src = optional(string, "Azure")
+  }))
+  default = {}
+}

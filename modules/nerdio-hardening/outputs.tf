@@ -3,6 +3,8 @@ output "private_endpoint_ids" {
   value = merge(
     { for k, pe in azurerm_private_endpoint.sql : "sql-${k}" => pe.id },
     { for k, pe in azurerm_private_endpoint.vault : "kv-${k}" => pe.id },
+    { for k, pe in azurerm_private_endpoint.blob : "st-${k}" => pe.id },
+    { for k, pe in azurerm_private_endpoint.automation : "aa-${k}" => pe.id },
     { for pe in azurerm_private_endpoint.web : "web" => pe.id },
   )
 }
