@@ -50,20 +50,19 @@ belongs to instead of starting a new file.
 
 ## Related knowledge bases
 
-This KB is one of a family of knowledge bases that share the same format and link to each other instead of
-copying facts ([decision 0021](decisions/0021-knowledge-base-family.md)). When a topic belongs to
-a sibling, its KB is the source of truth. The AI knowledge base is the hub for how the family uses
-AI, for example the Claude API, Microsoft Foundry and keyless sign-in, so this kit's chat
-decisions ([0014](decisions/0014-self-hosted-setup-chatbot.md),
-[0020](decisions/0020-claude-api-federation-for-the-chat.md)) link there for the general
-knowledge. The list is in [family.yaml](family.yaml); see
-[curation.md](curation.md#knowledge-base-family).
+This KB is self-contained and owns its own format, schemas, scripts and topics, grounded directly
+in primary Nerdio, Microsoft (AVD, FSLogix, Entra), HashiCorp and tracked community expert sources
+([sources.toml](sources.toml), [experts.md](experts.md)). It stays **aware but separate** from the
+sibling knowledge bases listed in [family.yaml](family.yaml) ([decision 0021](decisions/0021-knowledge-base-family.md),
+[0023](decisions/0023-ai-brain-is-the-family-format-source.md)): they are watched read-only for
+awareness in the digest and prior-art search, without deferring this kit's source of truth to them.
+See [curation.md](curation.md#knowledge-base-family).
 
 <!-- BEGIN GENERATED: family (from family.yaml; run scripts/kb/build.py) -->
 | Knowledge base | Role | Focus | Source of truth for |
 |---|---|---|---|
-| [AI](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge) | reference | The AI research behind the family's projects | The family's shared KB format and conventions; Claude API and Microsoft Foundry use; model choices; keyless sign-in for AI APIs; prompts and evaluations; AI tooling shared by the family |
-| [AVD](https://github.com/nickprignano/avd-second-brain/tree/main/docs/knowledge) | member | Azure Virtual Desktop itself | Azure Virtual Desktop platform; FSLogix; session host images in general |
+| [AI](https://github.com/nickprignano/ai-brain/tree/main/docs/knowledge) | member | Standalone AI research and experimentation (watched read-only for awareness) | General AI research; model evaluations and AI workflows |
+| [AVD](https://github.com/nickprignano/avd-second-brain/tree/main/docs/knowledge) | member | Standalone Azure Virtual Desktop research (watched read-only for awareness) | Standalone Azure Virtual Desktop and EUC research |
 <!-- END GENERATED: family -->
 
 ## Before you build something

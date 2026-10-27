@@ -5,7 +5,8 @@ the resources and settings Nerdio's Marketplace template and install script woul
 Automation job inside Azure deploys the app code. Nerdio's setup wizard is still interactive,
 because Nerdio has no API for the directory profile or first-run steps.
 
-The older path, `nerdio_install = "marketplace"`, deploys an exported Marketplace template and
+The Azure Marketplace path, `nerdio_install = "marketplace"`, works with a normal Azure portal
+Marketplace deployment (no ARM template export needed) or an exported Marketplace template, and
 then runs Nerdio's install script; see [Marketplace install](#marketplace-install) at the end.
 
 From Azure Cloud Shell, `scripts/cloudshell-bootstrap.sh` does steps 0 to 2 for you; see
@@ -133,13 +134,27 @@ Kerberos ticket retrieval policy to hosts.
 
 ## Marketplace install
 
-Set `nerdio_install = "marketplace"`. Before the first apply, export the template as described in
-[templates/nerdio-manager/README.md](../templates/nerdio-manager/README.md). After it:
+Set `nerdio_install = "marketplace"` (`./nerdio init --set nerdio_install=marketplace`). Two ways
+to deploy the Marketplace resources:
 
-1. Open the `nerdio_url` output.
-2. With the Terraform-created app: choose **Show advanced > Use existing AD app** and enter
-   `entra_app_client_id`, `entra_app_service_principal_id` and the secret from
-   `terraform output -raw entra_app_client_secret`. Download the Az script and run it in local
-   PowerShell (Nerdio doesn't support this path in Cloud Shell).
-3. Without it (`create_entra_app = false`): copy the one-line script into Cloud Shell and let
-   Nerdio create the app itself.
+- **Azure portal Marketplace (recommended for Marketplace installs, no template export):**
+  1. Run `01-platform` (`create_entra_app = false` is the default for Marketplace). Terraform
+     creates the empty `nerdio` resource group, the AVD network, FSLogix storage and Compute Gallery.
+     (If you already deployed Nerdio Manager in the portal first, set
+     `existing_resource_groups = ["nerdio"]` so Terraform reads that existing group.)
+  2. In the Azure portal, open **Nerdio Manager for Enterprise** from the Marketplace and deploy it
+     into the `nerdio` resource group from `resource_group_names`.
+  3. Open the Nerdio web app URL, copy Nerdio's one-line install script into Azure Cloud Shell, and
+     let Nerdio create `nerdio-nmw-app`.
+  4. Set `entra_app.existing_client_id` (or `./nerdio init --set existing_entra_app_client_id=<id>`)
+     to the `nerdio-nmw-app` Application (client) ID and apply `01-platform` again. Terraform
+     discovers the Marketplace web app, SQL server and Key Vault, creates the `<app>-rest-client`
+     app and Key Vault secret hand-off (`nerdio-secrets`), and populates `nerdio_config_inputs` for
+     stage 2 (`02-nerdio-config`).
+- **Exported Marketplace ARM template (`nerdio_template_file` set):**
+  1. Export the template as described in
+     [templates/nerdio-manager/README.md](../templates/nerdio-manager/README.md) and set
+     `nerdio_template_file = "../../../templates/nerdio-manager/template.json"`.
+  2. After the first apply, open the `nerdio_url` output and run Nerdio's install script in Cloud
+     Shell (`create_entra_app = false`) or use **Show advanced > Use existing AD app** in local
+     PowerShell (`create_entra_app = true`).

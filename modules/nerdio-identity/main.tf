@@ -12,7 +12,7 @@ data "azuread_service_principal" "azure_service_management" {
 
 locals {
   owners = distinct(concat([coalesce(var.deployer_object_id, data.azuread_client_config.current.object_id)], var.owner_object_ids))
-  base   = "https://${var.app_service_hostname}"
+  base   = var.app_service_hostname != null ? "https://${var.app_service_hostname}" : null
 
   # From Nerdio's "Advanced installation: Create Entra ID application". Directory.Read.All
   # is added because Nerdio's own install script requests it in place of several read scopes.
@@ -51,6 +51,7 @@ locals {
 }
 
 resource "azuread_application" "nerdio" {
+  count            = var.create_nerdio_app ? 1 : 0
   display_name     = var.display_name
   sign_in_audience = "AzureADMultipleOrgs"
   owners           = local.owners
@@ -60,8 +61,8 @@ resource "azuread_application" "nerdio" {
   }
 
   web {
-    redirect_uris = ["${local.base}/", "${local.base}/signin-oidc"]
-    logout_url    = "${local.base}/signout-oidc"
+    redirect_uris = local.base != null ? ["${local.base}/", "${local.base}/signin-oidc"] : []
+    logout_url    = local.base != null ? "${local.base}/signout-oidc" : null
 
     implicit_grant {
       access_token_issuance_enabled = true
@@ -113,12 +114,14 @@ resource "azuread_application" "nerdio" {
 
 # The REST API needs api://<client_id>, which can't be set on the app in the same resource.
 resource "azuread_application_identifier_uri" "nerdio" {
-  application_id = azuread_application.nerdio.id
-  identifier_uri = "api://${azuread_application.nerdio.client_id}"
+  count          = var.create_nerdio_app ? 1 : 0
+  application_id = azuread_application.nerdio[0].id
+  identifier_uri = "api://${azuread_application.nerdio[0].client_id}"
 }
 
 resource "azuread_service_principal" "nerdio" {
-  client_id                    = azuread_application.nerdio.client_id
+  count                        = var.create_nerdio_app ? 1 : 0
+  client_id                    = azuread_application.nerdio[0].client_id
   owners                       = local.owners
   app_role_assignment_required = false
   feature_tags {
@@ -126,13 +129,23 @@ resource "azuread_service_principal" "nerdio" {
   }
 }
 
+data "azuread_service_principal" "existing_nerdio" {
+  count     = var.create_nerdio_app ? 0 : 1
+  client_id = var.existing_client_id
+}
+
+locals {
+  nerdio_client_id                   = var.create_nerdio_app ? azuread_application.nerdio[0].client_id : var.existing_client_id
+  nerdio_service_principal_object_id = var.create_nerdio_app ? azuread_service_principal.nerdio[0].object_id : data.azuread_service_principal.existing_nerdio[0].object_id
+}
+
 resource "time_rotating" "secret" {
   rotation_days = var.secret_rotation_days
 }
 
 resource "azuread_application_password" "nerdio" {
-  count          = var.create_client_secret ? 1 : 0
-  application_id = azuread_application.nerdio.id
+  count          = var.create_nerdio_app && var.create_client_secret ? 1 : 0
+  application_id = azuread_application.nerdio[0].id
   display_name   = "terraform"
   end_date       = timeadd(time_rotating.secret.id, "${var.secret_rotation_days * 24 + 720}h")
   rotate_when_changed = {
@@ -144,27 +157,27 @@ resource "azuread_app_role_assignment" "wvd_admin" {
   for_each            = toset(var.wvd_admin_object_ids)
   app_role_id         = local.app_roles.WvdAdmin.id
   principal_object_id = each.value
-  resource_object_id  = azuread_service_principal.nerdio.object_id
+  resource_object_id  = local.nerdio_service_principal_object_id
 }
 
 # Admin consent: tenant-wide delegated grants plus application permission assignments.
 resource "azuread_service_principal_delegated_permission_grant" "graph" {
-  count                                = var.grant_admin_consent ? 1 : 0
-  service_principal_object_id          = azuread_service_principal.nerdio.object_id
+  count                                = var.create_nerdio_app && var.grant_admin_consent ? 1 : 0
+  service_principal_object_id          = azuread_service_principal.nerdio[0].object_id
   resource_service_principal_object_id = data.azuread_service_principal.msgraph.object_id
   claim_values                         = local.graph_delegated
 }
 
 resource "azuread_service_principal_delegated_permission_grant" "azure_service_management" {
-  count                                = var.grant_admin_consent ? 1 : 0
-  service_principal_object_id          = azuread_service_principal.nerdio.object_id
+  count                                = var.create_nerdio_app && var.grant_admin_consent ? 1 : 0
+  service_principal_object_id          = azuread_service_principal.nerdio[0].object_id
   resource_service_principal_object_id = data.azuread_service_principal.azure_service_management.object_id
   claim_values                         = ["user_impersonation"]
 }
 
 resource "azuread_app_role_assignment" "graph" {
-  for_each            = var.grant_admin_consent ? toset(local.graph_application) : toset([])
+  for_each            = var.create_nerdio_app && var.grant_admin_consent ? toset(local.graph_application) : toset([])
   app_role_id         = data.azuread_service_principal.msgraph.app_role_ids[each.value]
-  principal_object_id = azuread_service_principal.nerdio.object_id
+  principal_object_id = azuread_service_principal.nerdio[0].object_id
   resource_object_id  = data.azuread_service_principal.msgraph.object_id
 }

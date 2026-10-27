@@ -70,40 +70,57 @@ GitHub, and the setup chatbot can start and explain those runs for you
 
 ## Layout
 
+<!-- BEGIN GENERATED: layout (./nerdio docs --write) -->
 ```
 modules/
   foundation/        resource groups, providers, Log Analytics
   network/           AVD spoke network and private DNS
   fslogix-storage/   profile storage
   nerdio-core/       Nerdio Manager built in Terraform, plus the app code deploy job (default)
-  nerdio-manager/    Marketplace template deployment + resource discovery (alternative)
+  nerdio-manager/    Azure Marketplace resource discovery + optional template deployment
   nerdio-identity/   Nerdio's Entra app, app roles, consent and REST API client
   nerdio-secrets/    Key Vault hand-off of the REST API secret to stage 2 (default)
   openbao/           optional OpenBao server that mints a short-lived REST API secret per run
   nerdio-hardening/  private endpoints and VNet integration for Nerdio's core resources
+  vnet-runner/       optional ephemeral GitHub Actions runner inside the AVD VNet
   image-gallery/     Compute Gallery and image definitions for Packer
   nerdio-config/     Nerdio objects through the nerdio/nme provider
+  nerdio-rest-gaps/  Nerdio REST API endpoints not yet covered by nerdio/nme
+  intune-policies/   optional Intune update rings and Defender exclusions via Microsoft Graph
+  windows-365/       optional Windows 365 Cloud PC provisioning alongside Nerdio Manager
+  azure-local/       optional Azure Local logical network and RBAC for hybrid AVD host pools
   deploy-pipeline/   state storage, OIDC deploy identities and the GitHub approval gate
+  assistant/         self-hosted setup chatbot (Container App, Entra sign-in, Claude / Foundry)
+  github-settings/   repository settings, rulesets and labels declared in Terraform
 environments/
   example/
+    00-assistant/      optional self-hosted setup chatbot
     00-pipeline/       one-time bootstrap for the deploy pipeline
     01-platform/       stage 1 root: Azure + Entra + Nerdio install
     02-nerdio-config/  stage 2 root: Nerdio configuration via nerdio/nme
+assistant/             setup chatbot app and prompt (deployed by 00-assistant)
+schema/                parameters.json single source of truth + example answer sets
 packer/
-  avd-win11/         Windows 11 multi-session image build
+  avd-win11/           Windows 11 multi-session image build
+ansible/               optional image and hybrid AD DS playbooks (decision 0028)
+github/                this repository's own GitHub settings in Terraform
 templates/
-  nerdio-manager/    exported Marketplace template (marketplace install only)
+  nerdio-manager/      exported Marketplace template (marketplace install only)
 docs/
-  guardrails.md
-  deployment-runbook.md
-  cloud-shell.md
-  codespaces.md      VS Code in the browser as an optional workbench
-  secrets.md         how stage 2 gets the REST API secret without anyone handling it
-  pipeline.md        plan and apply from GitHub Actions behind an approval
-  architecture.md
-  model-pilot.md     measuring and reporting the model-selection pilot
-  knowledge/         the living knowledge base and decision records
+  guardrails.md          non-negotiable security, browser and license rules
+  setup.md               guided setup across chat, CLI and the Actions form
+  assistant.md           deploying and connecting the self-hosted setup chatbot
+  deployment-runbook.md  end-to-end order of operations and manual wizard steps
+  pipeline.md            plan and apply from GitHub Actions behind an approval
+  access.md              every Azure, Entra, GitHub and Anthropic right the kit needs
+  secrets.md             how stage 2 gets the REST API secret without anyone handling it
+  cloud-shell.md         running from Azure Cloud Shell in any browser
+  codespaces.md          VS Code in the browser as an optional workbench
+  architecture.md        diagram and design decisions across stages
+  model-pilot.md         measuring and reporting the model-selection pilot
+  knowledge/           the living knowledge base and decision records
 ```
+<!-- END GENERATED: layout -->
 
 ## Quick start
 

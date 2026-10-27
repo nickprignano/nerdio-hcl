@@ -1,9 +1,10 @@
 module "foundation" {
-  source          = "../../../modules/foundation"
-  prefix          = var.prefix
-  location        = var.location
-  tags            = var.tags
-  resource_groups = var.resource_groups
+  source                   = "../../../modules/foundation"
+  prefix                   = var.prefix
+  location                 = var.location
+  tags                     = var.tags
+  resource_groups          = var.resource_groups
+  existing_resource_groups = var.existing_resource_groups
 }
 
 module "network" {
@@ -99,9 +100,11 @@ locals {
 
 module "nerdio_identity" {
   source = "../../../modules/nerdio-identity"
-  count  = var.create_entra_app ? 1 : 0
+  count  = local.manage_identity ? 1 : 0
 
   display_name           = var.entra_app.display_name
+  create_nerdio_app      = var.create_entra_app
+  existing_client_id     = var.entra_app.existing_client_id
   app_service_hostname   = local.nerdio_hostname
   owner_object_ids       = var.entra_app.owner_object_ids
   deployer_object_id     = var.deployer_object_id
@@ -110,7 +113,7 @@ module "nerdio_identity" {
   enable_mail_send       = var.entra_app.enable_mail_send
   create_rest_api_client = var.entra_app.create_rest_api_client
   # The terraform install signs the app in with Key Vault certificates.
-  create_client_secret = var.nerdio_install == "marketplace"
+  create_client_secret = var.nerdio_install == "marketplace" && var.create_entra_app
   # With OpenBao, short-lived secrets replace the long-lived one, and OpenBao's identity owns
   # the app so it needs only Application.ReadWrite.OwnedBy.
   create_rest_api_client_secret          = local.nme_secret_store != "openbao"
@@ -122,7 +125,8 @@ module "nerdio_identity" {
 locals {
   compact_prefix   = substr(replace(lower(var.prefix), "/[^a-z0-9]/", ""), 0, 12)
   secret_suffix    = substr(sha1("${var.subscription_id}/${var.prefix}"), 0, 6)
-  has_rest_client  = var.create_entra_app && var.entra_app.create_rest_api_client
+  manage_identity  = var.create_entra_app || var.entra_app.existing_client_id != null
+  has_rest_client  = local.manage_identity && var.entra_app.create_rest_api_client
   nme_secret_store = local.has_rest_client ? var.nme_secret_store : "output"
 }
 

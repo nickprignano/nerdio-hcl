@@ -34,6 +34,20 @@ variable "resource_groups" {
   }
 }
 
+variable "existing_resource_groups" {
+  description = <<-EOT
+    Role keys in resource_groups (for example ["nerdio"]) that already exist in Azure, such as a
+    resource group created when deploying Nerdio Manager from the Azure portal Marketplace before
+    running Terraform. Existing groups are read with a data source instead of created.
+  EOT
+  type    = set(string)
+  default = []
+  validation {
+    condition     = alltrue([for k in var.existing_resource_groups : contains(["nerdio", "network", "hostpools", "storage", "monitoring"], k)])
+    error_message = "existing_resource_groups entries must be valid resource_groups role keys (nerdio, network, hostpools, storage, monitoring)."
+  }
+}
+
 variable "log_analytics_retention_days" {
   description = "Retention for the AVD Log Analytics workspace."
   type        = number

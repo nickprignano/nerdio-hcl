@@ -11,11 +11,13 @@ variable "deployment_name" {
 
 variable "template_file" {
   description = <<-EOT
-    Path to the Nerdio Manager ARM template exported from the Azure Marketplace
-    ("Download a template for automation" on the Review + create tab). Nerdio
-    doesn't publish a stable template URL, so the kit pins whatever you export.
+    Optional path to a Nerdio Manager ARM template exported from the Azure Marketplace
+    ("Download a template for automation" on the Review + create tab). Leave null (the default)
+    when deploying Nerdio Manager directly from the Azure portal Marketplace; this module then
+    discovers the Marketplace resources in resource_group_name without deploying an ARM template.
   EOT
-  type        = string
+  type    = string
+  default = null
 }
 
 variable "parameters" {

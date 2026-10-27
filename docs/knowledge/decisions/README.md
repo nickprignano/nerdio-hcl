@@ -27,9 +27,9 @@ marked *Superseded by NNNN*.
 | [0018](0018-apache-2-license.md) | License the kit under Apache-2.0 | Accepted |
 | [0019](0019-least-privilege-explicit-access.md) | Least privilege, with every access need written down | Accepted |
 | [0020](0020-claude-api-federation-for-the-chat.md) | The setup chat can use the Claude API, signed in by workload identity federation | Accepted |
-| [0021](0021-knowledge-base-family.md) | This KB is one of a family of knowledge bases, with the AI project as the hub for AI knowledge | Proposed |
+| [0021](0021-knowledge-base-family.md) | This KB is aware of sibling knowledge bases, while staying separate and self-contained | Accepted |
 | [0022](0022-family-model-selection-convention.md) | Follow the family's model-selection convention, as one of its pilot projects | Proposed |
-| [0023](0023-ai-brain-is-the-family-format-source.md) | The AI hub owns the family's KB format, and this kit follows it as a member | Proposed |
+| [0023](0023-ai-brain-is-the-family-format-source.md) | The AI hub owns the family's KB format, and this kit follows it as a member | Rejected |
 | [0026](0026-read-only-readiness-engine.md) | Readiness checks are read-only, cover the whole lifecycle, and complement Nerdio's deployability test | Accepted |
 | [0027](0027-github-settings-in-terraform.md) | The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner | Proposed |
 | [0028](0028-targeted-ansible-for-images-and-hybrid.md) | Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration | Accepted |

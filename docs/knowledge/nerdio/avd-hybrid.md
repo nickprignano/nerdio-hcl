@@ -8,10 +8,9 @@ last_reviewed: 2026-10-19
 
 # AVD Hybrid and Nerdio Manager
 
-Shared from the AVD project's lab research (2026-10-19). The Nerdio Manager section is the part
-specific to this kit; the rest is the general AVD Hybrid picture it depends on. AVD platform facts
-belong to the AVD knowledge base ([family.yaml](../family.yaml)); when that KB is linked, point the
-general sections there instead of keeping a copy.
+Grounded in Microsoft Learn, Nerdio and vendor documentation. The Nerdio Manager section is the part
+specific to this kit; the rest covers the Azure Virtual Desktop Hybrid (Azure Arc) architecture and
+lab sizing it depends on.
 
 Research only, checked against Microsoft Learn, Nerdio and vendor pages on 2026-10-19. Nothing was deployed, bought or changed. Azure prices are pay-as-you-go list prices for northcentralus and are estimates; hardware prices are as listed on 2026-10-19 unless dated otherwise.
 

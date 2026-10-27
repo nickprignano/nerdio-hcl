@@ -299,9 +299,8 @@ query = "avd packer terraform in:name,description,readme"
 kb_page = "nerdio/community-projects.md"
 
 # --- Sibling knowledge bases (family.yaml) -----------------------------------
-# Two sources per linked sibling: new decisions, and every other KB change. validate.py checks
-# both exist for each sibling with a repo in family.yaml. The hub also gets three for the shared
-# format itself (schemas, scripts, workflows), so format changes show up in the digest (0023).
+# Two read-only sources per linked sibling (new decisions and KB changes) for awareness only.
+# validate.py checks both exist for each sibling with a repo in family.yaml.
 
 [[source]]
 name = "Sibling KB: AI decisions"
@@ -315,27 +314,6 @@ name = "Sibling KB: AI"
 kind = "github_commits"
 repo = "nickprignano/ai-brain"
 path = "docs/knowledge"
-kb_page = "curation.md"
-
-[[source]]
-name = "Family format: AI hub schemas"
-kind = "github_commits"
-repo = "nickprignano/ai-brain"
-path = "docs/knowledge/schema"
-kb_page = "curation.md"
-
-[[source]]
-name = "Family format: AI hub KB scripts"
-kind = "github_commits"
-repo = "nickprignano/ai-brain"
-path = "scripts/kb"
-kb_page = "curation.md"
-
-[[source]]
-name = "Family format: AI hub workflows"
-kind = "github_commits"
-repo = "nickprignano/ai-brain"
-path = ".github/workflows"
 kb_page = "curation.md"
 
 [[source]]

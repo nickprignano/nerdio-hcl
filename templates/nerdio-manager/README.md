@@ -1,10 +1,11 @@
 # Nerdio Manager Marketplace template
 
-Only for `nerdio_install = "marketplace"`. The default terraform install (`modules/nerdio-core`)
-doesn't use a template.
+Optional for `nerdio_install = "marketplace"`. By default (`nerdio_template_file = null`),
+`modules/nerdio-manager` discovers a Nerdio Manager deployment you create directly in the Azure
+portal Marketplace, so no exported template file is needed. The default terraform install
+(`modules/nerdio-core`) doesn't use a template either.
 
-Nerdio doesn't publish a stable ARM template URL for Nerdio Manager for Enterprise, so the kit
-deploys whatever template you export from the Azure Marketplace and pins it here.
+If you want Terraform itself to deploy the Marketplace ARM template (`nerdio_template_file = "../../../templates/nerdio-manager/template.json"`):
 
 1. In the Azure portal, open **Nerdio Manager for Enterprise** from the Marketplace (not the
    "Billing Subscription" listing) and fill in the subscription, an empty resource group and region.

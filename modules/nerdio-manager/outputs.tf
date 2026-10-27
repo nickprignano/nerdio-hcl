@@ -1,21 +1,21 @@
 output "deployment_outputs" {
-  description = "Raw outputs of the Marketplace template."
-  value       = jsondecode(azurerm_resource_group_template_deployment.nerdio.output_content)
+  description = "Raw outputs of the Marketplace template deployment, or null in portal Marketplace mode."
+  value       = try(jsondecode(azurerm_resource_group_template_deployment.nerdio[0].output_content), null)
 }
 
 output "app_service_id" {
-  description = "Nerdio Manager App Service ID."
-  value       = local.web_app.id
+  description = "Nerdio Manager App Service ID, or null before the Marketplace deployment exists."
+  value       = try(local.web_app.id, null)
 }
 
 output "app_service_name" {
-  description = "Nerdio Manager App Service name."
-  value       = local.web_app.name
+  description = "Nerdio Manager App Service name, or null before the Marketplace deployment exists."
+  value       = try(local.web_app.name, null)
 }
 
 output "app_service_hostname" {
-  description = "Default hostname; open https://<this> to run the post-deploy install step."
-  value       = "${local.web_app.name}.azurewebsites.net"
+  description = "Default hostname; open https://<this> to run the post-deploy install step. Null before the Marketplace deployment exists."
+  value       = try("${local.web_app.name}.azurewebsites.net", null)
 }
 
 output "sql_server_ids" {

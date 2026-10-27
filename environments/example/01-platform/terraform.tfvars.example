@@ -47,14 +47,20 @@ image_gallery = {
   build_resource_group_name = "rg-contoso-avd-images-build"
 }
 
-# "terraform" (default) builds Nerdio Manager in Terraform; "marketplace" deploys an exported
-# template instead and needs nerdio_template_parameters from its parameters.json.
+# "terraform" (default) builds Nerdio Manager in Terraform; "marketplace" supports a normal
+# Azure portal Marketplace deployment (or an exported template when nerdio_template_file is set)
+# and discovers the Marketplace resources in resource_groups["nerdio"].
 nerdio_install = "terraform"
 # nerdio_core = { package_version = "latest", app_service_plan_sku = "B3", database_sku = "S1" }
+# For a normal Azure portal Marketplace deployment:
+# nerdio_install   = "marketplace"
+# create_entra_app = false
+# existing_resource_groups = ["nerdio"]   # if you created the resource group in the portal first
 
 entra_app = {
   wvd_admin_object_ids = ["22222222-2222-2222-2222-222222222222"]
   grant_admin_consent  = false
+  # existing_client_id = "00000000-0000-0000-0000-000000000000"   # when create_entra_app = false, so Terraform still builds the stage 2 REST client
 }
 
 # Second apply, after the Marketplace deployment exists:
