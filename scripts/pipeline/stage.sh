@@ -259,7 +259,7 @@ if [ "$action" = plan ]; then
     if ! terraform -chdir="$platform" output -json nerdio_config_inputs > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null; then
       if [ "${SKIP_MISSING_PLATFORM:-false}" = true ]; then
         echo "01-platform has no state outputs yet; skipping 02-nerdio-config in GitOps auto mode."
-        { echo "## $NERDIO_ENV / $dir_name"; echo; echo 'Skipped: `01-platform` has not been applied yet.'; } | summary
+        { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Skipped: **01-platform** has not been applied yet."; } | summary
         echo "changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
         exit 0
       fi
@@ -268,7 +268,7 @@ if [ "$action" = plan ]; then
     base_url="$(jq -r '.nme_base_url // empty' "$stage_dir/platform.auto.tfvars.json")"
     if [ -z "$base_url" ] && [ "${SKIP_MISSING_PLATFORM:-false}" = true ]; then
       echo "01-platform has no nme_base_url yet; skipping 02-nerdio-config in GitOps auto mode."
-      { echo "## $NERDIO_ENV / $dir_name"; echo; echo 'Skipped: `01-platform` has not been applied yet.'; } | summary
+      { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Skipped: **01-platform** has not been applied yet."; } | summary
       echo "changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
       exit 0
     fi
@@ -353,7 +353,7 @@ if [ "$action" = plan ]; then
         {
           echo
           echo "> [!CAUTION]"
-          echo '> **Destructive change blocked:** This plan deletes or replaces stateful resources while `destroy=false` and `allow_replace=false`.'
+          echo "> **Destructive change blocked:** This plan deletes or replaces stateful resources while **destroy=false** and **allow_replace=false**."
           echo "> Re-run with **allow_replace = true** only if you intend to replace or delete these resources:"
           echo
           echo "| Planned Action | Stateful Resource |"
