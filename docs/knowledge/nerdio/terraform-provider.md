@@ -62,6 +62,16 @@ Host pool notes: `SecurityType` is `None`, `TrustedLaunch` or `Confidential`; `i
 (`/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/galleries/{gallery}/images/{image}`),
 which `01-platform` outputs in `gallery_image_definition_ids`.
 
+Auto-scale profile notes (`internal/provider/resource_auto_scale_profile.go`):
+- `auto_scale_triggers` is a list of discriminated-union objects keyed by `trigger_type`:
+  - `"CPUUsage"` (`cpu` block) and `"RAMUsage"` (`ram` block) both require
+    `max_Usage_duration_minutes` (capital `U` in `Usage`), `scale_in_threshold`,
+    `scale_out_threshold`, `scale_in_host_change_count`, and `scale_out_host_change_count`.
+  - `"AvailableUserSessions"` uses `available_sessions` (`min_available_user_sessions`,
+    `max_available_user_sessions`, and `available_session_restriction = "Always" | "DuringWorkHours"`).
+- `rolling_drain_mode` is a top-level object (`{ is_enabled = bool, windows = [...] }`), separate
+  from `auto_scale_triggers`.
+
 ## Gaps
 
 Not covered natively by `nerdio/nme` at last review: session hosts, app groups, RemoteApps, MSIX
