@@ -321,7 +321,7 @@ run "enterprise_opt_in_modules_wire_up" {
   }
 
   assert {
-    condition     = length(azurerm_management_lock.stateful) >= 4
-    error_message = "Expected CanNotDelete management locks on SQL, Nerdio Key Vault, secrets Key Vault, and CMK Key Vault."
+    condition     = length(azurerm_management_lock.stateful) >= 3
+    error_message = "Expected CanNotDelete management locks on Nerdio resource group, secrets Key Vault, and CMK Key Vault."
   }
 }

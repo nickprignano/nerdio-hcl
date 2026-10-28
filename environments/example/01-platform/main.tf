@@ -432,8 +432,7 @@ locals {
   default_runner_kv_id = try(
     coalesce(
       var.vnet_runner.key_vault_id,
-      try(module.nerdio_secrets[0].key_vault_id, null),
-      try(values(local.nerdio_key_vault_ids)[0], null)
+      local.nme_secret_store == "key_vault" ? module.nerdio_secrets[0].key_vault_id : null
     ),
     null
   )
@@ -463,8 +462,7 @@ module "vnet_runner" {
 
 locals {
   locked_resources = !var.enable_resource_locks ? {} : merge(
-    { for k, id in local.nerdio_sql_server_ids : "sql-${k}" => id },
-    { for k, id in local.nerdio_key_vault_ids : "kv-${k}" => id },
+    { "rg-nerdio" = module.foundation.resource_group_ids["nerdio"] },
     local.nme_secret_store == "key_vault" ? { "kv-nme-secrets" = module.nerdio_secrets[0].key_vault_id } : {},
     var.cmk_encryption != null ? { "kv-cmk" = module.cmk_encryption[0].key_vault_id } : {},
     { for k, m in module.fslogix : "fslogix-${k}" => m.storage_account_id },
