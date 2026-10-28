@@ -87,3 +87,10 @@ errors:
   source: nerdio/readiness.md
   status: unverified
   added: '2026-10-19'
+- id: pipeline-abac-role-assignment-not-permitted
+  symptom: '`RoleAssignmentUpdateNotPermitted` when the deploy pipeline applies a stage that creates an `azurerm_role_assignment`'
+  cause: The pipeline's `apply` identity holds `Role Based Access Control Administrator` with an Azure ABAC condition restricting assignable roles to `apply_assignable_roles`, and the target role definition is not in that list
+  fix: Add the role name to `apply_assignable_roles` in `modules/deploy-pipeline/variables.tf` (or `access.apply_assignable_roles` in `00-pipeline`) and re-apply `00-pipeline`
+  source: terraform/testing-and-ci.md#ci-workflow
+  status: verified
+  added: '2026-10-27'
