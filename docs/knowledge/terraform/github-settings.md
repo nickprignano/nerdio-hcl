@@ -49,10 +49,16 @@ against this repository's live GitHub REST API ([decision 0027](../decisions/002
 - GitHub has no OIDC sign-in to its own API. The drift workflow uses a read-only GitHub App
   (`actions/create-github-app-token`, one-hour token); applies use a one-day fine-grained token.
   When `vars.SETTINGS_APP_ID` isn't configured in the `github-settings-read` environment yet,
-  `github-settings-drift.yml` skips the token and plan steps cleanly instead of failing inside
-  `@octokit/auth-app`. When drift is reported on a `settings-drift` issue, labeling the issue
-  `kb-accepted` triggers `kb-feedback.yml` to open a pull request syncing `github/main.tf` (`merge`
-  and `topics`) with the live repository.
+  `actions/create-github-app-token` fails with `Error: [@octokit/auth-app] appId option is required`
+  and would open a failure issue on every daily schedule run; `github-settings-drift.yml` gates the
+  token and `terraform plan` steps behind a `check_app` step (`[ -n "${{ vars.SETTINGS_APP_ID }}" ]`)
+  that writes setup instructions to `$GITHUB_STEP_SUMMARY` and closes any open failure issue when
+  unset.
+- Leaving `locals.merge` empty (`{}`) in `github/main.tf` omits merge settings from Terraform while
+  live repository changes (such as enabling `delete_branch_on_merge`) remain untracked in code.
+  When drift is reported on a `settings-drift` issue, labeling the issue `kb-accepted` triggers
+  `kb-feedback.yml` (`add_settings_drift` in `scripts/kb/feedback.py`) to open a pull request
+  syncing `github/main.tf` (`merge` and `topics`) with the live repository.
 - Anonymous REST calls from hosted runners share the 60-per-hour limit and fail at random; always
   send the token.
 
