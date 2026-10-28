@@ -1,12 +1,12 @@
 name: deploy
 # The setup chatbot reads this title to tell runs apart.
-run-name: "${{ inputs.environment }} ${{ inputs.stage }}: ${{ (inputs.stage == 'preflight' || inputs.stage == 'verify') && 'readiness check' || inputs.apply && 'plan and apply' || 'plan' }}"
+run-name: "${{ inputs.environment }} ${{ inputs.stage }}: ${{ (inputs.stage == 'preflight' || inputs.stage == 'verify') && 'readiness check' || (inputs.stage == 'fix-quota' || inputs.stage == 'fix-vcpu') && (inputs.apply && 'plan and request quota' || 'plan quota request') || inputs.apply && 'plan and apply' || 'plan' }}"
 
 # Plan, then apply after a reviewer approves (decision 0016). Start it from the Actions tab or
 # the setup chatbot. The plan job signs in as the read-only plan identity. The apply job
 # waits in the <environment>-apply GitHub environment until a named reviewer approves, then
 # applies exactly the saved plan: its hash is checked and Terraform refuses a stale one.
-# One-time setup: scripts/pipeline-bootstrap.sh from Cloud Shell (docs/pipeline.md).
+# One-time setup: scripts/pipeline/bootstrap.sh from Cloud Shell (docs/pipeline.md).
 
 on:
   workflow_dispatch:
@@ -21,14 +21,17 @@ on:
           - prod
         default: sandbox
       stage:
-        description: "Which stage? platform (01) first, then config (02). preflight checks readiness before, verify after Nerdio's wizard."
+        description: "Which stage? platform (01) first, then config (02), or assistant (00). preflight/verify check readiness; fix-quota/fix-vcpu request quota."
         required: true
         type: choice
         options:
           - platform
           - config
+          - assistant
           - preflight
           - verify
+          - fix-quota
+          - fix-vcpu
         default: platform
       apply:
         description: "Apply after the plan? A reviewer still has to approve it."
@@ -36,12 +39,27 @@ on:
         type: boolean
         default: false
       destroy:
-        description: "Plan a teardown (-destroy) of the chosen stage? Requires platform or config."
+        description: "Plan a teardown (-destroy) of the chosen stage? Requires platform, config or assistant."
         required: false
         type: boolean
         default: false
       unlock_lock_id:
         description: "Force-unlock a stuck Terraform state lock ID (UUID)? Runs in the gated apply environment."
+        required: false
+        type: string
+        default: ""
+      fix_family:
+        description: "For fix-vcpu: VM family quota name (e.g. standardDSv5Family). Leave blank to infer from vm_size in answers."
+        required: false
+        type: string
+        default: ""
+      fix_limit:
+        description: "For fix-quota or fix-vcpu: new quota limit to request. Leave blank to infer from answers."
+        required: false
+        type: string
+        default: ""
+      fix_contact:
+        description: "For fix-quota: support contact email or email,COUNTRY (e.g. admin@contoso.com,USA) if Entra user lookup lacks it."
         required: false
         type: string
         default: ""
@@ -65,6 +83,9 @@ env:
   NERDIO_ENV: ${{ inputs.environment }}
   DESTROY: ${{ inputs.destroy && 'true' || 'false' }}
   LOCK_ID: ${{ inputs.unlock_lock_id }}
+  FIX_FAMILY: ${{ inputs.fix_family }}
+  FIX_LIMIT: ${{ inputs.fix_limit }}
+  FIX_CONTACT: ${{ inputs.fix_contact }}
 
 jobs:
   plan:

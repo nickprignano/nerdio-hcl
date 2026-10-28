@@ -17,7 +17,7 @@
 # repository's Actions logs are public.
 #
 # Inputs (set by the workflow from the GitHub environment's variables):
-#   STAGE                    platform | config | preflight | verify
+#   STAGE                    assistant | platform | config | preflight | verify | fix-quota | fix-vcpu
 #   NERDIO_ENV               sandbox | dev | prod
 #   ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID
 #   TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT
@@ -28,15 +28,21 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 action="${1:-}"
 case "$action" in plan | apply | unlock) ;; *) echo "usage: $0 plan|apply|unlock" >&2; exit 64 ;; esac
+readiness_stage=""
+fix_target=""
 case "${STAGE:-}" in
+  assistant) dir_name=00-assistant ;;
   platform) dir_name=01-platform ;;
   config) dir_name=02-nerdio-config ;;
   preflight) dir_name="" readiness_stage=pre-install ;;
   verify) dir_name="" readiness_stage=post-wizard ;;
-  *) echo "STAGE must be platform, config, preflight or verify" >&2; exit 64 ;;
+  fix-quota) dir_name="" fix_target=quota ;;
+  fix-vcpu) dir_name="" fix_target=vcpu ;;
+  *) echo "STAGE must be assistant, platform, config, preflight, verify, fix-quota or fix-vcpu" >&2; exit 64 ;;
 esac
 [ -z "${readiness_stage:-}" ] || [ "$action" = plan ] || { echo "$STAGE only checks; it never applies or unlocks" >&2; exit 64; }
-if [ "${DESTROY:-false}" = true ] && [ -n "${readiness_stage:-}" ]; then
+[ -z "${fix_target:-}" ] || [ "$action" != unlock ] || { echo "$STAGE cannot unlock Terraform state" >&2; exit 64; }
+if [ "${DESTROY:-false}" = true ] && { [ -n "${readiness_stage:-}" ] || [ -n "${fix_target:-}" ]; }; then
   echo "$STAGE cannot be run with DESTROY=true" >&2; exit 64
 fi
 [[ "${NERDIO_ENV:-}" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "NERDIO_ENV is missing or malformed" >&2; exit 64; }
@@ -111,15 +117,59 @@ if [ "$action" = unlock ]; then
 fi
 
 if [ "$action" = plan ]; then
-  echo "== Answers to tfvars"
   mkdir -p "$root/.nerdio"
-  # One versioned blob per environment, written by the bootstrap script or the setup chatbot.
-  blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null \
-    || fail "No answers for $NERDIO_ENV yet. Save them from the setup chatbot, or run scripts/pipeline/bootstrap.sh --answers-only."
-  # Tenant and subscription come from ARM_*; group names are looked up with the plan identity.
-  log="$work/init.log"
-  "$root/nerdio" init --non-interactive > "$log" 2>&1 || { redact < "$log"; fail "./nerdio init rejected the answers"; }
-  grep -E '^(✓|✗|Wrote)' "$log" | redact || true
+  if [ "$STAGE" != assistant ]; then
+    echo "== Answers to tfvars"
+    # One versioned blob per environment, written by the bootstrap script or the setup chatbot.
+    blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null \
+      || fail "No answers for $NERDIO_ENV yet. Save them from the setup chatbot, or run scripts/pipeline/bootstrap.sh --answers-only."
+    if [ -z "${fix_target:-}" ]; then
+      # Tenant and subscription come from ARM_*; group names are looked up with the plan identity.
+      log="$work/init.log"
+      "$root/nerdio" init --non-interactive > "$log" 2>&1 || { redact < "$log"; fail "./nerdio init rejected the answers"; }
+      grep -E '^(✓|✗|Wrote)' "$log" | redact || true
+    fi
+  else
+    blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null || true
+  fi
+
+  if [ -n "${fix_target:-}" ]; then
+    echo "== Plan quota request: $fix_target (read-only preview)"
+    fix_args=("$fix_target")
+    [ "$fix_target" = vcpu ] && [ -n "${FIX_FAMILY:-}" ] && fix_args+=(--family "$FIX_FAMILY")
+    [ -n "${FIX_LIMIT:-}" ] && fix_args+=(--limit "$FIX_LIMIT")
+    if [ "$fix_target" = quota ] && [ -n "${FIX_CONTACT:-}" ]; then
+      email_part="${FIX_CONTACT%%,*}"
+      country_part=""
+      [[ "$FIX_CONTACT" == *,* ]] && country_part="${FIX_CONTACT#*,}"
+      [ -n "$email_part" ] && fix_args+=(--email "$email_part")
+      [ -n "$country_part" ] && fix_args+=(--country "$country_part")
+    fi
+    log="$work/fix.log"
+    "$root/nerdio" fix "${fix_args[@]}" --plan > "$log" 2>&1 || { redact < "$log"; fail "./nerdio fix $fix_target --plan failed"; }
+    redact < "$log"
+    fix_summary="$(redact < "$log" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+    {
+      echo "## $NERDIO_ENV / $STAGE"
+      echo
+      echo '```'
+      cat "$log"
+      echo '```'
+    } | summary
+    jq -n --arg stage "$STAGE" --arg summary "$fix_summary" --arg addr "quota.$fix_target" \
+      '{stage: $stage, status: "planned", summary: $summary, adopted: [], changes: [{action: "request", address: $addr}]}' \
+      > "$work/summary.json"
+    blob upload plans "$result_blob" "$work/summary.json" --overwrite
+    printf '%s\n' "${fix_args[@]}" | jq -R . | jq -s . > "$work/fix-args.json"
+    cp "$root/.nerdio/answers.json" "$work/answers.json"
+    tar -C "$work" -cf "$work/plan.tar" fix-args.json answers.json
+    PLAN_BLOB="$run_dir/$STAGE.tar"
+    blob upload plans "$PLAN_BLOB" "$work/plan.tar" --overwrite
+    sha="$(sha256sum "$work/plan.tar" | cut -d' ' -f1)"
+    { echo "plan_blob=$PLAN_BLOB"; echo "plan_sha256=$sha"; echo "changes=true"; } >> "${GITHUB_OUTPUT:-/dev/null}"
+    echo "Saved quota request plan $sha"
+    exit 0
+  fi
 
   if [ -n "${readiness_stage:-}" ]; then
     echo "== Readiness check, $readiness_stage (read-only)"
@@ -161,18 +211,34 @@ if [ "$action" = plan ]; then
     echo "Using ${#adopted[@]} values adopted from Cloud Shell: ${adopted[*]}"
   fi
 
-  out="$platform/setup.auto.tfvars.json"
-  install="$(jq -r '.nerdio_install // "terraform"' "$out")"
-  case "$install" in
-    terraform | marketplace) ;;
-    *) fail "nerdio_install must be terraform or marketplace (found $install)." ;;
-  esac
+  if [ "$STAGE" = assistant ]; then
+    export TF_VAR_tenant_id="$ARM_TENANT_ID"
+    export TF_VAR_subscription_id="$ARM_SUBSCRIPTION_ID"
+    if [ ! -f "$stage_dir/zz-adopted.auto.tfvars.json" ] || [ -z "$(jq -r '.admin_group // empty' "$stage_dir/zz-adopted.auto.tfvars.json" 2>/dev/null)" ]; then
+      if [ -f "$root/.nerdio/answers.json" ]; then
+        fallback_group="$(jq -r '((.nerdio_admins // []) + (.admin_groups // [])) | map(select(test("^[0-9a-fA-F-]{36}$") | not)) | .[0] // empty' "$root/.nerdio/answers.json")"
+        fallback_loc="$(jq -r '.location // "eastus2"' "$root/.nerdio/answers.json")"
+        if [ -n "$fallback_group" ]; then
+          jq -n --arg g "$fallback_group" --arg l "$fallback_loc" '{admin_group: $g, location: $l}' > "$stage_dir/zz-adopted.auto.tfvars.json"
+        fi
+      fi
+    fi
+    [ -f "$stage_dir/zz-adopted.auto.tfvars.json" ] && [ -n "$(jq -r '.admin_group // empty' "$stage_dir/zz-adopted.auto.tfvars.json" 2>/dev/null)" ] \
+      || fail "No 00-assistant configuration in the pipeline's storage yet. Run ./nerdio assistant --admin-group \"<group>\" --pipeline or ./scripts/pipeline/bootstrap.sh --adopt first."
+  else
+    out="$platform/setup.auto.tfvars.json"
+    install="$(jq -r '.nerdio_install // "terraform"' "$out")"
+    case "$install" in
+      terraform | marketplace) ;;
+      *) fail "nerdio_install must be terraform or marketplace (found $install)." ;;
+    esac
 
-  # Both deploy identities read the Nerdio REST secret (decision 0015): plan to refresh stage 2,
-  # apply to configure the nme provider during the apply.
-  jq --arg p "${NERDIO_PLAN_PRINCIPAL_ID:-}" --arg a "${NERDIO_APPLY_PRINCIPAL_ID:-}" \
-    '.nme_secret = ((.nme_secret // {}) | .reader_object_ids = (((.reader_object_ids // []) + ([$p, $a] | map(select(. != "")))) | unique))' \
-    "$out" > "$work/p.json" && cat "$work/p.json" > "$out"
+    # Both deploy identities read the Nerdio REST secret (decision 0015): plan to refresh stage 2,
+    # apply to configure the nme provider during the apply.
+    jq --arg p "${NERDIO_PLAN_PRINCIPAL_ID:-}" --arg a "${NERDIO_APPLY_PRINCIPAL_ID:-}" \
+      '.nme_secret = ((.nme_secret // {}) | .reader_object_ids = (((.reader_object_ids // []) + ([$p, $a] | map(select(. != "")))) | unique))' \
+      "$out" > "$work/p.json" && cat "$work/p.json" > "$out"
+  fi
 
   if [ "$STAGE" = config ]; then
     echo "== Inputs from 01-platform"
@@ -254,6 +320,22 @@ if [ -z "${PLAN_BLOB:-}" ] || ! [[ "${PLAN_SHA256:-}" =~ ^[0-9a-f]{64}$ ]]; then
 echo "== Saved plan"
 blob download plans "$PLAN_BLOB" "$work/plan.tar"
 echo "$PLAN_SHA256  $work/plan.tar" | sha256sum --check --quiet - || fail "The saved plan changed since it was reviewed; not applying"
+if [ -n "${fix_target:-}" ]; then
+  tar -C "$work" -xf "$work/plan.tar" fix-args.json answers.json
+  mkdir -p "$root/.nerdio"
+  cp "$work/answers.json" "$root/.nerdio/answers.json"
+  mapfile -t fix_args < <(jq -r '.[]' "$work/fix-args.json")
+  echo "== Requesting quota: ./nerdio fix ${fix_args[*]} --yes"
+  log="$work/apply.log"
+  "$root/nerdio" fix "${fix_args[@]}" --yes > "$log" 2>&1 || { redact < "$log"; fail "./nerdio fix $fix_target failed"; }
+  redact < "$log"
+  detail="$(redact < "$log" | tail -n 5 | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
+  { echo "## $NERDIO_ENV / $STAGE"; echo; echo "Sent the reviewed quota request."; } | summary
+  jq -n --arg stage "$STAGE" --arg detail "$detail" \
+    '{stage: $stage, action: "apply", status: "applied", outputs: {detail: $detail}}' > "$work/applied.json"
+  blob upload plans "$result_blob" "$work/applied.json" --overwrite
+  exit 0
+fi
 tar -C "$work" -xf "$work/plan.tar" tfplan
 tar -C "$stage_dir" -xf "$work/plan.tar" .terraform.lock.hcl
 
@@ -276,6 +358,10 @@ outputs='{}'
 if [ "$STAGE" = platform ]; then
   outputs="$(terraform -chdir="$stage_dir" output -json 2>/dev/null \
     | jq '{nerdio_url, avd_vnet_name, resource_group_names, fslogix_share_unc} | with_entries(select(.value != null) | .value = .value.value)' \
+    || echo '{}')"
+elif [ "$STAGE" = assistant ]; then
+  outputs="$(terraform -chdir="$stage_dir" output -json 2>/dev/null \
+    | jq '{url, github_setup_url} | with_entries(select(.value != null) | .value = .value.value)' \
     || echo '{}')"
 fi
 jq -n --arg stage "$STAGE" --argjson outputs "$outputs" \

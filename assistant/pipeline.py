@@ -29,9 +29,10 @@ import urllib.request
 
 GITHUB_API = "https://api.github.com"
 WORKFLOW = "deploy.yml"
-STAGES = ("platform", "config")
+STAGES = ("assistant", "platform", "config")
 CHECKS = ("preflight", "verify")  # read-only readiness runs: before the install, and after the wizard
-RUNNABLE = STAGES + CHECKS
+FIXES = ("fix-quota", "fix-vcpu")  # gated App Service quota and VM vCPU requests
+RUNNABLE = STAGES + CHECKS + FIXES
 TIMEOUT = 30
 
 
@@ -161,13 +162,22 @@ class Pipeline:
             raise PipelineError(f"Couldn't save the answers to the pipeline's storage (HTTP {status}).")
         return {"saved": True, "environment": self.environment, "keys": sorted(answers)}
 
-    def start(self, stage: str, apply: bool) -> dict:
+    def start(self, stage: str, apply: bool, fix_family: str = "", fix_limit: int | None = None,
+              fix_contact: str = "") -> dict:
         if stage not in RUNNABLE:
             raise PipelineError(f"stage must be one of {', '.join(RUNNABLE)}")
         apply = apply and stage not in CHECKS  # the readiness check never applies
+        inputs = {"environment": self.environment, "stage": stage, "apply": "true" if apply else "false"}
+        if stage in FIXES:
+            if fix_family:
+                inputs["fix_family"] = str(fix_family)
+            if fix_limit is not None:
+                inputs["fix_limit"] = str(int(fix_limit))
+            if fix_contact:
+                inputs["fix_contact"] = str(fix_contact)
         status, data = self._github("POST", f"/actions/workflows/{WORKFLOW}/dispatches", {
             "ref": self.branch,
-            "inputs": {"environment": self.environment, "stage": stage, "apply": "true" if apply else "false"},
+            "inputs": inputs,
         })
         if status not in (200, 204):
             raise PipelineError(f"GitHub didn't start the deploy workflow (HTTP {status}): {data.get('message', '')}")

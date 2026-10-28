@@ -123,17 +123,37 @@ PIPELINE_TOOLS = [
     {
         "name": "pipeline_start",
         "description": "Start the deploy workflow for one stage: platform (Azure, Entra and Nerdio Manager) first, "
-                       "then config (Nerdio's own settings). With apply true, the run asks to apply after the "
-                       "plan, but the apply waits until a reviewer approves it in GitHub; you can't approve it. "
-                       "Stage preflight runs the read-only readiness check from the saved answers instead, and "
-                       "stage verify the same check after Nerdio's wizard (apply must be false for both). Only after the user said yes to this exact stage and apply choice.",
+                       "then config (Nerdio's own settings), or assistant (00-assistant, to update this chat). "
+                       "With apply true, the run asks to apply after the plan, but the apply waits until a reviewer "
+                       "approves it in GitHub; you can't approve it. Stage preflight runs the read-only readiness "
+                       "check from the saved answers instead, and stage verify the same check after Nerdio's wizard "
+                       "(apply must be false for both). Stages fix-quota and fix-vcpu preview a quota or vCPU increase "
+                       "in the plan job and send the request in the gated apply job after a reviewer approves it. "
+                       "Only after the user said yes to this exact stage and apply choice.",
         "input_schema": {
             "type": "object",
-            "properties": {"stage": {"type": "string", "enum": ["platform", "config", "preflight", "verify"]}, "apply": {"type": "boolean"}},
+            "properties": {
+                "stage": {
+                    "type": "string",
+                    "enum": ["assistant", "platform", "config", "preflight", "verify", "fix-quota", "fix-vcpu"],
+                },
+                "apply": {"type": "boolean"},
+                "fix_family": {
+                    "type": "string",
+                    "description": "For fix-vcpu: VM family quota name (e.g. standardDSv5Family). Omit to infer from vm_size.",
+                },
+                "fix_limit": {
+                    "type": "integer",
+                    "description": "For fix-quota or fix-vcpu: new quota limit to request. Omit to infer from answers.",
+                },
+                "fix_contact": {
+                    "type": "string",
+                    "description": "For fix-quota: support contact email or email,COUNTRY if Entra user lookup lacks it.",
+                },
+            },
             "required": ["stage", "apply"],
             "additionalProperties": False,
         },
-        "strict": True,
     },
     {
         "name": "pipeline_runs",
@@ -143,16 +163,19 @@ PIPELINE_TOOLS = [
     },
     {
         "name": "pipeline_plan",
-        "description": "One run's result. preflight or verify: the verdict and each readiness check's id, status, title, detail, fix, KB page and the right it needs. platform or "
-                       "config: the plan's change list (each resource address and what happens to it: create, "
-                       "update, delete, or delete then create), the variables adopted from an earlier Cloud Shell "
+        "description": "One run's result. preflight or verify: the verdict and each readiness check's id, status, title, detail, fix, KB page and the right it needs. "
+                       "assistant, platform, config, fix-quota or fix-vcpu: the plan's change list (each resource address and what happens to it: create, "
+                       "update, delete, delete then create, or request), the variables adopted from an earlier Cloud Shell "
                        "run, and, once applied, the apply's result; after a platform apply that includes the names "
                        "Nerdio's setup wizard asks for. A failed run gives the error and the log's last lines, IDs masked.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "run_id": {"type": "integer"},
-                "stage": {"type": "string", "enum": ["platform", "config", "preflight", "verify"]},
+                "stage": {
+                    "type": "string",
+                    "enum": ["assistant", "platform", "config", "preflight", "verify", "fix-quota", "fix-vcpu"],
+                },
                 "attempt": {"type": "integer", "description": "The run's attempt number. Default 1."},
             },
             "required": ["run_id", "stage"],
@@ -284,7 +307,13 @@ class Session:
             elif name == "pipeline_save_answers":
                 result = self.pipeline_save_answers()
             elif name == "pipeline_start":
-                result = self.pipeline.start(args["stage"], bool(args["apply"]))
+                result = self.pipeline.start(
+                    args["stage"],
+                    bool(args["apply"]),
+                    fix_family=str(args.get("fix_family") or ""),
+                    fix_limit=int(args["fix_limit"]) if args.get("fix_limit") is not None else None,
+                    fix_contact=str(args.get("fix_contact") or ""),
+                )
             elif name == "pipeline_runs":
                 result = self.pipeline.runs()
             elif name == "pipeline_plan":

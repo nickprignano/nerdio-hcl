@@ -326,6 +326,35 @@ class AssistantPipelineLinkTests(unittest.TestCase):
         _, problem = self.run_with({}, "git@github.com:contoso/nerdio-hcl.git")
         self.assertIn("bootstrap.sh", problem)
 
+    def test_single_command_bootstrap_runs_pipeline_when_missing(self):
+        calls = []
+        links = [
+            ({}, "No deploy pipeline here yet"),
+            ({"storage_account_id": "/subscriptions/x/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st",
+              "environment": "sandbox", "github": {"repository": "contoso/nerdio-hcl"}}, ""),
+        ]
+        assistant_tfvars = engine.ROOT / "environments" / "example" / "00-assistant" / "assistant.auto.tfvars.json"
+        backup = assistant_tfvars.read_bytes() if assistant_tfvars.exists() else None
+        try:
+            with mock.patch.object(nerdio, "check_profile", return_value=True), \
+                 mock.patch.object(nerdio.engine, "read_sources", return_value=SOURCES), \
+                 mock.patch.object(nerdio, "pipeline_link", side_effect=lambda _: links.pop(0)), \
+                 mock.patch.object(nerdio, "_bootstrap_pipeline", side_effect=lambda *f: calls.append(("bootstrap", f)) or 0), \
+                 mock.patch.object(nerdio, "_terraform", side_effect=lambda stage, *a: calls.append(("tf", a)) or 0), \
+                 mock.patch.object(nerdio, "_tf_output", return_value={"connected": True}), \
+                 redirect_stdout(io.StringIO()):
+                code = nerdio.main(["assistant", "--admin-group", "AVD Admins", "--pipeline"])
+            self.assertEqual(code, 0)
+            self.assertEqual(calls[0], ("bootstrap", ()))
+            self.assertIn(("bootstrap", ("--adopt",)), calls)
+            written = json.loads(assistant_tfvars.read_text(encoding="utf-8"))
+            self.assertEqual(written["pipeline"]["environment"], "sandbox")
+        finally:
+            if backup is not None:
+                assistant_tfvars.write_bytes(backup)
+            else:
+                assistant_tfvars.unlink(missing_ok=True)
+
 
 class MigrateTests(unittest.TestCase):
     def test_upgrade_platform_and_config_tfvars(self):

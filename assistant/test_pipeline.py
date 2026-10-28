@@ -188,6 +188,57 @@ class PipelineTests(unittest.TestCase):
             {"id": "nme.health", "status": "pass", "title": "Health page"}]})})
         self.assertEqual(p.plan(9, "verify")["verdict"], "GO")
 
+    def test_assistant_stage_plans_and_applies(self):
+        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        p, http = pipeline({(("POST", dispatch)): (204, b"")})
+        out = p.start("assistant", True)
+        self.assertTrue(out["apply_requested"])
+        self.assertEqual(http.calls[-1][3]["inputs"], {"environment": "sandbox", "stage": "assistant", "apply": "true"})
+        blobs = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/"
+        p, _ = pipeline({
+            ("GET", blobs + "10-1/assistant.json"): (200, {"summary": "Plan: 0 to add, 1 to change", "changes": [
+                {"action": "update", "address": "module.assistant.azurerm_container_app.this"}]}),
+            ("GET", blobs + "10-1/assistant-apply.json"): (200, {"status": "applied", "outputs": {"url": "https://ca-nme-assistant.example.azurecontainerapps.io"}}),
+        })
+        plan_out = p.plan(10, "assistant")
+        self.assertEqual(plan_out["change_count"], 1)
+        self.assertEqual(plan_out["apply"]["outputs"]["url"], "https://ca-nme-assistant.example.azurecontainerapps.io")
+
+    def test_fix_quota_and_vcpu_stages_pass_optional_inputs(self):
+        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        p, http = pipeline({(("POST", dispatch)): (204, b"")})
+        out = p.start("fix-vcpu", True, fix_family="standardDSv5Family", fix_limit=48)
+        self.assertTrue(out["apply_requested"])
+        self.assertEqual(http.calls[-1][3]["inputs"], {
+            "environment": "sandbox",
+            "stage": "fix-vcpu",
+            "apply": "true",
+            "fix_family": "standardDSv5Family",
+            "fix_limit": "48",
+        })
+        p.start("fix-quota", False, fix_limit=2, fix_contact="admin@contoso.com,USA")
+        self.assertEqual(http.calls[-1][3]["inputs"], {
+            "environment": "sandbox",
+            "stage": "fix-quota",
+            "apply": "false",
+            "fix_limit": "2",
+            "fix_contact": "admin@contoso.com,USA",
+        })
+        blobs = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/"
+        p, _ = pipeline({
+            ("GET", blobs + "11-1/fix-vcpu.json"): (200, {
+                "summary": "Raise standardDSv5Family vCPU quota in eastus2 from 10 to 48 (Azure Quota API).",
+                "changes": [{"action": "request", "address": "quota.vcpu"}],
+            }),
+            ("GET", blobs + "11-1/fix-vcpu-apply.json"): (200, {
+                "status": "applied",
+                "outputs": {"detail": "Requested."},
+            }),
+        })
+        plan_out = p.plan(11, "fix-vcpu")
+        self.assertEqual(plan_out["changes"], [{"action": "request", "address": "quota.vcpu"}])
+        self.assertEqual(plan_out["apply"]["status"], "applied")
+
     def test_runs_flag_waiting_for_approval(self):
         base = "https://api.github.com/repos/contoso/nerdio-hcl/actions"
         p, _ = pipeline({

@@ -101,6 +101,7 @@ variable "apply_assignable_roles" {
     "Reader",
     "Backup Reader",
     "Website Contributor",
+    "Cognitive Services User",
     "Key Vault Crypto Officer",
     "Key Vault Crypto User",
     "Key Vault Crypto Service Encryption User",
@@ -108,6 +109,8 @@ variable "apply_assignable_roles" {
     "Key Vault Secrets User",
     "Key Vault Certificates Officer",
     "Key Vault Certificate User",
+    "Storage Blob Data Contributor",
+    "Storage Blob Data Reader",
     "Storage File Data SMB Share Contributor",
     "Storage File Data SMB Share Elevated Contributor",
   ]

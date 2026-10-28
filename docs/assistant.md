@@ -23,13 +23,16 @@ In Azure Cloud Shell (Bash), signed in to the tenant and subscription you're set
 
 ```bash
 git clone https://github.com/nickprignano/nerdio-hcl ~/nerdio-hcl && cd ~/nerdio-hcl
-./nerdio assistant --admin-group "AVD Admins"
+./nerdio assistant --admin-group "AVD Admins" --pipeline
 ```
 
 It reads the tenant and subscription from `az account show` (checked against `./nerdio use`, if
-you've [pinned an environment](pipeline.md#enter-the-tenant-and-subscription-once)), writes
-`00-assistant/assistant.auto.tfvars.json` (gitignored), and runs `terraform apply`. Review the plan
-and type `yes`. When it finishes, it prints the URL. Open it and sign in.
+you've [pinned an environment](pipeline.md#enter-the-tenant-and-subscription-once)), bootstraps
+`00-pipeline` if it isn't deployed yet, writes `00-assistant/assistant.auto.tfvars.json`
+(gitignored), runs `terraform apply`, and moves `00-assistant`'s state and values into the
+pipeline's storage so the chat can plan its own updates later (`stage: assistant`). Omit
+`--pipeline` if you don't want the GitHub Actions pipeline yet. When it finishes, it prints the URL.
+Open it and sign in.
 
 With the Claude API (the default), connect it once afterwards, as described under
 [Claude API](#claude-api). Until then the chat opens but says it isn't connected yet.
