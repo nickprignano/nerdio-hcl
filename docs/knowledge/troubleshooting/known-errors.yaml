@@ -94,3 +94,10 @@ errors:
   source: terraform/testing-and-ci.md#ci-workflow
   status: verified
   added: '2026-10-27'
+- id: terraform-check-block-module-splat-cycle
+  symptom: '`Error: Cycle: (execute checks) -> ... -> module.nerdio_core.check.nerdio_health (expand) -> module.nerdio_core (close)` during `terraform plan` or `terraform test`'
+  cause: A downstream managed resource (such as `azurerm_management_lock` or `module.vnet_runner`) references a local using a module splat (`module.nerdio_core[*].<output>`) or uses `for_each` keys derived from data sources inside `module.nerdio_core`, which binds to `module.nerdio_core (close)` and its internal `check` block
+  fix: 'Index the conditional module output directly (`var.nerdio_install == "terraform" ? module.nerdio_core[0].<output> : module.nerdio_manager[0].<output>`) and use static plan-time `for_each` keys (`"rg-nerdio"`, `"kv-nme-secrets"`, `"kv-cmk"`, `"fslogix-${k}"`)'
+  source: terraform/testing-and-ci.md#terraform-test
+  status: verified
+  added: '2026-10-28'

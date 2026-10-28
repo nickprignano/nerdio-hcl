@@ -3,7 +3,7 @@ title: "Testing and CI"
 summary: "terraform test, tflint, the CI workflow and planned post-deploy checks"
 topic: terraform
 status: verified
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Testing and CI
@@ -43,6 +43,30 @@ last_reviewed: 2026-10-27
   `terraform fmt`'s `=` column alignment into separate vertical groups above and below the nested
   block. Single-line attributes immediately following `}))` align only with their own contiguous
   group.
+- **Child-module `check` blocks (`check "nerdio_health"`), module splats (`module.foo[*]`), and `for_each` keys:**
+  In Terraform's graph, `(execute checks)` runs after every managed resource, and a `check` block
+  inside a child module (`module.nerdio_core.check.nerdio_health`) is enclosed by
+  `module.nerdio_core (close)`. If a downstream managed resource (such as `azurerm_management_lock`
+  or `module.vnet_runner`) depends on a local that uses a module splat (`module.nerdio_core[*].<output>`)
+  or uses `for_each` map keys computed from data sources inside `module.nerdio_core`, Terraform
+  creates a graph cycle (`managed_resource -> (execute checks) -> check -> module.nerdio_core (close) -> managed_resource`).
+  Always index conditional modules directly (`var.nerdio_install == "terraform" ? module.nerdio_core[0].<output> : module.nerdio_manager[0].<output>`)
+  so the reference binds only to `module.nerdio_core.output.<output> (expand)`, and use static
+  plan-time keys (`"rg-nerdio"`, `"kv-nme-secrets"`, `"kv-cmk"`, `"fslogix-${k}"`) in `for_each` maps.
+- **Container Apps VNet subnet sizing (`/23` legacy vs `/27` Consumption workload profile):**
+  `azurerm_container_app_environment` with `infrastructure_subnet_id` defaults to the legacy
+  Consumption architecture when no `workload_profile` block is declared, requiring at least a `/23`
+  subnet (512 IPs). Declaring `workload_profile { name = "Consumption", workload_profile_type = "Consumption" }`
+  on the environment and `workload_profile_name = "Consumption"` on `azurerm_container_app_job`
+  switches to Workload Profiles, which requires only a `/27` subnet (32 IPs) delegated to
+  `Microsoft.App/environments`.
+- **KEDA `github-runner` scaler and `actions-runner` container environment variables:**
+  In `modules/vnet-runner`, KEDA's `github-runner` rule uses `trigger_parameter = "personalAccessToken"`
+  for PATs and `trigger_parameter = "appKey"` (plus `applicationID` and `installationID` in `metadata`)
+  for GitHub Apps. Inside the `ghcr.io/actions/actions-runner` container, environment variable names
+  are case-sensitive: PAT mode requires `ACCESS_TOKEN` (all caps — `ACCESS_token` is silently ignored
+  and fails runner registration), while GitHub App mode requires `APP_ID`, `APP_INSTALLATION_ID`, and
+  `APP_PRIVATE_KEY`.
 
 ## tflint
 
@@ -66,9 +90,19 @@ Tips:
 - Pin tool versions exactly in CI and pin actions to a release tag, not `@main`.
 - If a local environment can't reach the registry, CI is a fine place to validate against
   providers you can't download locally.
-- **ShellCheck `SC2015` (`A && B || C`):** Because CI runs `shellcheck` without `-S warning`,
-  chained `[ cond1 ] && [ cond2 ] || { ... }` triggers `SC2015 (info)` and fails the job. Always
-  write `if [ ... ] || [ ... ]; then ...; fi` in `scripts/pipeline/*.sh` and `github/settings.sh`.
+- **ShellCheck `SC2015` (`A && B || C`) and `SC2016` (backticks in single quotes):** Because CI
+  runs `shellcheck` without `-S warning`, chained `[ cond1 ] && [ cond2 ] || { ... }` triggers
+  `SC2015 (info)` and single-quoted strings containing Markdown backticks (such as
+  `echo 'Skipped: `01-platform`'`) trigger `SC2016 (info): Expressions don't expand in single quotes`.
+  Always write `if [ ... ] || [ ... ]; then ...; fi` and use Markdown bold (`**01-platform**`) or
+  HTML `<code>...</code>` tags instead of backticks in `scripts/pipeline/*.sh` and `github/settings.sh`.
+- **Trivy `config` CLI target and GitHub provider rules (`AVD-GIT-0001..0003`):**
+  `trivy config` accepts only a single target directory (`trivy config [flags] DIR`) and fails with
+  `FATAL multiple targets cannot be specified` if multiple directories are passed; scan `.` with
+  `--misconfig-scanners terraform --tf-exclude-downloaded-modules`. Trivy's `AVD-GIT-0002` flags any
+  `github_actions_environment_secret` resource with `plaintext_value`, even when used to store
+  non-secret Azure resource/tenant GUIDs so GitHub Actions masks them in public logs per Guardrail 4;
+  document intentional architectural exceptions in `.trivyignore`.
 - **Pipeline ABAC `apply_assignable_roles`:** `modules/deploy-pipeline` constrains the `apply`
   identity's `Role Based Access Control Administrator` assignment with an Azure ABAC condition
   limiting `RoleDefinitionId` to `apply_assignable_roles`. Whenever a stage or module adds an
