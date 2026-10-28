@@ -136,14 +136,14 @@ if [ "$action" = plan ]; then
   if [ -n "${fix_target:-}" ]; then
     echo "== Plan quota request: $fix_target (read-only preview)"
     fix_args=("$fix_target")
-    [ "$fix_target" = vcpu ] && [ -n "${FIX_FAMILY:-}" ] && fix_args+=(--family "$FIX_FAMILY")
-    [ -n "${FIX_LIMIT:-}" ] && fix_args+=(--limit "$FIX_LIMIT")
+    if [ "$fix_target" = vcpu ] && [ -n "${FIX_FAMILY:-}" ]; then fix_args+=(--family "$FIX_FAMILY"); fi
+    if [ -n "${FIX_LIMIT:-}" ]; then fix_args+=(--limit "$FIX_LIMIT"); fi
     if [ "$fix_target" = quota ] && [ -n "${FIX_CONTACT:-}" ]; then
       email_part="${FIX_CONTACT%%,*}"
       country_part=""
-      [[ "$FIX_CONTACT" == *,* ]] && country_part="${FIX_CONTACT#*,}"
-      [ -n "$email_part" ] && fix_args+=(--email "$email_part")
-      [ -n "$country_part" ] && fix_args+=(--country "$country_part")
+      if [[ "$FIX_CONTACT" == *,* ]]; then country_part="${FIX_CONTACT#*,}"; fi
+      if [ -n "$email_part" ]; then fix_args+=(--email "$email_part"); fi
+      if [ -n "$country_part" ]; then fix_args+=(--country "$country_part"); fi
     fi
     log="$work/fix.log"
     "$root/nerdio" fix "${fix_args[@]}" --plan > "$log" 2>&1 || { redact < "$log"; fail "./nerdio fix $fix_target --plan failed"; }
@@ -223,8 +223,9 @@ if [ "$action" = plan ]; then
         fi
       fi
     fi
-    [ -f "$stage_dir/zz-adopted.auto.tfvars.json" ] && [ -n "$(jq -r '.admin_group // empty' "$stage_dir/zz-adopted.auto.tfvars.json" 2>/dev/null)" ] \
-      || fail "No 00-assistant configuration in the pipeline's storage yet. Run ./nerdio assistant --admin-group \"<group>\" --pipeline or ./scripts/pipeline/bootstrap.sh --adopt first."
+    if [ ! -f "$stage_dir/zz-adopted.auto.tfvars.json" ] || [ -z "$(jq -r '.admin_group // empty' "$stage_dir/zz-adopted.auto.tfvars.json" 2>/dev/null)" ]; then
+      fail "No 00-assistant configuration in the pipeline's storage yet. Run ./nerdio assistant --admin-group \"<group>\" --pipeline or ./scripts/pipeline/bootstrap.sh --adopt first."
+    fi
   else
     out="$platform/setup.auto.tfvars.json"
     install="$(jq -r '.nerdio_install // "terraform"' "$out")"

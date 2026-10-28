@@ -41,7 +41,10 @@ while [ $# -gt 0 ]; do
   case "$1" in
     apply | --plan | --answers-only | --adopt) mode="$1"; shift ;;
     --assistant)
-      [ $# -ge 2 ] && [ -n "$2" ] || { echo "usage: $0 [--plan|--answers-only|--adopt] [--assistant <admin-group>]" >&2; exit 64; }
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        echo "usage: $0 [--plan|--answers-only|--adopt] [--assistant <admin-group>]" >&2
+        exit 64
+      fi
       admin_group="$2"; shift 2 ;;
     *) echo "usage: $0 [--plan|--answers-only|--adopt] [--assistant <admin-group>]" >&2; exit 64 ;;
   esac
