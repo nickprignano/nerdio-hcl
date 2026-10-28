@@ -51,12 +51,12 @@ check it, run it:
 ```bash
 V=preflight-v0.1.0   # pinned; never "latest"
 curl -fsSLO "https://github.com/nickprignano/nerdio-hcl/releases/download/$V/nerdio-preflight.pyz"
-echo "<sha256 for $V, from the table below>  nerdio-preflight.pyz" | sha256sum -c && python3 nerdio-preflight.pyz
+echo "f1ef3fd042d8ffb0e66414e61d7439d8b11ed0103f3edbe003bcdc983ec5466b  nerdio-preflight.pyz" | sha256sum -c && python3 nerdio-preflight.pyz
 ```
 
 | Release | SHA-256 of `nerdio-preflight.pyz` |
 |---|---|
-| *none yet* | The first release is published when a maintainer tags `preflight-v0.1.0` |
+| [`preflight-v0.1.0`](https://github.com/nickprignano/nerdio-hcl/releases/tag/preflight-v0.1.0) | `f1ef3fd042d8ffb0e66414e61d7439d8b11ed0103f3edbe003bcdc983ec5466b` |
 
 The checksum lives here, not only beside the download, so a swapped file can't bring its own.
 With `gh` signed in, `gh attestation verify nerdio-preflight.pyz --repo nickprignano/nerdio-hcl`

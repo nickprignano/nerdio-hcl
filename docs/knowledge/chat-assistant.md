@@ -3,15 +3,19 @@ title: "Chat assistant: the white-glove guide"
 summary: "What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2"
 topic: roadmap
 status: plan
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-28
 ---
 
 # Chat assistant: the white-glove guide
 
-What the kit's chat assistant is meant to do across the whole lifecycle, domain by domain. It
+What the kit's chat assistant covers across the whole lifecycle, domain by domain. It
 extends the "Guided setup by chat" section of the [roadmap](stack-options.md#guided-setup-by-chat-white-glove)
-and follows [decision 0008](decisions/0008-chat-front-door.md): chat is the front door, and the
-engine underneath stays deterministic and usable without AI. Spec only; nothing here is built yet.
+and follows [decision 0008](decisions/0008-chat-front-door.md) and [decision 0014](decisions/0014-self-hosted-setup-chatbot.md):
+chat is the front door, and the engine underneath stays deterministic and usable without AI.
+The self-hosted setup chatbot (`assistant/`, `modules/assistant`, `environments/example/00-assistant`),
+the Claude Code phase skills (`.claude/skills/`), the read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`)
+and the deterministic `./nerdio` engine are built; live trial-tenant end-to-end validation is next
+([chatbot-first.md](chatbot-first.md)).
 
 The assistant is a planning advisor, security reviewer, teacher and troubleshooter for the whole
 lifecycle, from "what is a subscription" to day-2 image rollouts. It works through the
@@ -37,8 +41,9 @@ deterministic engine (`./nerdio` commands, Terraform, the workflows). It never r
 
 ## Capability map
 
-Each domain becomes a skill in `.claude/skills/`. It lists the decisions the assistant guides, what it
-checks, and where Nerdio ties in.
+These nine lifecycle domains are served by the self-hosted setup chatbot (`assistant/prompt.md`) and
+the five phase skills in `.claude/skills/` (`setup`, `deploy`, `image`, `troubleshoot` and `handover`).
+Each section lists the decisions the assistant guides, what it checks, and where Nerdio ties in.
 
 ### 1. Azure foundations (teaching)
 - **Concepts:** tenants, subscriptions, management groups, resource groups, regions and zones,
@@ -149,25 +154,29 @@ checks, and where Nerdio ties in.
 
 ## How it's built
 
-- `CLAUDE.md`: the persona, guardrails and the phase order from the main spec.
-- Skills in `.claude/skills/`, one per domain above: `foundations`, `network`, `identity`,
-  `encryption`, `endpoint-mgmt`, `security-review`, `readiness`, `troubleshoot` and `day2`.
-  The phase skills (`setup`, `deploy`, `handover`) call them.
-- MCP servers:
+- **Self-hosted setup chatbot (`assistant/`, `modules/assistant`, `00-assistant`):** Container App
+  with Entra ID sign-in and Claude API workload identity federation (or optional Azure AI Foundry),
+  connected to the gated deploy pipeline (`assistant/pipeline.py`).
+- **`CLAUDE.md` and `.claude/skills/`:** five lifecycle phase skills (`setup`, `deploy`, `image`,
+  `troubleshoot` and `handover`) that cover the nine domains above for Claude Code users.
+- **MCP servers (`.mcp.json`):**
   - Microsoft Learn MCP, for grounded Azure, Entra and Intune answers.
   - HashiCorp's Terraform MCP server, for provider docs.
-  - The Nerdio MCP server we'd build, for read-only live state.
-- Deterministic commands the skills call: `./nerdio preflight | review | check | quota | logs`.
-- KB additions: [`troubleshooting/`](troubleshooting/README.md) (known errors), [`security/`](security/README.md) (baselines and accepted-risk
-  patterns), and short concept explainers that the foundations skill links to.
+  - The kit's read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`), for live Nerdio state.
+- **Deterministic commands and CI checks:** `./nerdio init | preflight | fix | migrate | redact | docs | form | schema check | assistant`,
+  plus Trivy IaC scanning in `.github/workflows/validate.yml`.
+- **KB backing data:** [`troubleshooting/`](troubleshooting/README.md) (known errors),
+  [`security/`](security/README.md) (baselines and accepted-risk patterns), and topic pages linked
+  from `schema/parameters.json`.
 
 ## Build order inside the chat item of the roadmap
 
-1. Parameter schema, then `readiness`, then `setup`. These give a guided first deploy.
-2. `identity` and `network`. They hold the decisions most likely to break a deploy.
-3. `troubleshoot` with a seeded known-errors catalog, taken from the kit's own runbook and red-team findings.
-4. `security-review` with an IaC scanner, then `encryption` and `endpoint-mgmt`.
-5. `day2` and `handover`, then the read-only Nerdio MCP server.
+1. **Built:** parameter schema (`schema/parameters.json`), read-only readiness engine (`scripts/nerdio/readiness/`),
+   self-hosted chatbot (`assistant/`) and `.claude/skills/setup`.
+2. **Built:** identity and multi-region network configuration in `schema/parameters.json`, `modules/network` and `modules/nerdio-identity`.
+3. **Built:** `.claude/skills/troubleshoot` and pipeline failure log masking with the seeded `known-errors.yaml` catalog.
+4. **Built:** Trivy IaC scanning in CI (`.github/workflows/validate.yml`), `modules/cmk-encryption`, `modules/nerdio-hardening` and `modules/intune-policies`.
+5. **Built:** `.claude/skills/deploy`, `image` and `handover`, plus the read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`).
 
 ## Must test
 

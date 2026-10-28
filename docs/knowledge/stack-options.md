@@ -3,7 +3,7 @@ title: "Roadmap: turnkey, maximum-automation Nerdio deployment"
 summary: "Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change"
 topic: roadmap
 status: plan
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-28
 ---
 
 # Roadmap: turnkey, maximum-automation Nerdio deployment
@@ -12,11 +12,13 @@ Which manual steps can be automated, how a user drives the kit, which tools in t
 IBM and Microsoft stacks are worth adding, and what Nerdio would need to change. Upstream asks are
 tracked with evidence in [nerdio/upstream-contributions.md](nerdio/upstream-contributions.md).
 
-Revised 2026-10-16. **Goal:** automate everything that can and should be automated, and
+Revised 2026-10-28. **Goal:** automate everything that can and should be automated, and
 wrap it in a turnkey experience, copy-paste, button or chat, so a community user does as little
 heavy lifting as possible. Every item is judged on two tests: does it remove a manual step, and
-does it make the kit easier to pick up? Claims were red-teamed against primary sources. Build items 1
-(single-apply install) and 2 (secret hand-off) are built; the rest isn't yet.
+does it make the kit easier to pick up? Claims were red-teamed against primary sources. Build items
+1 through 13 below (along with v2 multi-region landing zones, enterprise guardrails, private VNet
+runners and GitOps workflows) are now built and merged; live trial-tenant end-to-end validation
+and upstream Nerdio API items remain ([chatbot-first.md](chatbot-first.md)).
 
 ## The experience
 
@@ -264,16 +266,16 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 
 | Tool | Verdict | Why |
 |---|---|---|
-| Vault (Community) or OpenBao | Build | Removes the manual secret hand-off between stages. Workload identity federation for the Azure engine is Enterprise only. |
+| Vault (Community) or OpenBao | Built (`modules/openbao`) | Removes the manual secret hand-off between stages. Workload identity federation for the Azure engine is Enterprise only. |
 | Packer | Already in the kit | Pin the gallery image version in Terraform. |
 | HCP Packer | Optional only | Paid, no free tier. |
 | Ansible | Targeted ([decision 0028](decisions/0028-targeted-ansible-for-images-and-hybrid.md), supersedes [0006](decisions/0006-no-ansible.md)) | Terraform and Nerdio Scripted Actions own the control plane and auto-scaled hosts; optional `ansible/` playbooks cover Packer golden image baking, AD DS `AzFilesHybrid` storage domain joins, and day-2 state for persistent static/personal hosts. |
 | azuread | Already in the kit | Covers apps, groups and Conditional Access; stores client secrets in state. |
-| msgraph (preview v0.6.0) | For Graph gaps azuread doesn't cover | Official but preview. |
-| microsoft365 community provider (v1.4.0) | Optional Intune module, later | Purpose-built resources, but effectively one maintainer. |
+| msgraph (preview v0.6.0) | Built (`modules/intune-policies`, `modules/windows-365`) | Official Graph provider for Intune and Windows 365 gaps azuread doesn't cover. |
+| microsoft365 community provider (v1.4.0) | Optional alternative | Purpose-built resources, but effectively one maintainer; the kit uses `azure/azapi` (`Microsoft.Graph/v1.0` & `beta`) instead. |
 | GitHub Actions `workflow_dispatch` | The button UX ([decision 0007](decisions/0007-button-ux.md)) | Free, form inputs, runs the same engine. |
 | HCP Terraform no-code modules | Optional | Tier not verified. |
-| Terraform MCP server (HashiCorp) | Chat front door | Official; pairs with a Nerdio MCP server we'd build. |
+| Terraform MCP server (HashiCorp) | Built (`.mcp.json`) | Official; pairs with the kit's read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`). |
 | Terraform Stacks | Later | Available on all HCP Terraform plans and TFE 2.0; worth it once the steps between stages are automated and `nme` has a license. |
 | Boundary | Dropped | RDP credential injection is Enterprise/HCP only and has no Entra sign-in; Azure Bastion covers this. |
 | Turbonomic, Cloudability, Instana | Document only | Turbonomic conflicts with Nerdio auto-scale; Cloudability only needs consistent tags; Instana has no AVD sensor. |
@@ -305,47 +307,30 @@ needs hardware to test and Nerdio's API has nothing for it yet.
 ## Build order
 
 **We build (no Nerdio change needed):**
-1. **Single-apply install.** Swap the portal export for the pinned `mainTemplate.json`, add the
-   App Service settings, Key Vault secrets and SQL bootstrap the script writes, and deploy the code
-   from the package API. This is the biggest win: it removes the export and the install script.
-2. **Built: secret hand-off without a manual export (decision 0015, [docs/secrets.md](../secrets.md)).** The default is no Vault: stage 1
-   stores the Nerdio REST secret in Azure Key Vault, and stage 2 reads it with an ephemeral resource
-   over GitHub OIDC. Nothing extra to run, nothing in tfvars or the shell. The optional advanced module
-   is OpenBao, or Vault Community for people who already run it, hosted in Azure with a managed
-   identity. It mints a short-lived secret per run, so no long-lived Nerdio secret exists anywhere.
-   The real fix is upstream: the `nme` provider accepting federated credentials, which would remove
-   the secret entirely.
-3. **Image link.** Look up gallery images through the API and confirm the host pool `image` format
-   in a live sandbox run.
-4. **Pipeline.** Run the stages in order in GitHub Actions with OIDC. Move to Stacks later if the
-   provider gets a license.
-5. **Optional Playwright bridge** for the directory profile and first-run steps, opt-in and
-   removed once Nerdio ships APIs for them.
-6. **Post-deploy checks:** Terraform `check` blocks and `terraform test` calling the Nerdio REST and
-   Azure APIs, plus one Playwright end-user launch test through the Windows App web client.
-7. **Experience layer:** the `nerdio` entry point, `bootstrap` with preflight checks, the dev container,
-   and the Actions workflow forms. The engine comes first, then the button forms.
-8. **Gap fillers:** restapi-provider resources for app groups and the other uncovered objects.
-9. **Guided chat setup:** the parameter schema first (shared with the CLI wizard and the forms),
-   then `CLAUDE.md` and the setup, deploy, troubleshoot and handover skills, then the read-only Nerdio MCP server.
+1. **Built: single-apply install ([decision 0011](decisions/0011-terraform-native-install.md)).** `modules/nerdio-core` builds the App Service, Entra-only SQL, Key Vault, Automation, App Insights and storage in Terraform and deploys the app code from Nerdio's package API, while `modules/nerdio-manager` keeps the Azure Marketplace path as a first-class option.
+2. **Built: secret hand-off without a manual export ([decision 0015](decisions/0015-secrets-key-vault-default-openbao-optional.md), [docs/secrets.md](../secrets.md)).** Stage 1 stores the Nerdio REST secret in Azure Key Vault (`modules/nerdio-secrets`), and stage 2 reads it with an ephemeral resource over GitHub OIDC. The optional advanced module is OpenBao (`modules/openbao`), which mints a short-lived secret per run.
+3. **Built (untested live): image link.** `modules/nerdio-rest-gaps` registers Compute Gallery images in Nerdio (`/api/v1/desktop-image`) and manages host pool reimage schedules via `Mastercard/restapi`.
+4. **Built: pipeline ([decision 0016](decisions/0016-gated-deploy-pipeline.md)).** `.github/workflows/deploy.yml` and `modules/deploy-pipeline` run the stages in order in GitHub Actions with OIDC and environment approval gates, plus optional GitOps answer sets (`config/answers/<env>.json`) and ephemeral private VNet runners (`modules/vnet-runner`).
+5. **Built (untested live): optional Playwright bridge** (`scripts/playwright/wizard-complete.spec.ts`) for the directory profile and first-run steps, opt-in and removed once Nerdio ships APIs for them.
+6. **Built (untested live): post-deploy checks.** Terraform `check` blocks, `terraform test` suites, `./nerdio preflight --stage post-wizard` (stage `verify` in `deploy.yml`), and the Playwright end-user launch test (`scripts/playwright/session-launch.spec.ts`).
+7. **Built: experience layer.** The `./nerdio` entry point, `scripts/pipeline/bootstrap.sh` with preflight checks, the dev container (`.devcontainer/`), and the Actions workflow forms (`configure.yml`, `deploy.yml`, `image.yml`).
+8. **Built: gap fillers.** `modules/nerdio-rest-gaps` (`Mastercard/restapi`) covers desktop images, app groups, RBAC assignments, script/reimage schedules, notifications and UAM Shell Apps.
+9. **Built: guided chat setup ([decision 0014](decisions/0014-self-hosted-setup-chatbot.md), [decision 0017](decisions/0017-chatbot-first-deployment.md)).** `schema/parameters.json` (shared across chat, CLI and Actions forms), the self-hosted chatbot (`assistant/`, `modules/assistant`, `00-assistant`), `CLAUDE.md` and `.claude/skills/`, and the read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`).
 
 Suggested sequence: 1 → 4 → 7 (bootstrap and engine) gives a working one-command deploy; the
 parameter schema and setup skill (9) come next so the guided flow wraps it early. 2, 3, 5, 6 and 8
 harden it, and the MCP server comes last.
 
-**Next windows (directional, after the first window ends 2027-01-14; [decision 0010](decisions/0010-roadmap-horizon.md)):**
-10. **Azure Government.** A `cloud` parameter (`public` or `usgovernment`) in the schema, the CLI and
+**Extended enterprise & hybrid modules ([decision 0029](decisions/0029-v2-multi-region-enterprise-landing-zone.md), [decision 0030](decisions/0030-enterprise-guardrails-locks-and-gitops.md)):**
+10. **Built: Azure Government.** A `cloud` parameter (`public` or `usgovernment`) in the schema, the CLI and
     chat; cloud-derived endpoints and private DNS zones in every module; `environment` on azurerm,
-    azuread and azapi; preflight checks for Gov regions and Marketplace availability. Chat asks for
-    the cloud first, since it changes every later answer.
-11. **Intune through Nerdio.** Set Intune enrollment and compliance enforcement on host pools and
-    deployment profiles from the schema; document turning the integration on (a Global
-    Administrator consent step); an optional policy-as-code module with a one-owner-per-policy rule.
-12. **Windows 365.** An optional module for Azure network connections, provisioning policies,
-    user settings and groups with the `microsoft365` provider, handed to Nerdio for day-2 work.
-13. **Azure Local (AVD hybrid).** An optional module for the Azure side (Arc, logical network,
-    images to custom locations, AD DS join, local FSLogix path); Nerdio linking stays manual until
-    it has an API.
+    azuread and azapi; preflight checks for Gov regions and Marketplace availability.
+11. **Built: Intune through Nerdio (`modules/intune-policies`).** Sets Intune enrollment and compliance enforcement on host pools and
+    deployment profiles from the schema, plus an optional policy-as-code module for Windows Update rings and Defender exclusions.
+12. **Built: Windows 365 (`modules/windows-365`).** Optional module for Azure network connections, provisioning policies,
+    user settings and groups, handed to Nerdio for day-2 work.
+13. **Built: Azure Local / AVD hybrid (`modules/azure-local`).** Optional module for the Azure side (Arc, logical network,
+    custom location RBAC, AD DS join, local FSLogix path); Nerdio linking stays manual until it has an API.
 
 **Nerdio changes (upstream asks, in priority order):**
 1. A directory profile create API and resource. This is the hard blocker.
