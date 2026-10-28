@@ -48,7 +48,9 @@ GITHUB_TOKEN=$(gh auth token) python3 scripts/kb/curate.py --since-days 30
 ```
 
 A source that fails (rate limit, site down) is listed at the bottom of the digest and doesn't
-stop the others.
+stop the others. YouTube's Atom feed endpoint (`youtube.com/feeds/videos.xml`) intermittently
+returns transient `HTTP Error 500` responses on the first request, so `http_get` in
+`scripts/kb/sources.py` retries HTTP 5xx once after a short backoff.
 
 ## Prior-art check (`kb-prior-art`)
 
@@ -159,6 +161,20 @@ of each month and keeps one open issue labelled **kb-freshness** listing:
 Work it by re-checking each item against a primary source or a real run, then updating the page's
 text, `last_reviewed` and `status`. When `freshness.py` reports `0` items, `kb-freshness.yml`
 automatically closes the open `kb-freshness` issue. Run it locally with `python3 scripts/kb/freshness.py`.
+
+Lessons learned from running the curation and freshness loop:
+
+- **Empty digest history and 90-day expert window:** If `kb-freshness` runs before the first
+  weekly `kb-digest` issue exists (`digests = []`) or within 90 days of a tracked expert's
+  `reviewed` date in `experts.yaml`, `expert_items()` skips the `Expert yield` check so newly
+  scored experts aren't flagged as broken feeds.
+- **Inline marker pattern on `partial` pages:** `INLINE_UNVERIFIED` in `scripts/kb/freshness.py`
+  matches `*unverified`, `*not verified` and the literal phrase `not yet` + `reviewed` on pages
+  whose status is `partial` or `unverified`. Avoid using that phrase in prose about third-party
+  repositories unless intentionally marking a claim for review.
+- **Auto-closing clean freshness issues:** `kb-freshness.yml` needs an explicit `items == '0'`
+  branch to close open `kb-freshness` issues once all items are resolved; gating the issue step
+  only on `items != '0'` leaves stale issues open after fixes land.
 
 ## Checks on every change (`kb-validate`)
 

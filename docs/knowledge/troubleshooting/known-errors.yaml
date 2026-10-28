@@ -115,3 +115,24 @@ errors:
   source: terraform/testing-and-ci.md#ci-workflow
   status: verified
   added: '2026-10-28'
+- id: github-settings-drift-missing-app-id
+  symptom: '`Error: [@octokit/auth-app] appId option is required` in the daily `GitHub settings drift` workflow (`github-settings-drift.yml`)'
+  cause: '`actions/create-github-app-token` runs when `vars.SETTINGS_APP_ID` is not set yet in the `github-settings-read` environment'
+  fix: 'Gate `create-github-app-token` and `terraform plan` behind a `check_app` step that verifies `[ -n "${{ vars.SETTINGS_APP_ID }}" ]`, and write setup instructions to `$GITHUB_STEP_SUMMARY` when unset'
+  source: terraform/github-settings.md#tests-and-credentials
+  status: verified
+  added: '2026-10-28'
+- id: kb-freshness-false-positive-expert-yield
+  symptom: '`KB freshness check` (`kb-freshness`) flags every tracked expert with `nothing in the digests since <date>; check the feed still works` or stays open after all items are fixed'
+  cause: '`expert_items()` evaluated digest yield even when `digests` was empty (`[]`) before the first `kb-digest` issue or within 90 days of an expert''s `reviewed` date, and `kb-freshness.yml` had no `items == ''0''` auto-close step'
+  fix: 'Skip `Expert yield` in `scripts/kb/freshness.py` when `digests` is empty or `(today - reviewed).days <= max_age_days`, and close open `kb-freshness` issues in `.github/workflows/kb-freshness.yml` when `steps.collect.outputs.items == ''0''`'
+  source: curation.md#freshness-check-kb-freshness
+  status: verified
+  added: '2026-10-28'
+- id: kb-curator-youtube-feed-http-500
+  symptom: 'Weekly `kb-digest` issues list `Nerdio (YouTube channel): HTTP Error 500: Internal Server Error` under `## Fetch errors`'
+  cause: 'YouTube''s Atom feed endpoint (`https://www.youtube.com/feeds/videos.xml?channel_id=...`) intermittently returns transient HTTP 500 responses on the first request'
+  fix: 'Retry HTTP 5xx (`500 <= e.code < 600`) once after a short backoff in `scripts/kb/sources.py` (`http_get`)'
+  source: curation.md#weekly-digest-kb-curator
+  status: verified
+  added: '2026-10-28'
