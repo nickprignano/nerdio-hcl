@@ -43,16 +43,26 @@ last_reviewed: 2026-10-28
   `terraform fmt`'s `=` column alignment into separate vertical groups above and below the nested
   block. Single-line attributes immediately following `}))` align only with their own contiguous
   group.
-- **Child-module `check` blocks (`check "nerdio_health"`), module splats (`module.foo[*]`), and `for_each` keys:**
+- **Child-module `check` blocks (`check "nerdio_health"`), module splats (`module.foo[*]`), and `terraform test` teardown cycles:**
   In Terraform's graph, `(execute checks)` runs after every managed resource, and a `check` block
   inside a child module (`module.nerdio_core.check.nerdio_health`) is enclosed by
-  `module.nerdio_core (close)`. If a downstream managed resource (such as `azurerm_management_lock`
-  or `module.vnet_runner`) depends on a local that uses a module splat (`module.nerdio_core[*].<output>`)
-  or uses `for_each` map keys computed from data sources inside `module.nerdio_core`, Terraform
-  creates a graph cycle (`managed_resource -> (execute checks) -> check -> module.nerdio_core (close) -> managed_resource`).
-  Always index conditional modules directly (`var.nerdio_install == "terraform" ? module.nerdio_core[0].<output> : module.nerdio_manager[0].<output>`)
-  so the reference binds only to `module.nerdio_core.output.<output> (expand)`, and use static
-  plan-time keys (`"rg-nerdio"`, `"kv-nme-secrets"`, `"kv-cmk"`, `"fslogix-${k}"`) in `for_each` maps.
+  `module.nerdio_core (close)`. Two distinct graph cycles can arise:
+  1. **Plan-time splat/key cycle:** If a downstream managed resource or module depends on a local
+     that uses a module splat (`module.nerdio_core[*].<output>`) or uses `for_each` map keys
+     computed from data sources inside `module.nerdio_core`, Terraform creates a plan-time cycle
+     (`managed_resource -> (execute checks) -> check -> module.nerdio_core (close) -> managed_resource`).
+     Always index conditional modules directly (`var.nerdio_install == "terraform" ? module.nerdio_core[0].<output> : module.nerdio_manager[0].<output>`)
+     and use static plan-time `for_each` keys (`"rg-nerdio"`, `"kv-nme-secrets"`, `"kv-cmk"`, `"fslogix-${k}"`).
+  2. **Teardown (`command = apply`) cycle in `terraform test`:** When a `terraform test` `run` block
+     executes `command = apply` (such as `run "marketplace_discovers_existing"` in `01-platform`),
+     Terraform constructs a destroy graph after the run finishes to clean up state. In the destroy
+     graph, resource dependency edges are reversed (so any resource inside `module.nerdio_core`
+     waits on a root resource `azurerm_management_lock.stateful (destroy)` that depended on
+     `module.nerdio_core` outputs), while `(execute checks) -> module.nerdio_core.check.nerdio_health (expand) -> module.nerdio_core (close)`
+     remains forward. Never make a root-module managed resource depend on outputs of a child module
+     that contains a `check` block; instead, lock the parent `nerdio` resource group
+     (`module.foundation.resource_group_ids["nerdio"]`) directly, as Azure `CanNotDelete` locks on a
+     resource group automatically inherit down to every child resource inside it.
 - **Container Apps VNet subnet sizing (`/23` legacy vs `/27` Consumption workload profile):**
   `azurerm_container_app_environment` with `infrastructure_subnet_id` defaults to the legacy
   Consumption architecture when no `workload_profile` block is declared, requiring at least a `/23`
