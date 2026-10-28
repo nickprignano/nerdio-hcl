@@ -179,14 +179,14 @@ module "nerdio_manager" {
 }
 
 # One of the two install modules exists. Separate locals keep the Entra app (which needs only the
-# hostname) from depending on the resources that need the Entra app.
+# hostname) and downstream modules/locks from depending on module.nerdio_core (close) and its check block.
 locals {
   nerdio_hostname               = var.nerdio_install == "terraform" ? module.nerdio_core[0].app_service_hostname : module.nerdio_manager[0].app_service_hostname
-  nerdio_app_service_id         = one(concat(module.nerdio_core[*].app_service_id, module.nerdio_manager[*].app_service_id))
-  nerdio_sql_server_ids         = merge(concat(module.nerdio_core[*].sql_server_ids, module.nerdio_manager[*].sql_server_ids)...)
-  nerdio_key_vault_ids          = merge(concat(module.nerdio_core[*].key_vault_ids, module.nerdio_manager[*].key_vault_ids)...)
-  nerdio_storage_account_ids    = merge(concat(module.nerdio_core[*].storage_account_ids, module.nerdio_manager[*].storage_account_ids)...)
-  nerdio_automation_account_ids = merge(concat(module.nerdio_core[*].automation_account_ids, module.nerdio_manager[*].automation_account_ids)...)
+  nerdio_app_service_id         = var.nerdio_install == "terraform" ? module.nerdio_core[0].app_service_id : module.nerdio_manager[0].app_service_id
+  nerdio_sql_server_ids         = var.nerdio_install == "terraform" ? module.nerdio_core[0].sql_server_ids : module.nerdio_manager[0].sql_server_ids
+  nerdio_key_vault_ids          = var.nerdio_install == "terraform" ? module.nerdio_core[0].key_vault_ids : module.nerdio_manager[0].key_vault_ids
+  nerdio_storage_account_ids    = var.nerdio_install == "terraform" ? module.nerdio_core[0].storage_account_ids : module.nerdio_manager[0].storage_account_ids
+  nerdio_automation_account_ids = var.nerdio_install == "terraform" ? module.nerdio_core[0].automation_account_ids : module.nerdio_manager[0].automation_account_ids
 }
 
 module "nerdio_identity" {
