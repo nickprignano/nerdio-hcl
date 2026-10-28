@@ -137,6 +137,24 @@ variable "uam_repositories" {
   default = {}
 }
 
+variable "uam_shell_apps" {
+  description = "Unified Application Management (UAM) Shell Apps (PowerShell install, uninstall, and detection scripts, e.g. from EUCPilots/evergreen-packages) via /api/v1/shell-apps."
+  type = map(object({
+    name                   = string
+    description            = optional(string, "Managed by Terraform")
+    publisher              = optional(string, "")
+    version                = string
+    is_public              = optional(bool, false)
+    reboot_after_install   = optional(bool, false)
+    reboot_after_uninstall = optional(bool, false)
+    install_script         = string
+    uninstall_script       = optional(string, "")
+    detection_script       = string
+    linked_file_uri        = optional(string)
+  }))
+  default = {}
+}
+
 variable "host_pool_reimage_schedules" {
   description = "Recurring host pool re-image / update schedules via /api/v1/arm/hostpool/{subscriptionId}/{resourceGroup}/{hostPoolName}/schedule."
   type = map(object({

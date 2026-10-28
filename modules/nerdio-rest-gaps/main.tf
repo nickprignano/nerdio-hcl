@@ -232,6 +232,33 @@ resource "restapi_object" "uam_repository" {
   })
 }
 
+resource "restapi_object" "uam_shell_app" {
+  for_each = var.uam_shell_apps
+
+  path          = "/api/v1/shell-apps"
+  create_path   = "/api/v1/shell-apps"
+  read_path     = "/api/v1/shell-apps/{id}"
+  update_path   = "/api/v1/shell-apps/{id}"
+  destroy_path  = "/api/v1/shell-apps/{id}"
+  create_method = "POST"
+  update_method = "PUT"
+  id_attribute  = "payload/id"
+
+  data = jsonencode({
+    name                 = each.value.name
+    description          = each.value.description
+    publisher            = each.value.publisher
+    version              = each.value.version
+    isPublic             = each.value.is_public
+    rebootAfterInstall   = each.value.reboot_after_install
+    rebootAfterUninstall = each.value.reboot_after_uninstall
+    installScript        = each.value.install_script
+    uninstallScript      = each.value.uninstall_script
+    detectionScript      = each.value.detection_script
+    linkedFileUri        = each.value.linked_file_uri
+  })
+}
+
 resource "restapi_object" "host_pool_reimage_schedule" {
   for_each = var.host_pool_reimage_schedules
 

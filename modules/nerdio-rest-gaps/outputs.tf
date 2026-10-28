@@ -23,6 +23,11 @@ output "uam_repository_ids" {
   value       = { for k, r in restapi_object.uam_repository : k => r.id }
 }
 
+output "uam_shell_app_ids" {
+  description = "UAM Shell App IDs keyed by logical key."
+  value       = { for k, a in restapi_object.uam_shell_app : k => a.id }
+}
+
 output "host_pool_reimage_schedule_ids" {
   description = "Host pool re-image schedule IDs keyed by host pool name."
   value       = { for k, s in restapi_object.host_pool_reimage_schedule : k => s.id }
