@@ -3,7 +3,7 @@ title: "Security baselines and hardening"
 summary: "Security baselines Nerdio publishes, kit hardening, and how to record accepted risks"
 topic: security
 status: partial
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Security baselines and hardening
@@ -30,6 +30,20 @@ All in [Get-Nerdio/NMW](https://github.com/Get-Nerdio/NMW):
 - Private App Service, SQL, Key Vault, Storage and Automation (`DSCAndHybridWorker`) through
   `modules/nerdio-hardening` and `modules/automation-workers`; see
   [../nerdio/platform.md](../nerdio/platform.md#hardening-private-endpoints).
+- Ephemeral VNet Container Apps Job runner (`modules/vnet-runner`, `enable_vnet_runner = true` in
+  `01-platform` and `runner_labels = ["self-hosted", "nerdio-vnet"]` in `00-pipeline`): deploys into
+  a `/27` Consumption Workload Profile subnet (`snet-vnet-runner`) delegated to
+  `Microsoft.App/environments`, authenticates via KEDA `github-runner` (GitHub App or PAT stored in
+  Key Vault), and allows `.github/workflows/deploy.yml` to reach private Key Vault, SQL, and state
+  storage endpoints when public network access is disabled ([decision 0030](../decisions/0030-enterprise-guardrails-locks-and-gitops.md)).
+- `CanNotDelete` management locks (`enable_resource_locks = true` by default in `prod`) on the
+  `nerdio` resource group (inheriting down to SQL Server, Key Vault, and App Service), the Stage 2
+  REST secret Key Vault, the CMK Key Vault, FSLogix storage accounts/ANF volumes, and the `00-pipeline`
+  Terraform state storage account, paired with automated destructive-change guardrails in
+  `scripts/pipeline/stage.sh` that block accidental deletion or replacement of stateful Stage 1 and
+  Stage 2 resources unless `allow_replace = true` is explicitly passed.
+- Static IaC security scanning (`trivy config --severity HIGH,CRITICAL` in `.github/workflows/validate.yml`)
+  with documented architectural exceptions in `.trivyignore`.
 - Customer-Managed Key (CMK) encryption with an RSA Key Vault key (automatic rotation) and
   per-region Disk Encryption Sets (DES) via `modules/cmk-encryption` (`cmk_encryption` in
   `01-platform`), passed automatically to `02-nerdio-config` host pools.

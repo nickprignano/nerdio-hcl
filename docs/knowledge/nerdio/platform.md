@@ -126,6 +126,11 @@ registration/first-run state. Those two keep the wizard from being fully automat
   private endpoints for SQL, Key Vault and the web app), because the Marketplace resource names
   are only known after the first apply. Use either the runbook or Terraform, not both.
 - With a private App Service, admins need a route into the VNet (VPN, Bastion or a jump host).
+- When `disable_public_access = true` closes public access on Key Vault, SQL Server, and storage
+  accounts, GitHub-hosted `ubuntu-latest` runners cannot reach them. Enabling `enable_vnet_runner = true`
+  in `01-platform` and `runner_labels = ["self-hosted", "nerdio-vnet"]` in `00-pipeline` provisions
+  `modules/vnet-runner` inside `snet-vnet-runner` (`/27`, delegated to `Microsoft.App/environments`)
+  so `.github/workflows/deploy.yml` executes inside the AVD spoke VNet ([decision 0030](../decisions/0030-enterprise-guardrails-locks-and-gitops.md)).
 
 ## Networking note
 
