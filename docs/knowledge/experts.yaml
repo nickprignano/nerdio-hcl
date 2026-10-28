@@ -1,4 +1,4 @@
-reviewed: '2026-10-17'
+reviewed: '2026-10-28'
 experts:
 - id: dominiek-verham
   name: Dominiek Verham
@@ -28,7 +28,7 @@ experts:
     recency: 3
     track_record: 3
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Microsoft MVP and Nerdio NVP. The most Nerdio-focused independent blog found. Latest: "Configuring
     Nerdio Manager for MSP: post-installation checklist".
@@ -61,7 +61,7 @@ experts:
     recency: 3
     track_record: 2
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Nerdio TAM. Weekly AVD image and FSLogix posts, plus scripted actions on GitHub. Latest: "How to Update
     an AVD Golden Image to Windows 11 26H2 Without a Bad Monday".
@@ -93,7 +93,7 @@ experts:
     recency: 2
     track_record: 3
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Maintains Evergreen and the aaronparker/nerdio scripts. Latest: "Evergreen Workbench is Generally
     Available".
@@ -125,7 +125,7 @@ experts:
     recency: 3
     track_record: 3
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Deep AVD gotchas. Makes Hydra, an AVD management tool that competes with Nerdio, so filter out product
     posts. Latest: "Azure Virtual Desktop Hybrid With Hydra Is General Available".
@@ -156,7 +156,7 @@ experts:
     recency: 3
     track_record: 1
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Frequent AVD how-tos. Only the blog is watched. Identity: accounts aren't cross-linked, so only one
     is watched. Latest: "Azure Virtual Desktop: Now Available in Your Region".
@@ -189,7 +189,7 @@ experts:
     recency: 3
     track_record: 2
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Nerdio NVP. MIT-licensed Nerdio scripted actions; maintains the awesome-azure-virtual-desktop list.
     Latest: "Azure Local: Entra Joined AVD Session Hosts with PowerShell".
@@ -219,7 +219,7 @@ experts:
     recency: 3
     track_record: 1
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Posts almost daily without saying how; spot-check a sample for accuracy at the next review. Latest:
     "Windows 11 Image Versioning for AVD: Testing Copilot Search and AI Features Before They Hit Production".
@@ -252,7 +252,7 @@ experts:
     recency: 1
     track_record: 2
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Nerdio NVP. Nerdio scripted actions and install guides; quiet since March 2026. Latest: "Pilot Nerdio
     to a succesfull install".
@@ -287,7 +287,7 @@ experts:
     recency: 2
     track_record: 3
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Nerdio TAM and Microsoft MVP. His new blog, virtualdesktops.community, couldn't be checked yet. Latest:
     "Context-Based Redirection in AVD & Windows 365 (guide)".
@@ -319,7 +319,7 @@ experts:
     recency: 0
     track_record: 3
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Long-running AVD video series. No dated AVD video in the last 12 months was found; YouTube Shorts
     weren't checked.
@@ -352,7 +352,7 @@ experts:
     recency: 1
     track_record: 2
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: Nerdio NVP. Deep when on topic, but mostly writes about Intune.
 - id: alex-ter-neuzen
   name: Alex ter Neuzen
@@ -380,7 +380,7 @@ experts:
     recency: 3
     track_record: 1
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     AVD monitoring workbooks and KQL. Only the blog is watched, filtered to AVD. Latest: "Azure Virtual
     Desktop | Sessionhost monitoring 2.0".
@@ -410,7 +410,7 @@ experts:
     recency: 3
     track_record: 2
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     AVD explainers. Only the blog is watched, filtered to AVD. Identity: accounts aren't cross-linked,
     so only one is watched. Latest: "Azure Virtual Desktop Hybrid Is Now GA: 6 Reasons to Use It, and
@@ -441,7 +441,7 @@ experts:
     recency: 3
     track_record: 1
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Maintains an AVD monitoring baseline (a fork of Microsoft's AMBA alerts). Latest: "Azure VM OS disk
     and C: drive sizes don".
@@ -470,7 +470,7 @@ experts:
     recency: 2
     track_record: 3
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Joined Nerdio in 2026 from Microsoft's Windows 365 and AVD team. Mostly overviews. Latest: "Azure
     Virtual Desktop for hybrid environments".
@@ -496,7 +496,7 @@ experts:
     recency: 3
     track_record: 3
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: Webinars and release walkthroughs. Nerdio's blog has no feed.
 - id: microsoft-avd-blog
   name: Microsoft Azure Virtual Desktop blog
@@ -525,7 +525,7 @@ experts:
     recency: 3
     track_record: 3
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Official AVD announcements. Latest: "Now generally available: Regional resiliency for Azure Virtual
     Desktop".
@@ -552,7 +552,7 @@ experts:
     recency: 3
     track_record: 2
     feedability: 3
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: A curated roundup, not original content. Used to find new people at each review.
 - id: aresh-sarkari
   name: Aresh Sarkari
@@ -580,7 +580,7 @@ experts:
     recency: 1
     track_record: 2
     feedability: 2
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Mostly Windows 365 now. Identity: accounts aren't cross-linked, so only one is watched. Latest: "Windows
     365 Local Admin - Cloud PC Configurations vs User Settings + PowerShell (Graph REST API)".
@@ -610,7 +610,7 @@ experts:
     recency: 0
     track_record: 3
     feedability: 1
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Microsoft MVP and Nerdio NVP. Newest Nerdio video found is from July 2025; the channel moved to a
     new ID.
@@ -635,7 +635,7 @@ experts:
     recency: 0
     track_record: 2
     feedability: 1
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Nerdio NVP. Nothing on Nerdio or AVD in the current feed. Identity: accounts aren't cross-linked,
     so only one is watched.
@@ -659,7 +659,7 @@ experts:
     recency: 0
     track_record: 3
     feedability: 1
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Active, but not on Nerdio or AVD now. Identity: accounts aren't cross-linked, so only one is watched.
 - id: bas-van-kaam
@@ -685,7 +685,7 @@ experts:
     recency: 0
     track_record: 3
     feedability: 0
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     No posts since 2023. Latest: "The Azure Virtual Desktop Security Guidelines Cheat Sheet - v1.0".
 - id: sander-rozemuller
@@ -709,7 +709,7 @@ experts:
     recency: 0
     track_record: 3
     feedability: 1
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: >-
     Strong AVD automation history; recent posts are all Intune. Identity: accounts aren't cross-linked,
     so only one is watched.
@@ -734,7 +734,7 @@ experts:
     recency: 0
     track_record: 3
     feedability: 0
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: Nerdio NVP. His site couldn't be read and no feed was confirmed.
 - id: fabian-rodrigues
   name: Fabian Rodrigues
@@ -754,5 +754,5 @@ experts:
     recency: 0
     track_record: 0
     feedability: 0
-  reviewed: '2026-10-17'
+  reviewed: '2026-10-28'
   notes: Couldn't identify a Nerdio or AVD author by this name.

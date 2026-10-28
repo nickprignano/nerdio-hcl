@@ -2,12 +2,13 @@
 title: "Workbenches: Cloud Shell and Codespaces"
 summary: "Where to run the kit from a browser: Azure Cloud Shell (baseline) or GitHub Codespaces (optional), with their limits"
 topic: overview
-status: partial
-last_reviewed: 2026-10-17
+status: verified
+last_reviewed: 2026-10-28
 sources:
   - https://docs.github.com/en/codespaces/setting-your-user-preferences/setting-your-timeout-period-for-github-codespaces
   - https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-codespaces/about-billing-for-github-codespaces
   - https://containers.dev/features
+  - https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows#device-code-flow
 ---
 
 # Workbenches: Cloud Shell and Codespaces
@@ -36,11 +37,12 @@ Checked against GitHub's docs on 2026-10-17:
 - A stopped codespace is deleted after the retention period (30 days by default). Local Terraform
   state goes with it.
 - Azure sign-in is `az login --use-device-code`. A Conditional Access policy that blocks the
-  device-code flow stops this; such tenants need Cloud Shell. *Unverified* on a real tenant.
+  device-code authentication flow stops this; such tenants need Cloud Shell
+  ([Conditional Access authentication flows](https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows#device-code-flow)).
 - `.devcontainer/devcontainer.json` uses the official `azure-cli`, `terraform` (pinned, with
-  tflint) and `github-cli` features. `post-create.sh` installs `nerdio/nme` from Nerdio's release.
-  The codespace's `GITHUB_TOKEN` is scoped to this repository, so the script unsets it and uses
-  the installer's unauthenticated path. *Unverified:* first live codespace build.
+  tflint) and `github-cli` features (`ghcr.io/devcontainers/features/*`). `post-create.sh` installs
+  `nerdio/nme` from Nerdio's release. The codespace's `GITHUB_TOKEN` is scoped to this repository,
+  so the script unsets it and uses the installer's unauthenticated release-API fallback.
 - Graph PowerShell isn't installed, so `./nerdio fix roles` still runs from Cloud Shell.
 
 ## Not workbenches

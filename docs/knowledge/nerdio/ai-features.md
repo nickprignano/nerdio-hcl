@@ -2,8 +2,8 @@
 title: "Nerdio Manager's AI features"
 summary: "Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat"
 topic: nerdio
-status: partial
-last_reviewed: 2026-10-18
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # Nerdio Manager's AI features
@@ -20,9 +20,10 @@ Nerdio Manager has its own AI features. They are separate from the kit's setup c
   (Data Zone Standard or Global Standard). Billed per token through Azure; no standing cost when
   unused. ([Manage Nerdio Copilot](https://nmehelp.getnerdio.com/hc/en-us/articles/30352365570957),
   [data security](https://nmehelp.getnerdio.com/hc/en-us/articles/32928743596045-Data-Security-and-Privacy-with-Azure-OpenAI-in-Nerdio-Manager))
-- They need **Azure OpenAI quota**, which is Microsoft's per-request process, like the Claude on
-  Foundry quota the kit's first trial tenant was denied. Whether OpenAI quota is easier to get is
-  unverified.
+- They need **Azure OpenAI quota**: Pay-As-You-Go and Enterprise Agreement subscriptions receive
+  default Standard/Global Standard TPM quota for standard GPT-4o and GPT-4o-mini deployments in
+  supported regions, whereas Free Trial and credit-capped subscriptions require a quota increase or
+  upgrade ([Azure OpenAI quotas and limits](https://learn.microsoft.com/azure/ai-services/openai/quotas-limits)).
 - They're **OpenAI only** today. Choosing other models, Claude included, is a community request
   Nerdio says is in its queue, with no date
   ([request](https://nmehelp.getnerdio.com/hc/en-us/community/posts/41823153081869-Let-Nerdio-Manager-Copilot-use-configurable-Azure-AI-models-gpt-5-1-chat-claude-sonnet-4-5-etc)).
@@ -55,3 +56,10 @@ Nerdio Manager has its own AI features. They are separate from the kit's setup c
   the bridging app registration works, and whether it stays read-only.
 - **Upstream asks:** an API or Terraform setting to enable Copilot and the MCP connector, model
   choice (Claude through Foundry or the Claude API), and documentation for the bridging app.
+
+## Recent upstream updates
+
+- [How to use Nerdio Copilot (AI-Powered Help Assistant)](https://nmehelp.getnerdio.com/hc/en-us/articles/29088999985933-How-to-use-Nerdio-Copilot-AI-Powered-Help-Assistant) (Nerdio Help Center: AI and Nerdio Manager, 2026-10-23)
+- [AI-Driven Auto-Scale Insights](https://nmehelp.getnerdio.com/hc/en-us/articles/29088970753933-AI-Driven-Auto-Scale-Insights) (Nerdio Help Center: AI and Nerdio Manager, 2026-10-23)
+- [Nerdio Manager AI-Generated Descriptions](https://nmehelp.getnerdio.com/hc/en-us/articles/29088984944269-Nerdio-Manager-AI-Generated-Descriptions) (Nerdio Help Center: AI and Nerdio Manager, 2026-10-23)
+- [Getting Started with AnalyticsPro (KQL Assistant)](https://nmehelp.getnerdio.com/hc/en-us/articles/31499458656909-Getting-Started-with-AnalyticsPro-KQL-Assistant) (Nerdio Help Center: AI and Nerdio Manager, 2026-10-23)

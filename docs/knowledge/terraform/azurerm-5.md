@@ -2,13 +2,15 @@
 title: "azurerm 5.x and azuread 3.x"
 summary: "azurerm 5.x and azuread 3.x changes we hit, with fixes"
 topic: terraform
-status: partial
-last_reviewed: 2026-10-27
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # azurerm 5.x and azuread 3.x
 
-Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time: azurerm 5.11.0
+Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time:
+[azurerm 5.10.0](https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v5.10.0) and
+[azurerm 5.11.0](https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v5.11.0)
 (last 4.x was 4.81.0), azuread 3.10.0, Terraform 1.16.6.
 
 ## Breaking changes and fixes
@@ -23,8 +25,10 @@ Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time: 
 
 ## Other 5.x schema notes
 
-- `azurerm_subnet` exposes `network_security_group_id` as computed-only; keep using
-  `azurerm_subnet_network_security_group_association`. *Unverified:* the same for `route_table_id`.
+- `azurerm_subnet` exposes both `network_security_group_id` and `route_table_id` as `Computed: true`
+  (verified in `internal/services/network/subnet_resource.go`), alongside write-only
+  `network_security_group_id_wo` and `route_table_id_wo` arguments; keep using
+  `azurerm_subnet_network_security_group_association` and `azurerm_subnet_route_table_association`.
 - `azurerm_subnet` adds `default_outbound_access_enabled` and `sharing_scope`.
 - Several resources gained write-only `*_wo` / `*_wo_version` arguments for secrets, which keep
   values out of state.

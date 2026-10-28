@@ -3,7 +3,7 @@ title: "Experts we follow"
 summary: "How we choose which Nerdio and AVD experts the KB follows: the study method, the scores, and the published list"
 topic: curation
 status: verified
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-28
 ---
 
 # Experts we follow
@@ -14,7 +14,7 @@ chosen, so anyone can check it, re-run it or challenge it. The data is in
 [experts.yaml](experts.yaml), and the tables below are generated from it.
 
 <!-- BEGIN GENERATED: experts-balance (from experts.yaml; run scripts/kb/build.py) -->
-Last scored 2026-10-17: 15 tracked (5 nerdio, 4 unknown, 3 partner, 2 independent, 1 microsoft), 7 on the watch list, 4 declined, 0 nominated and waiting to be scored.
+Last scored 2026-10-28: 15 tracked (5 nerdio, 4 unknown, 3 partner, 2 independent, 1 microsoft), 7 on the watch list, 4 declined, 0 nominated and waiting to be scored.
 <!-- END GENERATED: experts-balance -->
 
 ## The method

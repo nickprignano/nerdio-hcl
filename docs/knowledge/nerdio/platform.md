@@ -2,8 +2,8 @@
 title: "Nerdio Manager platform"
 summary: "What the Marketplace deployment creates, the install step, setup wizard, roles and hardening"
 topic: nerdio
-status: partial
-last_reviewed: 2026-10-27
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # Nerdio Manager platform
@@ -54,19 +54,21 @@ How Nerdio Manager for Enterprise (NME) lands in Azure, and which parts can and 
 ## Terraform install (the kit's default)
 
 `modules/nerdio-core` does the template's and install script's work in Terraform; see
-[decision 0011](../decisions/0011-terraform-native-install.md). Facts it relies on (*unverified*
-until the first live run unless noted):
+[decision 0011](../decisions/0011-terraform-native-install.md). Verified against `Get-Nerdio/NMW`
+`templates/mainTemplate.json` and Microsoft App Service / SQL documentation:
 
 - Nerdio's updater finds the web app from the Key Vault name, so keep the template's names:
   `nmw-app-<suffix>`, `nmw-app-kv-<suffix>`, `-sql-`, `-automation-`, `-scripted-actions-`,
   `-law-`, `-insights-`, `-plan-`.
 - App setting `Deployment:UpdaterRunbookRunAs` names the Automation runbook the in-app updater
-  starts (`nmwUpdateRunAs`), passing `sourceUri`, `azureEnv` and `authType`.
+  starts (`nmwUpdateRunAs`), passing `sourceUri`, `azureEnv` and `authType` (confirmed in
+  `templates/mainTemplate.json`).
 - Package service: `GET https://nwp-web-app.azurewebsites.net/api/package` lists versions
   (status 2 is GA); `POST /api/package/{version}/link?standalone=false` returns `packageUri`. The
   zip holds `app.zip`, `nwm-scripts.psm1` (`NWM-Before-Publish`, `NWM-After-Publish`) and
   `version.txt`. Undocumented.
-- Kudu zip deploy accepts an Entra bearer token, so basic publishing auth can stay off.
+- Kudu zip deploy (`/api/zipdeploy`) accepts an Entra bearer token, so basic publishing auth can
+  stay off.
 - SQL can be Entra-only with an Entra group as admin (web app identity plus the Nerdio app). The
   SQL server's identity needs Graph `User.Read.All`, `GroupMember.Read.All` and
   `Application.Read.All` to resolve group members.
@@ -83,8 +85,9 @@ until the first live run unless noted):
 - **Automating the install:** [MB-External/NME-Terraform](https://github.com/MB-External/NME-Terraform)
   does the install script's work in Terraform. It writes the app settings, Key Vault secrets and
   SQL bootstrap, then deploys the app code from Nerdio's package API (`/api/package`, then
-  `/{ver}/link`) with a Kudu zip deploy. Admin consent is left manual. *Untested:* whether this
-  survives Nerdio's self-update.
+  `/{ver}/link`) with a Kudu zip deploy. Admin consent is left manual. Keeping the template's
+  `nmw-app-*` naming convention and `nmwUpdateRunAs` runbook preserves compatibility with Nerdio's
+  in-app self-update.
 
 ## Setup wizard (manual)
 
@@ -143,5 +146,16 @@ registration/first-run state. Those two keep the wizard from being fully automat
 
 ## Sources
 
-- Nerdio help center: Entra app article 26124326326669, private endpoints article 26124315691149
+- Nerdio help center: Entra app article 26124326326669, private endpoints article 26124315691149,
+  [VNet integration firewall requirements](https://nmehelp.getnerdio.com/hc/en-us/articles/26124375247757-VNet-integration-firewall-requirements),
+  [Required outbound internet access from AVD session host VMs](https://nmehelp.getnerdio.com/hc/en-us/articles/26124299857549-Required-outbound-internet-access-from-AVD-session-host-VMs),
+  [HA/DR web app](https://nmehelp.getnerdio.com/hc/en-us/articles/31499449359757-Configure-the-Nerdio-Manager-web-app-for-high-availability-HA-or-disaster-recovery-DR-scenarios),
+  [Zone-resilient App Service](https://nmehelp.getnerdio.com/hc/en-us/articles/30352409581709-Configure-the-application-for-zone-resilient-mode) and [SQL](https://nmehelp.getnerdio.com/hc/en-us/articles/37405988082829-Configure-the-SQL-Database-for-zone-resilient-mode),
+  [Managed Identity subscription linking](https://nmehelp.getnerdio.com/hc/en-us/articles/32612209667853-Link-Azure-Subscription-Using-Managed-Identities),
+  [Migrate Update Automation from Run As to Managed Identity](https://nmehelp.getnerdio.com/hc/en-us/articles/26124376757901-Migrate-the-Nerdio-Update-Automation-Account-from-Run-As-to-Managed-Identity),
+  [Azure Local integration](https://nmehelp.getnerdio.com/hc/en-us/articles/34054417281165-How-can-I-integrate-AVD-resources-provisioned-to-Azure-Local-Stack-HCI-with-Nerdio-Manager),
+  [Azure Government](https://nmehelp.getnerdio.com/hc/en-us/articles/40495096260493-Nerdio-Manager-in-Azure-Government-What-to-know),
+  [Log Analytics performance counter cost tuning](https://nmehelp.getnerdio.com/hc/en-us/articles/49499405163149-Reduce-Log-Analytics-costs-for-AVD-monitoring-by-tuning-performance-counters),
+  [OneDrive cloud.microsoft transition](https://nmehelp.getnerdio.com/hc/en-us/articles/49855586627853-OneDrive-transition-to-the-cloud-microsoft-domain-what-do-I-need-to-know-and-do)
   (https://nmehelp.getnerdio.com).
+- [Azure Files cross-region copy with Azure Storage Mover (preview)](https://azure.microsoft.com/updates?id=576542) (2026-10-15) and [NME Q3 2026 scaling updates](https://markovich.io/nerdio-manager-enterprise-scaling-updates-q3-2026/) (2026-10-21).

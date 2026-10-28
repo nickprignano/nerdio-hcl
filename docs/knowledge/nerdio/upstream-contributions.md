@@ -2,8 +2,8 @@
 title: "Upstream contribution candidates (`nerdio/nme`)"
 summary: "Gaps, API asks and doc fixes we could raise with Nerdio, with evidence"
 topic: nerdio
-status: partial
-last_reviewed: 2026-10-16
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # Upstream contribution candidates (`nerdio/nme`)
@@ -79,7 +79,7 @@ These are what stand between the kit and a zero-touch install; see
 | Version numbers disagree | The only GitHub release is `v0.0.1-preview.1`, but the README's snippets use `0.1.0` and `examples/main/main.tf` and `examples/provider/provider.tf` use `0.0.1`. | Make the README and examples match the published release. | candidate |
 | README references missing CI | README's layout table lists `.github/workflows`, but the public repo has no `.github` folder. | Publish the workflows, or drop the row. | candidate |
 | Linux and Windows amd64 builds only | README: "packages the provider for Linux amd64 and Windows amd64". | Add darwin/arm64 and linux/arm64 to the release matrix. | candidate |
-| REST API enablement by tag | The documented manual method (client app tag `NMW_REST_API_CLIENT:<app-id>`, RestClient role, token version 2) is how the kit enables the API without the UI. Which app ID goes in the tag is ambiguous in Nerdio's article. *Unverified* until a live run. | Ask Nerdio to confirm the tag method is a supported replacement for the UI toggle, and document auth setup end to end. | candidate |
+| REST API enablement by tag | The documented manual method (client app tag `NMW_REST_API_CLIENT:<app-id>`, RestClient role, token version 2) is how the kit enables the API without the UI. Article 27422824784269 confirms `<app-id>` is the primary `nerdio-nmw-app` client ID (`resourceAppId`), but doesn't state whether the tag alone flips the console's REST API status toggle without opening Settings > Integrations. | Ask Nerdio to confirm the tag method is a supported replacement for the UI toggle, and document auth setup end to end. | candidate |
 | Azure Government install and API endpoints | Nerdio's Gov article covers a Marketplace install with app-credential linking only, no managed-identity or split-identity installs, and no User Cost Attribution ([40495096260493](https://nmehelp.getnerdio.com/hc/en-us/articles/40495096260493)). It doesn't say whether `mainTemplate.json` works in Gov, which package API host Gov installs use, or which token audience the REST API expects there. | Document the Gov endpoints (package API, REST API scope and token authority) and whether the template path is supported in Gov. | candidate |
 <!-- END GENERATED: docs_packaging -->
 

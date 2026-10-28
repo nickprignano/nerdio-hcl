@@ -3,7 +3,7 @@ title: "Keeping the knowledge base current"
 summary: "How the KB stays current: the weekly source digest, the prior-art check, the feedback loop and the freshness check"
 topic: curation
 status: verified
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-28
 ---
 
 # Keeping the knowledge base current
@@ -31,8 +31,12 @@ Watched today:
   because it has no free feed. Busy sources are filtered to Nerdio and AVD topics
 - New GitHub repos matching "nerdio terraform", "nerdio packer" and AVD + Packer + Terraform
 
-Working a digest: for each ticked item, add what matters to the page named next to the source
-(facts, versions, fixes; not a link dump), then close the issue.
+Working a digest: tick (`- [x]`) the items worth keeping on the `kb-digest` issue and add the
+**kb-accepted** label. [`kb-feedback.yml`](../../.github/workflows/kb-feedback.yml) parses the
+ticked items, adds them to their target KB pages (and updates `last_reviewed`), validates the KB,
+and opens a pull request that closes the digest issue. Any older open `kb-digest` issue with no
+ticked items is automatically closed as superseded when the next Monday digest opens. You can also
+curate items into a topic page by hand in a pull request.
 
 To watch something else, add a `[[source]]` table to [sources.toml](sources.toml). Supported
 kinds: `github_releases`, `github_commits` (optionally limited to one `path`), `github_issues`,
@@ -111,17 +115,24 @@ section in `llms.txt`.
 
 ## Feedback loop (`kb-feedback`)
 
-Real results flow back into the KB through two issue forms:
+Real results, weekly digests, and settings drift flow back into the repository through
+[`.github/workflows/kb-feedback.yml`](../../.github/workflows/kb-feedback.yml) whenever a maintainer
+adds the **kb-accepted** label:
 
-- **Knowledge base feedback:** what worked, broke, went out of date or is missing, for one page.
-  Use it after a sandbox run, a CI failure caused by stale advice, or any time the KB was wrong.
-- **Known error:** an error, its cause and fix, for the [troubleshooting catalog](troubleshooting/README.md).
+- **Knowledge base feedback (`kb-feedback`):** what worked, broke, went out of date or is missing,
+  for one page. Appends to [field-reports.yaml](field-reports.yaml).
+- **Known error (`kb-known-error`):** an error, its cause and fix, for the
+  [troubleshooting catalog](troubleshooting/README.md). Appends to
+  [known-errors.yaml](troubleshooting/known-errors.yaml).
+- **Expert nomination (`kb-source`):** adds a nominated expert to [experts.yaml](experts.yaml).
+- **Weekly digest (`kb-digest`):** adds every ticked (`- [x]`) item in the digest issue to its
+  target KB page and updates `last_reviewed`.
+- **GitHub settings drift (`settings-drift`):** syncs `github/main.tf` (`merge` and `topics`) with
+  the live repository settings.
 
-A maintainer reviews the issue and, if it's useful and public-safe, labels it **kb-accepted**.
-[`.github/workflows/kb-feedback.yml`](../../.github/workflows/kb-feedback.yml) then appends it to
-[field-reports.yaml](field-reports.yaml) or [known-errors.yaml](troubleshooting/known-errors.yaml),
-regenerates and validates the KB, and opens a pull request that closes the issue. If the form is
-incomplete or fails validation, the workflow comments on the issue instead.
+After applying the change, `kb-feedback.yml` regenerates and validates the KB and opens a pull
+request with `Closes #<issue>`. If the issue is incomplete or fails validation, the workflow
+comments on the issue instead.
 
 The label is the safety gate: issue text from anyone is only parsed as data, the PR still goes
 through review, and gitleaks and the KB checks run on it. Two repository settings matter. [`github/`](../../github/README.md) sets both in Terraform; until you've applied it:
@@ -146,7 +157,8 @@ of each month and keeps one open issue labelled **kb-freshness** listing:
 - known errors whose fix is still unverified
 
 Work it by re-checking each item against a primary source or a real run, then updating the page's
-text, `last_reviewed` and `status`. Run it locally with `python3 scripts/kb/freshness.py`.
+text, `last_reviewed` and `status`. When `freshness.py` reports `0` items, `kb-freshness.yml`
+automatically closes the open `kb-freshness` issue. Run it locally with `python3 scripts/kb/freshness.py`.
 
 ## Checks on every change (`kb-validate`)
 

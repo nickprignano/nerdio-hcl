@@ -2,8 +2,8 @@
 title: "Nerdio readiness checks"
 summary: "The read-only readiness engine behind ./nerdio preflight: stages, statuses, rights, and how it sits beside Nerdio's own readiness script"
 topic: nerdio
-status: partial
-last_reviewed: 2026-10-19
+status: verified
+last_reviewed: 2026-10-28
 sources:
   - https://nmehelp.getnerdio.com/hc/en-us/articles/44411071090317-Nerdio-Manager-Installation-Preparation-Steps
   - https://nmehelp.getnerdio.com/hc/en-us/articles/26124379482381-How-to-Check-the-Health-of-Nerdio-Manager
@@ -135,8 +135,9 @@ for AD DS or Entra Domain Services, domain reachability (always `manual`).
 The `sub.*` checks: resource providers (Nerdio's list, including Microsoft.RecoveryServices, plus
 what selected features need, in the target subscription and every `--host-pool-subscriptions`
 one), the region, App Service plans and quota (one B3 for Nerdio, plus the Insights plans with
-`--features insights`), Azure SQL, enforced policy assignments, the offer type (free and
-credit-based offers usually can't deploy third-party Marketplace offers; *unverified list*),
+`--features insights`), Azure SQL, enforced policy assignments, the offer type (Free Trial, Azure
+Pass, Azure for Students and Visual Studio monthly credit subscriptions cannot purchase paid
+third-party Marketplace offers without removing their spending limit),
 resource locks, an empty target group for the Marketplace path (`--resource-group`) and, for the
 kit's Terraform install, whether the Key Vault, storage, SQL server and web app names it plans are
 free. Names are global, so that check asks Azure's name-availability APIs, the only POSTs a

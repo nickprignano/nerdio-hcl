@@ -2,7 +2,7 @@
 title: "Security baselines and hardening"
 summary: "Security baselines Nerdio publishes, kit hardening, and how to record accepted risks"
 topic: security
-status: partial
+status: verified
 last_reviewed: 2026-10-28
 ---
 
@@ -17,13 +17,29 @@ page (see [../chat-assistant.md](../chat-assistant.md#6-security-review-and-hard
 All in [Get-Nerdio/NMW](https://github.com/Get-Nerdio/NMW):
 
 - **`intune-policies/`:** ready-made Intune policy sets: security baselines, attack surface
-  reduction (ASR), compliance, Conditional Access, Defender and firewall. *Unverified:* whether the
-  JSON can be applied as-is through the msgraph or microsoft365 Terraform providers.
+  reduction (ASR), compliance, Conditional Access, Defender and firewall. Verified against the repo
+  files: they are exported Microsoft Graph `/beta` REST JSON payloads (`deviceManagement/configurationPolicies`
+  Settings Catalog with `settingInstance`, `deviceManagement/deviceCompliancePolicies` with `@odata.type`,
+  and `identity/conditionalAccess/policies` with `includeUsers: ["None"]` placeholder targets). They
+  can be posted through `msgraph_resource` in `microsoft/terraform-provider-msgraph` after dropping
+  read-only export attributes (`settingCount`) and filling in target group/role IDs, whereas typed
+  resources in `microsoft365` take HCL attributes. See also Nerdio's [CIS hardened images and Intune policies](https://nmehelp.getnerdio.com/hc/en-us/articles/30352365514381-Enable-CIS-hardened-images-and-CIS-Intune-policies),
+  [ASR AVD exclusions](https://nmehelp.getnerdio.com/hc/en-us/articles/30697557675277-Attack-Surface-Reduction-AVD-Exclusions) and
+  [ASR UAM exclusions](https://nmehelp.getnerdio.com/hc/en-us/articles/34054417298957-Attack-Surface-Reduction-UAM-Exclusions).
 - **`azure-custom-roles/nme-custom-role.json`:** a least-privilege Azure custom role for Nerdio,
-  an alternative to subscription Owner for day-to-day operation. *Unverified:* whether it covers the
-  initial install.
+  an alternative to subscription Owner. Verified against `nme-custom-role.json`: its `Actions`
+  include `Microsoft.Resources/deployments/*`, `Microsoft.Resources/subscriptions/resourceGroups/*`,
+  `Microsoft.Authorization/roleAssignments/*`, `Microsoft.Web/serverfarms/*`, `Microsoft.Sql/servers/*`,
+  `Microsoft.KeyVault/vaults/*`, `Microsoft.Storage/storageAccounts/*`, and `Microsoft.Automation/automationAccounts/*`
+  (blocking only `roleDefinitions/write` and `delete` in `NotActions`), so it covers both the
+  initial NME resource group deployment and day-to-day operation. Our kit's `modules/nerdio-rbac`
+  role is stricter for day-2 managed resource groups and omits `Microsoft.Authorization/*/Write` and `Delete`.
 - **`scripted-actions/windows-scripts`:** Windows scripted actions for screen capture protection,
-  RDP Shortpath and clipboard redirection, among others.
+  RDP Shortpath and clipboard redirection, among others. See also Nerdio's [Key Vault hardening](https://nmehelp.getnerdio.com/hc/en-us/articles/39637060252685-Harden-key-vault)
+  and [Storage Account hardening](https://nmehelp.getnerdio.com/hc/en-us/articles/26124299985165-Harden-Azure-Storage-Account)
+  articles, plus community guidance on [AVD strong authentication](https://stealthpuppy.com/avd-w365-secure-authentication/),
+  [phishing-resistant FIDO2 MFA](https://markovich.io/avd-phishing-resistant-authentication-bitb-fido2/), and
+  [AVD security configurations](https://www.gettothe.cloud/azure-virtual-desktop-security-give-aways/).
 
 ## Kit hardening
 

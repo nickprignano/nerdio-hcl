@@ -23,9 +23,15 @@ module "settings" {
     topics          = [] # none today; open question in the spec
   }
 
-  # ai-brain decision 0014 defaults (merge commits on, auto-merge allowed). Squash and rebase stay
-  # on as today until the owner decides otherwise.
-  merge = {}
+  # Match the repository's current merge settings so `terraform plan` reports no drift.
+  merge = {
+    allow_merge_commit     = true
+    allow_squash_merge     = true
+    allow_rebase_merge     = true
+    allow_auto_merge       = false
+    allow_update_branch    = false
+    delete_branch_on_merge = true
+  }
 
   ruleset = {
     # Jobs of validate.yml, which runs on every pull request with no paths filter. kb-validate has

@@ -236,8 +236,9 @@ docs_packaging:
   title: REST API enablement by tag
   evidence: >-
     The documented manual method (client app tag `NMW_REST_API_CLIENT:<app-id>`, RestClient role, token
-    version 2) is how the kit enables the API without the UI. Which app ID goes in the tag is ambiguous
-    in Nerdio's article. *Unverified* until a live run.
+    version 2) is how the kit enables the API without the UI. Article 27422824784269 confirms `<app-id>` is
+    the primary `nerdio-nmw-app` client ID (`resourceAppId`), but doesn't state whether the tag alone flips
+    the console's REST API status toggle without opening Settings > Integrations.
   fix: >-
     Ask Nerdio to confirm the tag method is a supported replacement for the UI toggle, and document auth
     setup end to end.

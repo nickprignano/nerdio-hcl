@@ -119,6 +119,70 @@ class FeedbackTests(TempData):
         with self.assertRaises(feedback.FeedbackError):
             feedback.handle({"number": 10, "body": bad_page, "labels": ["kb-feedback"]}, "2026-10-16")
 
+    def test_digest_accepted(self):
+        kb_tmp = self.tmp / "kb"
+        kb_tmp.mkdir()
+        page = kb_tmp / "page.md"
+        page.write_text("---\ntitle: T\nsummary: S\ntopic: nerdio\nstatus: verified\nlast_reviewed: 2026-10-01\n---\n\n# Page\n", encoding="utf-8")
+        digest_body = (
+            "## Source Updates\n\n"
+            "### Source A → `docs/knowledge/page.md`\n"
+            "- [x] [Release 1.0](https://example.com/1) — 2026-10-20\n"
+            "- [ ] [Release 0.9](https://example.com/0) — 2026-10-19\n"
+        )
+        with mock.patch.object(kblib, "KB_DIR", kb_tmp), mock.patch.object(feedback, "KB_DIR", kb_tmp):
+            title, pr_body = feedback.handle({"number": 31, "body": digest_body, "labels": ["kb-digest"]}, "2026-10-28")
+            self.assertIn("KB digest:", title)
+            self.assertIn("#31", pr_body)
+            updated = page.read_text(encoding="utf-8")
+            self.assertIn("last_reviewed: 2026-10-28", updated)
+            self.assertIn("## Recent upstream updates", updated)
+            self.assertIn("- [Release 1.0](https://example.com/1) (Source A, 2026-10-28): 2026-10-20", updated)
+            self.assertNotIn("Release 0.9", updated)
+            with self.assertRaises(feedback.FeedbackError):
+                feedback.handle({"number": 31, "body": digest_body, "labels": ["kb-digest"]}, "2026-10-28")
+            with self.assertRaises(feedback.FeedbackError):
+                feedback.handle({"number": 32, "body": digest_body.replace("[x]", "[ ]"), "labels": ["kb-digest"]}, "2026-10-28")
+
+    def test_settings_drift_accepted(self):
+        tf_dir = self.tmp / "github"
+        tf_dir.mkdir()
+        tf_file = tf_dir / "main.tf"
+        tf_file.write_text(
+            'locals {\n'
+            '  topics = [\n'
+            '    "avd",\n'
+            '  ]\n'
+            '  merge = {\n'
+            '    allow_merge_commit          = true\n'
+            '    allow_squash_merge          = true\n'
+            '    allow_rebase_merge          = true\n'
+            '    allow_auto_merge            = false\n'
+            '    delete_branch_on_merge      = false\n'
+            '    web_commit_signoff_required = false\n'
+            '  }\n'
+            '}\n',
+            encoding="utf-8",
+        )
+        repo_data = {
+            "topics": ["avd", "terraform"],
+            "allow_merge_commit": True,
+            "allow_squash_merge": True,
+            "allow_rebase_merge": True,
+            "allow_auto_merge": False,
+            "delete_branch_on_merge": True,
+            "web_commit_signoff_required": False,
+        }
+        with mock.patch.object(kblib, "ROOT", self.tmp):
+            title, pr_body = feedback.add_settings_drift({"number": 41}, "2026-10-28", repo_data=repo_data)
+            self.assertIn("Sync github/main.tf", title)
+            self.assertIn("#41", pr_body)
+            content = tf_file.read_text(encoding="utf-8")
+            self.assertIn("delete_branch_on_merge = true", content)
+            self.assertIn('"terraform"', content)
+            with self.assertRaises(feedback.FeedbackError):
+                feedback.add_settings_drift({"number": 41}, "2026-10-28", repo_data=repo_data)
+
 
 NOMINATION_BODY = """### Name
 
@@ -189,6 +253,11 @@ class FreshnessTests(TempData):
         self.assertTrue(any("azurerm-5.md" in i for i in sections["Reported broken or outdated"]))
         self.assertTrue(sections["Stale"])
         self.assertFalse(any("stack-options.md" in i for i in sections["Stale"]))  # plan pages skip
+
+    def test_expert_yield_respects_empty_digests_and_review_age(self):
+        self.assertEqual(freshness.expert_items(90, date(2026, 10, 28), [])["Expert yield"], [])
+        self.assertEqual(freshness.expert_items(90, date(2026, 10, 29), [{"createdAt": "2026-10-26T08:00:00Z", "body": ""}])["Expert yield"], [])
+        self.assertTrue(freshness.expert_items(90, date(2027, 6, 1), [{"createdAt": "2027-05-25T08:00:00Z", "body": ""}])["Expert yield"])
 
 
 class BuildTests(unittest.TestCase):
