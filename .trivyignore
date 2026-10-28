@@ -49,3 +49,12 @@ AVD-AZU-0051
 # configuration is declarative via cloud-init or Azure VM extensions.
 AVD-AZU-0038
 AVD-AZU-0039
+
+# 7. GitHub repository & Actions environment metadata:
+# - modules/github-settings manages the public open-source template repository (visibility is configurable via var.repo.visibility).
+# - modules/deploy-pipeline stores non-secret Azure identifiers (ARM_TENANT_ID, ARM_SUBSCRIPTION_ID, ARM_CLIENT_ID,
+#   TFSTATE_RESOURCE_GROUP, TFSTATE_STORAGE_ACCOUNT) in github_actions_environment_secret so GitHub Actions masks
+#   real GUIDs in workflow logs per Guardrail 4; no actual credentials or keys are stored there (authentication is OIDC).
+AVD-GIT-0001
+AVD-GIT-0002
+AVD-GIT-0003
