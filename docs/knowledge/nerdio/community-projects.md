@@ -3,7 +3,7 @@ title: "Community projects"
 summary: "Other Nerdio + Terraform projects worth knowing about"
 topic: nerdio
 status: verified
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 ---
 
 # Community projects
@@ -24,5 +24,9 @@ Other public Nerdio + Terraform work. Useful for comparison; none is endorsed by
 | [EUCPilots](https://github.com/EUCPilots) ([eucpilots.com](https://eucpilots.com/)) | Aaron Parker's EUC automation hub: [`evergreen-module`](https://github.com/EUCPilots/evergreen-module) (MIT; live vendor version/URL resolution for Windows apps), [`vcredist`](https://github.com/EUCPilots/vcredist) (MIT; Visual C++ Redistributable installer automation), [`evergreen-packages`](https://github.com/EUCPilots/evergreen-packages) (package definitions for Nerdio UAM Shell Apps and Intune Win32 apps) and Evergreen Workbench. Complementary to this kit: we call `Evergreen` and `VcRedist` optionally from `packer/avd-win11` ([../packer/avd-image.md](../packer/avd-image.md#evergreen-and-vcredist-optional)). |
 | [WayneBellows/fslogix-healthcheck](https://github.com/WayneBellows/fslogix-healthcheck) | MIT-licensed read-only PowerShell diagnostic script for FSLogix on AVD/RDS session hosts by Wayne Bellows (Nerdio). Audits registry settings against Microsoft best practices, checks Defender AV exclusions, tests SMB/TCP 445 connectivity and Kerberos, detects stale locks and temporary profiles, and writes a self-contained HTML report with optional guided fixes. Good candidate to run as a Nerdio Scripted Action on session hosts. |
 | [virtualmanc/nerdioscripts](https://github.com/virtualmanc/nerdioscripts) | Unlicensed collection of Nerdio PowerShell Scripted Actions and API helper scripts by Neil McLoughlin (Nerdio): Windows 11 25H2 in-place upgrade (`25H2Upgrade`), Scripted Actions backup and restore via the Nerdio REST API (`scriptedactionsbackup.ps1`, `scriptedactionrestore`), OS disk expansion (`expand_os_disk.ps1`) and Office deployment (`deployoffice.ps1`). Reference only (no license); our kit declares Scripted Actions directly in Terraform (`nme_scripted_action` in `modules/nerdio-config`). |
+| [Get-Nerdio/NMM](https://github.com/Get-Nerdio/NMM) | Nerdio's public templates and scripts for Nerdio Manager for MSP (NMM). Separate product from NME, unlicensed (reference only). |
+| [WayneBellows/euc-prompt-library](https://github.com/WayneBellows/euc-prompt-library) | Read-only AI agent prompts for Azure Virtual Desktop and Nerdio Manager administrators by Wayne Bellows (Nerdio). |
+| [aaronparker/m365apps](https://github.com/aaronparker/m365apps) and [aaronparker/defaults](https://github.com/aaronparker/defaults) | Aaron Parker's Intune Win32 Microsoft 365 Apps packaging workflow and Windows enterprise OS/default-user profile customization module for physical PCs and virtual desktops. See also his [Evergreen Workbench GA announcement](https://stealthpuppy.com/evergreen-workbench-release/) and Nerdio Shell Apps automation series ([Part 1](https://stealthpuppy.com/nerdio-shell-apps-p1/), [Part 2](https://stealthpuppy.com/nerdio-shell-apps-p2/), [Part 3](https://stealthpuppy.com/nerdio-shell-apps-p3/)). |
+| [Awesome Azure Virtual Desktop](https://schmitt-nieto.com/blog/awesome-azure-virtual-desktop/) and [Awesome Azure Local](https://schmitt-nieto.com/blog/awesome-azure-local/) | Curated reference lists of AVD, Nerdio and Azure Local community tools and guides maintained by Cristian Schmitt Nieto. |
 
-When you review one, replace "not yet reviewed" with what it does and how it differs from this kit.
+When adding a new project, record its license, what it does, and how it differs from this kit.

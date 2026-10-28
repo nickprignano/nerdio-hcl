@@ -2,8 +2,8 @@
 title: "Windows 11 multi-session image with Packer"
 summary: "Building a Windows 11 multi-session image for Nerdio with Packer"
 topic: packer
-status: partial
-last_reviewed: 2026-10-27
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # Windows 11 multi-session image with Packer
@@ -13,7 +13,7 @@ A golden image that Nerdio imports from an Azure Compute Gallery
 
 ## Versions
 
-Packer 1.16.1, `packer-plugin-azure` 2.6.4 (`version = "~> 2.6"`, `source = "github.com/hashicorp/azure"`).
+Packer 1.16.1 ([1.16.2](https://github.com/hashicorp/packer/releases/tag/v1.16.2) released 2026-10-22), `packer-plugin-azure` 2.6.4 (`version = "~> 2.6"`, `source = "github.com/hashicorp/azure"`).
 
 ## Build shape
 
@@ -53,10 +53,12 @@ and the kit's profile are in `packer/avd-win11/README.md`. Checked against the W
   (`Version`, `LastRunTime`). When its config is wrong it returns without an exit code, so a
   wrapper has to check the event log, not the exit code.
 - **Versions:** tags are `v1.0` (2025-10-30) and `v1.1` (2026-05-01, commit `f20d6b7`).
-  *Unverified, inferred from the code:* `v1.1` passes `-Source` twice to `New-EventLog` (the
-  splat already contains it), which should stop the first run on a VM that has no `WDOT` event
-  log yet. It's fixed on `main` in `0c8d1e6`, which no tag includes yet, so the kit pins `main` at
-  commit `ff2574c` (2026-05-20). Move the pin to a tag once one includes the fix; the weekly
+  Verified in `Windows_Optimization.ps1`: `v1.1` splats `@EVT` (`@{ LogName = 'WDOT'; Source = 'WDOT' }`)
+  into `New-EventLog -Source $EventSources @EVT` (passing `-Source` twice) and `Limit-EventLog @EVT`
+  (which does not accept `-Source`), breaking the first run on a VM that has no `WDOT` event log yet.
+  It is fixed on `main` in commit [`0c8d1e6`](https://github.com/The-Virtual-Desktop-Team/Windows-Desktop-Optimization-Tool/commit/0c8d1e67d88c8cf6abec37e3ed17e08b2984fe14)
+  (which replaces `@EVT` with `-LogName 'WDOT'`), which no tag includes yet, so the kit pins `main`
+  at commit `ff2574c` (2026-05-20). Move the pin to a tag once one includes the fix; the weekly
   digest watches the repo.
 - **License:** mixed. `LICENSE` is MIT, but the README and `EULA.txt` call it Microsoft Sample
   Code "not intended to be used in a production environment". The kit fetches it at build time
@@ -84,3 +86,7 @@ watched in [../sources.toml](../sources.toml)).
   `C:\Windows\Temp\evergreen-settings.json` with `jsonencode(...)` and runs `scripts/04-evergreen.ps1`.
 - **Opt-in:** Both default to disabled (`false` / `[]`) so restricted-network builds that block
   the PowerShell Gallery or vendor CDNs continue to work without changes.
+- **Upstream notes:** see Nerdio's [Recommended Optimizations for Desktop Images](https://nmehelp.getnerdio.com/hc/en-us/articles/26124315600525-Recommended-Optimizations-for-Desktop-Images),
+  Wayne Bellows' Golden Image notes ([2026-10-19 Intune CNAME auto-discovery](https://modern-euc.com/2026/10/19/golden-image-2026-10-19-intune-drops-cname-auto-discovery-for-mdm-only-enrolment/),
+  [2026-10-26 Intune device page](https://modern-euc.com/2026/10/26/golden-image-2026-10-26-intunes-new-device-page-will-become-the-default/)),
+  and [Windows 11 AVD golden image update verification](https://markovich.io/windows-11-avd-update-issues-golden-image-patch/).

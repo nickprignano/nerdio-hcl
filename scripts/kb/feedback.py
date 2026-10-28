@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Turn an accepted KB feedback or known-error issue into a change to the KB's YAML data.
+"""Turn an accepted KB or drift issue into a pull request change.
 
 Run by .github/workflows/kb-feedback.yml when a maintainer labels an issue kb-accepted. It reads
-the issue form, appends a field report (kb-feedback), a known error (kb-known-error) or an expert
-nomination (kb-source, to experts.yaml as status nominated, for a maintainer to score), and writes
-the branch name, PR title and PR body for the workflow to open a pull request.
+the issue and applies the change:
+  - kb-feedback: appends a field report to docs/knowledge/field-reports.yaml
+  - kb-known-error: appends a known error to docs/knowledge/troubleshooting/known-errors.yaml
+  - kb-source: appends an expert nomination to docs/knowledge/experts.yaml
+  - kb-digest: adds ticked (- [x]) digest items to their target KB pages and updates last_reviewed
+  - settings-drift: syncs github/main.tf merge and topic settings with the live repository
+and writes the branch name, PR title and PR body for the workflow to open a pull request.
 
     python3 scripts/kb/feedback.py --event "$GITHUB_EVENT_PATH"
     python3 scripts/kb/feedback.py --issue-json issue.json      # {"number", "title", "body", "labels"}
@@ -185,8 +189,119 @@ def write(path: Path, data) -> None:
     path.write_text(kblib.yaml_header(path) + kblib.dump_yaml(data), encoding="utf-8")
 
 
-def handle(issue: dict, today: str) -> tuple[str, str]:
+DIGEST_SECTION = re.compile(r"^### (.+?)(?:\s*→\s*`?([^`\s]+)`?)?\s*$")
+DIGEST_TICKED = re.compile(
+    r"^- \[[xX]\] \[([^\]]+)\]\((https://[^)\s]+)\)(?:\s*·\s*(\d{4}-\d{2}-\d{2}))?(.*)$"
+)
+PAGE_OVERRIDE = re.compile(r"→\s*`?([^`\s]+\.md)`?")
+
+
+def add_digest(issue: dict, today: str) -> tuple[str, str]:
+    body = (issue.get("body") or "").replace("\r\n", "\n")
+    current_source = "Digest"
+    current_page: str | None = None
+    grouped: dict[str, list[tuple[str, str, str, str, str]]] = {}
+
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if m := DIGEST_SECTION.match(line):
+            current_source = m.group(1).strip()
+            current_page = m.group(2).strip() if m.group(2) else None
+            continue
+        if m := DIGEST_TICKED.match(line):
+            title, url, item_date, rest = m.group(1).strip(), m.group(2).strip(), m.group(3) or today, m.group(4).strip()
+            target_raw = current_page
+            if pm := PAGE_OVERRIDE.search(rest):
+                target_raw = pm.group(1)
+                rest = PAGE_OVERRIDE.sub("", rest).strip()
+            if not target_raw:
+                raise FeedbackError(f"ticked item {title!r} has no target KB page; add '→ `docs/knowledge/<page>.md`'")
+            page = kb_target(target_raw, "kb_page")
+            rest = re.sub(r"^\([^)]*\)\s*", "", rest).lstrip("—:- ").strip()
+            grouped.setdefault(page, []).append((title, url, item_date, current_source, rest))
+
+    if not grouped:
+        raise FeedbackError("no digest items are ticked (- [x])")
+
+    added_count = 0
+    touched_pages: list[str] = []
+    for page, items in grouped.items():
+        path = KB_DIR / page.split("#")[0]
+        text = path.read_text(encoding="utf-8")
+        new_bullets = []
+        for title, url, item_date, source_name, note in items:
+            if url in text:
+                continue
+            suffix = f": {note}" if note else ""
+            new_bullets.append(f"- [{title}]({url}) ({source_name}, {item_date}){suffix}")
+            added_count += 1
+        text = re.sub(r"(?m)^last_reviewed:\s*\S+", f"last_reviewed: {today}", text, count=1)
+        if new_bullets:
+            block = "\n".join(new_bullets)
+            if "\n## Recent upstream updates\n" in text:
+                idx = text.index("\n## Recent upstream updates\n") + len("\n## Recent upstream updates\n")
+                if idx < len(text) and text[idx] == "\n":
+                    idx += 1
+                text = text[:idx] + block + "\n" + text[idx:]
+            elif "\n## Sources\n" in text:
+                idx = text.index("\n## Sources\n")
+                text = text[:idx] + "\n## Recent upstream updates\n\n" + block + "\n" + text[idx:]
+            else:
+                text = text.rstrip() + "\n\n## Recent upstream updates\n\n" + block + "\n"
+        path.write_text(text, encoding="utf-8")
+        touched_pages.append(f"`docs/knowledge/{page}`")
+
+    if added_count == 0:
+        raise FeedbackError("all ticked digest URLs are already linked in their target KB pages")
+
+    title = f"KB digest: add {added_count} item(s) from #{issue['number']}"
+    summary = (f"Adds {added_count} ticked item(s) from digest #{issue['number']} to "
+               + ", ".join(touched_pages) + " and updates `last_reviewed`.")
+    return title, summary
+
+
+def add_settings_drift(issue: dict, today: str, repo_data: dict | None = None) -> tuple[str, str]:
+    if repo_data is None:
+        from sources import github
+        repo_slug = os.environ.get("GITHUB_REPOSITORY", "nickprignano/nerdio-hcl")
+        repo_data = github(f"/repos/{repo_slug}")
+    main_tf = kblib.ROOT / "github" / "main.tf"
+    if not main_tf.is_file():
+        raise FeedbackError("github/main.tf not found")
+    text = main_tf.read_text(encoding="utf-8")
+    topics = json.dumps(sorted(repo_data.get("topics") or []))
+    merge_keys = (
+        "allow_merge_commit",
+        "allow_squash_merge",
+        "allow_rebase_merge",
+        "allow_auto_merge",
+        "allow_update_branch",
+        "delete_branch_on_merge",
+    )
+    merge_lines = ["  merge = {"]
+    for k in merge_keys:
+        if k in repo_data and isinstance(repo_data[k], bool):
+            val = "true" if repo_data[k] else "false"
+            merge_lines.append(f"    {k:<22} = {val}")
+    merge_lines.append("  }")
+    merge_block = "\n".join(merge_lines)
+
+    new_text = re.sub(r"(?m)^(\s*topics\s*=\s*)\[[^\]]*\].*$", rf"\g<1>{topics}", text, count=1)
+    new_text = re.sub(r"(?ms)^  merge\s*=\s*\{[^}]*\}", merge_block, new_text, count=1)
+    if new_text == text:
+        raise FeedbackError("github/main.tf already matches the repository's current merge and topic settings")
+    main_tf.write_text(new_text, encoding="utf-8")
+    return (f"Sync github/main.tf with repository settings (#{issue['number']})",
+            f"Updates `github/main.tf` (`merge` and `topics`) to match the live repository settings "
+            f"reported in #{issue['number']}.")
+
+
+def handle(issue: dict, today: str, repo_data: dict | None = None) -> tuple[str, str]:
     labels = {lbl["name"] if isinstance(lbl, dict) else lbl for lbl in issue.get("labels", [])}
+    if "kb-digest" in labels:
+        return add_digest(issue, today)
+    if "settings-drift" in labels:
+        return add_settings_drift(issue, today, repo_data=repo_data)
     fields = parse_form(issue.get("body") or "")
     public_safe(fields)
     if "kb-known-error" in labels:
@@ -195,7 +310,9 @@ def handle(issue: dict, today: str) -> tuple[str, str]:
         return add_nomination(issue, fields, today)
     if "kb-feedback" in labels:
         return add_field_report(issue, fields, today)
-    raise FeedbackError("the issue has none of the kb-feedback, kb-known-error or kb-source labels")
+    raise FeedbackError(
+        "the issue has none of the kb-feedback, kb-known-error, kb-source, kb-digest or settings-drift labels"
+    )
 
 
 def main() -> int:

@@ -2,23 +2,29 @@
 title: "Nerdio Entra app (`nerdio-nmw-app`)"
 summary: "The nerdio-nmw-app registration, permissions, app roles and the REST API client"
 topic: nerdio
-status: partial
-last_reviewed: 2026-10-16
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # Nerdio Entra app (`nerdio-nmw-app`)
 
 Nerdio's install script normally creates this app. Creating it yourself (in Terraform with the
 `azuread` provider) lets tenants with strict app-registration policies review it as code.
-Source: https://nmehelp.getnerdio.com/hc/en-us/articles/26124326326669
+Sources: [Advanced installation: Create Entra ID application](https://nmehelp.getnerdio.com/hc/en-us/articles/26124326326669),
+[Manage Primary App Registration Secrets](https://nmehelp.getnerdio.com/hc/en-us/articles/42787725465229-Manage-Nerdio-Manager-Primary-App-Registration-Secrets),
+[Direct Group Ownership Permissions](https://nmehelp.getnerdio.com/hc/en-us/articles/25499377856013-Direct-Group-Ownership-Permissions-for-Nerdio-Manager).
 
 ## Registration
 
-- Sign-in audience: multitenant (`AzureADMultipleOrgs`).
+- Sign-in audience: single-tenant (`AzureADMyOrg`) in Nerdio's updated advanced-install script
+  (updated 2026-10-23; multitenant `AzureADMultipleOrgs` is only needed for multi-Entra scenarios).
 - Redirect URIs: `https://<app>.azurewebsites.net/` and `https://<app>.azurewebsites.net/signin-oidc`.
-- Logout URL: `/signout-oidc`. Implicit grant for access and ID tokens enabled.
+- Logout URL: `https://<app>.azurewebsites.net/signout-oidc`. Nerdio's updated Graph PowerShell
+  script leaves implicit grant access and ID tokens disabled (`EnableAccessTokenIssuance = $false`,
+  `EnableIdTokenIssuance = $false`) and uses Microsoft Graph PowerShell (`Connect-MgGraph`), which
+  is preinstalled in Azure Cloud Shell.
 - The deploying user must be an **Owner** of the service principal.
-- The portal may cap client secrets at 2 years; Nerdio's script sets 10.
+- The portal may cap client secrets at 2 years; Nerdio's script sets 10 (`AddYears(10)`).
 
 ## App roles (published IDs, same in every tenant)
 
@@ -52,13 +58,12 @@ Source: https://nmehelp.getnerdio.com/hc/en-us/articles/27422824784269
 
 1. On `nerdio-nmw-app`, set the identifier URI to `api://<app-id>` and
    `accessTokenAcceptedVersion` to 2.
-2. Create a second app tagged `NMW_REST_API_CLIENT:<app-id>` with an application permission to
-   the RestClient role, and grant consent.
-3. The scope to use is shown in Nerdio under **Settings > Integrations**.
+2. Create a second app tagged `NMW_REST_API_CLIENT:<app-id>` (where `<app-id>` is the primary
+   `nerdio-nmw-app` Application/client ID, the same `resourceAppId` used in `requiredResourceAccess`)
+   with an application permission to the `RestClient` role, and grant admin consent.
+3. The scope to use (`api://<nerdio-nmw-app-client-id>/.default`) is shown in Nerdio under
+   **Settings > Integrations**.
 4. PowerShell access: the `NerdioManagerPowerShell` module (`Connect-NME`, `Get-nmeworkspace`).
-
-*Unverified:* which app ID goes in the tag. Nerdio's article is ambiguous; confirm under
-**Settings > Integrations** after enabling.
 
 This REST client is also what the `nerdio/nme` Terraform provider authenticates as; see
 [terraform-provider.md](terraform-provider.md).

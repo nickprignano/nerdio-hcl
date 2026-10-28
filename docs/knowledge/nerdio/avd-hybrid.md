@@ -2,8 +2,8 @@
 title: "AVD Hybrid and Nerdio Manager"
 summary: "Azure Virtual Desktop Hybrid (on-premises session hosts via Azure Arc): support status, what Nerdio Manager adds on Nutanix AHV, and the minimum viable lab kit and hardware to test it"
 topic: nerdio
-status: partial
-last_reviewed: 2026-10-19
+status: verified
+last_reviewed: 2026-10-28
 ---
 
 # AVD Hybrid and Nerdio Manager

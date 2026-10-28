@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -26,8 +28,16 @@ class Item:
 
 def http_get(url: str, headers: dict | None = None) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return resp.read()
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code >= 500 and attempt == 0:
+                time.sleep(1)
+                continue
+            raise
+    raise RuntimeError("unreachable")
 
 
 def github(path: str, params: dict | None = None):

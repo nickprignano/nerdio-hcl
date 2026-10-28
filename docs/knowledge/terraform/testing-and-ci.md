@@ -87,7 +87,10 @@ last_reviewed: 2026-10-28
 
 `.github/workflows/terraform.yml` and `.github/workflows/validate.yml` run on pull requests and pushes to `main`:
 
-- `hashicorp/setup-terraform@v3` with an exact `terraform_version` (1.16.6), then
+- `hashicorp/setup-terraform@v3` with an exact `terraform_version`
+  ([1.16.6](https://github.com/hashicorp/terraform/releases/tag/v1.16.6);
+  [1.16.7](https://github.com/hashicorp/terraform/releases/tag/v1.16.7) and
+  [1.17.0](https://github.com/hashicorp/terraform/releases/tag/v1.17.0) are also available), then
   `terraform fmt -recursive -check`, `terraform validate` on each stage and module, and `terraform test`
   on modules that have tests.
 - `terraform-linters/setup-tflint@v4` for tflint.

@@ -34,12 +34,33 @@ jobs:
       - name: repository name
         run: echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_ENV"
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: check if read-only GitHub App is configured
+        id: check_app
+        env:
+          APP_ID: ${{ vars.SETTINGS_APP_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$APP_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### GitHub settings drift: skipped"
+              echo "Set \`SETTINGS_APP_ID\` and \`SETTINGS_APP_KEY\` in the \`github-settings-read\` environment (see \`github/README.md\`) to enable the daily drift plan."
+            } >> "$GITHUB_STEP_SUMMARY"
+            existing=$(gh issue list --label settings-drift --state open --json number,title --jq '.[] | select(.title == "GitHub settings drift check failed") | .number' | head -n1)
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "Closing: \`SETTINGS_APP_ID\` is not configured in \`github-settings-read\` yet, so the drift workflow now skips cleanly until configured (\`github/README.md\`)."
+            fi
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        if: steps.check_app.outputs.configured == 'true'
         with:
           terraform_version: "1.16.6"
           terraform_wrapper: false
       - name: read-only token for this repository
         id: app
+        if: steps.check_app.outputs.configured == 'true'
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ vars.SETTINGS_APP_ID }}
@@ -51,6 +72,7 @@ jobs:
           permission-metadata: read
       - name: plan
         id: plan
+        if: steps.check_app.outputs.configured == 'true'
         working-directory: github
         env:
           GITHUB_TOKEN: ${{ steps.app.outputs.token }}
@@ -80,6 +102,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           rm -f settings.tfplan plan.json
       - name: open, update or close the drift issue
+        if: steps.check_app.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           COUNT: ${{ steps.plan.outputs.count }}
@@ -98,7 +121,7 @@ jobs:
             echo
             cat github/drift.md
             echo
-            echo "Nothing was changed. Either change the code in a pull request to match GitHub, or apply the code from Cloud Shell (github/README.md)."
+            echo "Nothing was changed. Either label this issue \`kb-accepted\` to open a pull request syncing \`github/main.tf\`, change the code in a pull request by hand, or apply the code from Cloud Shell (github/README.md)."
           } > body.md
           if [ -n "$existing" ]; then
             gh issue edit "$existing" --body-file body.md

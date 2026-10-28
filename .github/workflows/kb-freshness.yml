@@ -50,12 +50,18 @@ jobs:
         run: python3 scripts/kb/freshness.py --max-age-days "$MAX_AGE_DAYS" --digests "$RUNNER_TEMP/digests.json" --family --output freshness.md
       - name: Job summary
         run: cat freshness.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Open or update the freshness issue
-        if: steps.collect.outputs.items != '0'
+      - name: Open, update or close the freshness issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ITEMS: ${{ steps.collect.outputs.items }}
         run: |
           existing=$(gh issue list --label kb-freshness --state open --json number --jq '.[0].number')
+          if [ "$ITEMS" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "All KB freshness checks passed on $(date -u +%F)."
+            fi
+            exit 0
+          fi
           if [ -n "$existing" ]; then
             gh issue edit "$existing" --body-file freshness.md
             gh issue comment "$existing" --body "Refreshed on $(date -u +%F)."

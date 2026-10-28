@@ -38,10 +38,17 @@ jobs:
         run: python3 scripts/kb/curate.py --since-days "$SINCE_DAYS" --output digest.md
       - name: Job summary
         run: cat digest.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Open digest issue
+      - name: Open digest issue and supersede unticked older digests
         if: github.event_name != 'pull_request' && steps.collect.outputs.items != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh label create kb-digest --color 0e8a16 --description "Knowledge base curator digest" --force
-          gh issue create --label kb-digest --title "KB digest: $(date -u +%F)" --body-file digest.md
+          old_open=$(gh issue list --label kb-digest --state open --json number,body)
+          new_url=$(gh issue create --label kb-digest --title "KB digest: $(date -u +%F)" --body-file digest.md)
+          echo "Opened $new_url"
+          echo "$old_open" | jq -r '.[] | select((.body // "") | test("^- \\[[xX]\\]"; "m") | not) | .number' | while read -r num; do
+            if [ -n "$num" ]; then
+              gh issue close "$num" --comment "Superseded by $new_url (no items were ticked)."
+            fi
+          done

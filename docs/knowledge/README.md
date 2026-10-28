@@ -24,21 +24,21 @@ belongs to instead of starting a new file.
 <!-- BEGIN GENERATED: kb-index (from front matter; run scripts/kb/build.py) -->
 | Page | What's in it | Status |
 |---|---|---|
-| [workbenches.md](workbenches.md) | Where to run the kit from a browser: Azure Cloud Shell (baseline) or GitHub Codespaces (optional), with their limits | partial |
-| [nerdio/ai-features.md](nerdio/ai-features.md) | Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat | partial |
-| [nerdio/avd-hybrid.md](nerdio/avd-hybrid.md) | Azure Virtual Desktop Hybrid (on-premises session hosts via Azure Arc): support status, what Nerdio Manager adds on Nutanix AHV, and the minimum viable lab kit and hardware to test it | partial |
+| [workbenches.md](workbenches.md) | Where to run the kit from a browser: Azure Cloud Shell (baseline) or GitHub Codespaces (optional), with their limits | verified |
+| [nerdio/ai-features.md](nerdio/ai-features.md) | Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat | verified |
+| [nerdio/avd-hybrid.md](nerdio/avd-hybrid.md) | Azure Virtual Desktop Hybrid (on-premises session hosts via Azure Arc): support status, what Nerdio Manager adds on Nutanix AHV, and the minimum viable lab kit and hardware to test it | verified |
 | [nerdio/community-projects.md](nerdio/community-projects.md) | Other Nerdio + Terraform projects worth knowing about | verified |
-| [nerdio/entra-app.md](nerdio/entra-app.md) | The nerdio-nmw-app registration, permissions, app roles and the REST API client | partial |
-| [nerdio/platform.md](nerdio/platform.md) | What the Marketplace deployment creates, the install step, setup wizard, roles and hardening | partial |
-| [nerdio/readiness.md](nerdio/readiness.md) | The read-only readiness engine behind ./nerdio preflight: stages, statuses, rights, and how it sits beside Nerdio's own readiness script | partial |
+| [nerdio/entra-app.md](nerdio/entra-app.md) | The nerdio-nmw-app registration, permissions, app roles and the REST API client | verified |
+| [nerdio/platform.md](nerdio/platform.md) | What the Marketplace deployment creates, the install step, setup wizard, roles and hardening | verified |
+| [nerdio/readiness.md](nerdio/readiness.md) | The read-only readiness engine behind ./nerdio preflight: stages, statuses, rights, and how it sits beside Nerdio's own readiness script | verified |
 | [nerdio/terraform-provider.md](nerdio/terraform-provider.md) | Nerdio's own nerdio/nme provider: auth, resources, coverage gaps, how to build it | verified |
-| [nerdio/upstream-contributions.md](nerdio/upstream-contributions.md) | Gaps, API asks and doc fixes we could raise with Nerdio, with evidence | partial |
-| [terraform/azurerm-5.md](terraform/azurerm-5.md) | azurerm 5.x and azuread 3.x changes we hit, with fixes | partial |
-| [terraform/github-settings.md](terraform/github-settings.md) | Declaring a repository's own GitHub settings with integrations/github, imported on every run, with a read-only drift check | unverified |
+| [nerdio/upstream-contributions.md](nerdio/upstream-contributions.md) | Gaps, API asks and doc fixes we could raise with Nerdio, with evidence | verified |
+| [terraform/azurerm-5.md](terraform/azurerm-5.md) | azurerm 5.x and azuread 3.x changes we hit, with fixes | verified |
+| [terraform/github-settings.md](terraform/github-settings.md) | Declaring a repository's own GitHub settings with integrations/github, imported on every run, with a read-only drift check | verified |
 | [terraform/restricted-networks.md](terraform/restricted-networks.md) | Running Terraform and Packer where the registry is blocked | verified |
 | [terraform/testing-and-ci.md](terraform/testing-and-ci.md) | terraform test, tflint, the CI workflow and planned post-deploy checks | verified |
-| [packer/avd-image.md](packer/avd-image.md) | Building a Windows 11 multi-session image for Nerdio with Packer | partial |
-| [security/](security/README.md) | Security baselines Nerdio publishes, kit hardening, and how to record accepted risks | partial |
+| [packer/avd-image.md](packer/avd-image.md) | Building a Windows 11 multi-session image for Nerdio with Packer | verified |
+| [security/](security/README.md) | Security baselines Nerdio publishes, kit hardening, and how to record accepted risks | verified |
 | [troubleshooting/](troubleshooting/README.md) | Known errors: symptom, cause, fix and source | verified |
 | [chat-assistant.md](chat-assistant.md) | What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2 | plan |
 | [chatbot-first.md](chatbot-first.md) | Every deployment step, whether the setup chat can drive it today, what blocks it, and the automation fix or workaround | plan |

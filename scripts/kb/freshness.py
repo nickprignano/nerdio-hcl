@@ -66,13 +66,15 @@ def expert_items(max_age_days: int, today: date, digests: list[dict] | None) -> 
             out["Experts to re-score"].append(f"{e['name']}{ref}: nominated, not scored yet")
         elif (today - date.fromisoformat(e["reviewed"])).days > max_age_days:
             out["Experts to re-score"].append(f"{e['name']}: last scored {e['reviewed']}")
-    if digests is None:
+    if not digests:
         return out
     since = date.fromordinal(today.toordinal() - max_age_days)
     counts = digest_yield(digests, since)
     sources = tomllib.loads(kblib.SOURCES.read_text(encoding="utf-8")).get("source", [])
     for e in experts:
         if e["status"] != "tracked":
+            continue
+        if (today - date.fromisoformat(e["reviewed"])).days <= max_age_days:
             continue
         names = [s["name"] for s in sources if s.get("expert") == e["id"]]
         ticked = sum(counts.get(n, [0, 0])[0] for n in names)
