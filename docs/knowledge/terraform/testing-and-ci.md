@@ -3,7 +3,7 @@ title: "Testing and CI"
 summary: "terraform test, tflint, the CI workflow and planned post-deploy checks"
 topic: terraform
 status: verified
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-27
 ---
 
 # Testing and CI
@@ -22,6 +22,27 @@ last_reviewed: 2026-10-16
   ```
 
 - Only plan-time values are checkable this way; anything computed by Azure is unknown.
+- **`mock_provider "azapi" {}` vs `terraform validate`:** `mock_provider "azapi" {}` in
+  `terraform test` bypasses `Azure/azapi` v2's embedded ARM schema validator on
+  `azapi_resource.body`. Only `terraform validate` (with the real `azapi` provider binary
+  initialized in the root module) checks `body` against the embedded API version schema.
+  For example, in `Microsoft.AzureStackHCI@2024-01-01`:
+  - `Microsoft.AzureStackHCI/logicalNetworks@2024-01-01` requires static routes under
+    `properties.subnets[].properties.routeTable.properties.routes` (passing
+    `properties.subnets[].properties.routes` directly fails `terraform validate`).
+  - `Microsoft.AzureStackHCI/galleryImages@2024-01-01` removed
+    `properties.vmImageRepositoryCredentials` in GA `2024-01-01` and fails schema validation
+    even when set to `null`.
+- **Opt-in child modules (`count = 0`) and provider constraints:** Even when a child module is
+  disabled (`default = null`, `count = 0`), `terraform init` intersects its `required_providers`
+  constraints with the root module's constraints. A child module pinning `~> 4.0` breaks
+  `terraform init` for a root module on `~> 5.0`. Always use floor constraints (`>= 5.0` for
+  `azurerm`, `>= 2.0` for `azapi`) in `modules/*/versions.tf`.
+- **`terraform fmt` alignment around multi-line `optional(object({...}))`:** Inside an outer
+  `object({...})` type definition, a multi-line `attr = optional(object({ ... }))` block splits
+  `terraform fmt`'s `=` column alignment into separate vertical groups above and below the nested
+  block. Single-line attributes immediately following `}))` align only with their own contiguous
+  group.
 
 ## tflint
 
