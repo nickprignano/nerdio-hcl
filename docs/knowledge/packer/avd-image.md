@@ -71,3 +71,16 @@ and the kit's profile are in `packer/avd-win11/README.md`. Checked against the W
 - **GPU / Graphics preset:** set `gpu_preset = true` in `packer/avd-win11` (and `image_definition = "win11-avd-gpu"`)
   to enable hardware-accelerated GPU frame encoding (`bEnumerateHWBeforeSW`, `AVC444ModePreferred`,
   `AVCHardwareEncodePreferred`), pairing with `gpu_preset = true` on `02-nerdio-config` host pools.
+
+## Evergreen and VcRedist (optional)
+
+Set `install_vcredist = true` or populate `evergreen_apps` in `packer/avd-win11` to resolve and
+install the latest Microsoft Visual C++ Redistributables and common Windows applications at build
+time via EUC Pilots' [`VcRedist`](https://github.com/EUCPilots/vcredist) and
+[`Evergreen`](https://github.com/EUCPilots/evergreen-module) PowerShell modules (both MIT-licensed,
+watched in [../sources.toml](../sources.toml)).
+
+- **HCL-driven:** Packer serializes `install_vcredist` and `evergreen_apps` to
+  `C:\Windows\Temp\evergreen-settings.json` with `jsonencode(...)` and runs `scripts/04-evergreen.ps1`.
+- **Opt-in:** Both default to disabled (`false` / `[]`) so restricted-network builds that block
+  the PowerShell Gallery or vendor CDNs continue to work without changes.

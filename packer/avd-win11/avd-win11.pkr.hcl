@@ -1,5 +1,9 @@
 locals {
   image_version = var.image_version != "" ? var.image_version : formatdate("YYYY.MMDD.hhmm", timestamp())
+  evergreen_settings = {
+    install_vcredist = var.install_vcredist
+    evergreen_apps   = var.evergreen_apps
+  }
 }
 
 source "azure-arm" "avd" {
@@ -122,6 +126,19 @@ build {
 
   provisioner "windows-restart" {
     restart_timeout = "30m"
+  }
+
+  # Optional Evergreen + VcRedist application and runtime step (EUCPilots).
+  provisioner "file" {
+    content     = jsonencode(local.evergreen_settings)
+    destination = "C:/Windows/Temp/evergreen-settings.json"
+  }
+
+  provisioner "powershell" {
+    script            = "${path.root}/scripts/04-evergreen.ps1"
+    elevated_user     = build.User
+    elevated_password = build.Password
+    valid_exit_codes  = [0, 3010]
   }
 
   # Optional Ansible golden image playbook (Decision 0028). Runs from the build host over WinRM

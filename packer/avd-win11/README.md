@@ -57,3 +57,21 @@ WDOT event log doesn't exist yet (fixed upstream in `0c8d1e6`).
 Microsoft sample code provided as is and "not intended to be used in a production environment".
 The kit fetches WDOT at build time and doesn't copy or redistribute it. Test the profile on a
 non-production host pool before rolling an image out.
+
+## Evergreen and VcRedist (optional)
+
+Set `install_vcredist = true` or pass `evergreen_apps` in `.pkrvars.hcl` to install the latest
+Microsoft Visual C++ Redistributables and vendor application installers during the build via
+EUC Pilots' MIT-licensed [`VcRedist`](https://github.com/EUCPilots/vcredist) and
+[`Evergreen`](https://github.com/EUCPilots/evergreen-module) PowerShell modules:
+
+```hcl
+install_vcredist = true
+evergreen_apps = [
+  { name = "7zip", architecture = "x64", install_args = "/S" },
+  { name = "NotepadPlusPlus", architecture = "x64", type = "exe", install_args = "/S" },
+]
+```
+
+Both default to off (`install_vcredist = false`, `evergreen_apps = []`) so the baseline build runs
+without downloading third-party modules from the PowerShell Gallery.

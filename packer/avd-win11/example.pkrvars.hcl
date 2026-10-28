@@ -13,3 +13,7 @@ gallery = {
 # Optional: Windows Desktop Optimization Tool profile and per-setting changes (see README.md).
 # wdot_profile   = "avd-multisession"
 # wdot_overrides = { Services = { SysMain = "Apply" } }
+
+# Optional: Evergreen & VcRedist live vendor installers (see README.md).
+# install_vcredist = true
+# evergreen_apps   = [{ name = "7zip", install_args = "/S" }]

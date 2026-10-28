@@ -315,6 +315,19 @@ variable "rest_gaps" {
       url             = string
       trust_level     = optional(string, "Trusted")
     })), {})
+    uam_shell_apps = optional(map(object({
+      name                   = string
+      description            = optional(string, "Managed by Terraform")
+      publisher              = optional(string, "")
+      version                = string
+      is_public              = optional(bool, false)
+      reboot_after_install   = optional(bool, false)
+      reboot_after_uninstall = optional(bool, false)
+      install_script         = string
+      uninstall_script       = optional(string, "")
+      detection_script       = string
+      linked_file_uri        = optional(string)
+    })), {})
     host_pool_reimage_schedules = optional(map(object({
       resource_group          = optional(string)
       is_enabled              = optional(bool, true)

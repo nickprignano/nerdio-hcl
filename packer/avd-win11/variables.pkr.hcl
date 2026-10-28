@@ -151,3 +151,22 @@ variable "gpu_preset" {
   default     = false
   description = "Enable GPU/Graphics preset: enables hardware-accelerated GPU frame encoding (AVX/HEVC/H.264) and multimedia redirection policies for NVIDIA/AMD GPU session hosts."
 }
+
+variable "install_vcredist" {
+  type        = bool
+  default     = false
+  description = "When true, installs supported x64 and x86 Microsoft Visual C++ Redistributables (2015-2022) via the EUCPilots VcRedist PowerShell module."
+}
+
+variable "evergreen_apps" {
+  type = list(object({
+    name         = string
+    architecture = optional(string, "x64")
+    channel      = optional(string, "")
+    ring         = optional(string, "")
+    type         = optional(string, "")
+    install_args = optional(string, "/quiet /norestart")
+  }))
+  default     = []
+  description = "Optional list of Evergreen applications (EUCPilots/evergreen-module) to query, download and silently install on the build VM (e.g. MicrosoftFSLogixApps, 7zip, NotepadPlusPlus)."
+}

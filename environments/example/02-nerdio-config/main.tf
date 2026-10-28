@@ -51,6 +51,7 @@ locals {
     length(var.rest_gaps.desktop_images) > 0 ||
     length(var.rest_gaps.remote_apps) > 0 ||
     length(var.rest_gaps.uam_repositories) > 0 ||
+    length(var.rest_gaps.uam_shell_apps) > 0 ||
     length(var.rest_gaps.host_pool_reimage_schedules) > 0
   )
 }
@@ -69,6 +70,7 @@ module "nerdio_rest_gaps" {
   desktop_images                = var.rest_gaps.desktop_images
   remote_apps                   = var.rest_gaps.remote_apps
   uam_repositories              = var.rest_gaps.uam_repositories
+  uam_shell_apps                = var.rest_gaps.uam_shell_apps
   host_pool_reimage_schedules   = var.rest_gaps.host_pool_reimage_schedules
 
   depends_on = [module.nerdio_config]

@@ -1,5 +1,5 @@
 name: image
-run-name: "${{ inputs.environment || 'sandbox' }} golden image build (WDOT: ${{ inputs.wdot_profile || 'safe' }})"
+run-name: "${{ inputs.environment || 'sandbox' }} golden image build (WDOT: ${{ inputs.wdot_profile || 'avd-multisession' }})"
 
 # Build and publish a Windows 11 AVD golden image to Azure Compute Gallery with Packer
 # (packer/avd-win11). Runs in the gated <environment>-apply GitHub environment using OIDC,
@@ -18,26 +18,36 @@ on:
           - prod
         default: sandbox
       wdot_profile:
-        description: "VDOT optimization profile (safe, default, or none)"
+        description: "WDOT optimization profile (avd-multisession, minimal, or none)"
         required: true
         type: choice
         options:
-          - safe
-          - default
+          - avd-multisession
+          - minimal
           - none
-        default: safe
+        default: avd-multisession
       run_windows_update:
         description: "Install cumulative Windows Updates during image build?"
         required: false
         type: boolean
         default: true
+      install_vcredist:
+        description: "Install Microsoft Visual C++ Redistributables via EUCPilots VcRedist?"
+        required: false
+        type: boolean
+        default: false
+      gpu_preset:
+        description: "Enable GPU hardware frame encoding preset (publishes to win11-avd-gpu)?"
+        required: false
+        type: boolean
+        default: false
       run_ansible_playbook:
         description: "Run Ansible playbook (ansible/playbooks/avd-image.yml) during build?"
         required: false
         type: boolean
         default: false
       image_version:
-        description: "3-part image version (e.g. 1.0.0); blank uses 1.<YYYYMM>.<DD>"
+        description: "3-part image version (e.g. 2026.1027.0100); blank uses YYYY.MMDD.hhmm"
         required: false
         type: string
         default: ""
@@ -67,8 +77,10 @@ jobs:
       TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
       TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
       NERDIO_ENV: ${{ inputs.environment || 'sandbox' }}
-      WDOT_PROFILE: ${{ inputs.wdot_profile || 'safe' }}
+      WDOT_PROFILE: ${{ inputs.wdot_profile || 'avd-multisession' }}
       RUN_WU: ${{ inputs.run_windows_update && 'true' || 'false' }}
+      INSTALL_VCREDIST: ${{ inputs.install_vcredist && 'true' || 'false' }}
+      GPU_PRESET: ${{ inputs.gpu_preset && 'true' || 'false' }}
       RUN_ANSIBLE: ${{ inputs.run_ansible_playbook && 'true' || 'false' }}
       IMAGE_VERSION: ${{ inputs.image_version }}
     steps:
@@ -93,20 +105,26 @@ jobs:
             --account-name "$TFSTATE_STORAGE_ACCOUNT" --container-name answers \
             --name "$NERDIO_ENV.json" --file .nerdio/answers.json >/dev/null
           location="$(jq -r '.location // "eastus2"' .nerdio/answers.json)"
-          prefix="$(jq -r '.name_prefix // "avd"' .nerdio/answers.json)"
-          compact="$(echo "$prefix" | tr -d '-')"
-          gallery_rg="rg-${prefix}-${NERDIO_ENV}-images"
-          gallery_name="gal_${compact}_${NERDIO_ENV}"
-          ver="${IMAGE_VERSION:-1.$(date -u +%Y%m).$(date -u +%d | sed 's/^0//')}"
+          prefix="$(jq -r '.prefix // .name_prefix // "avd"' .nerdio/answers.json)"
+          underscore="$(echo "$prefix" | tr '-' '_')"
+          gallery_rg="$(jq -r --arg p "$prefix" '.image_gallery_resource_group // ("rg-" + $p + "-images")' .nerdio/answers.json)"
+          build_rg="$(jq -r --arg p "$prefix" '.image_build_resource_group // ("rg-" + $p + "-images-build")' .nerdio/answers.json)"
+          gallery_name="$(jq -r --arg u "$underscore" '.gallery_name // ("gal_" + $u)' .nerdio/answers.json)"
+          img_def="win11-avd-m365"
+          if [ "$GPU_PRESET" = "true" ]; then img_def="win11-avd-gpu"; fi
+          gallery_json="$(jq -nc --arg rg "$gallery_rg" --arg name "$gallery_name" --arg def "$img_def" --arg loc "$location" '{resource_group: $rg, name: $name, image_definition: $def, replica_regions: [$loc]}')"
 
           packer init packer/avd-win11 | redact
           packer build -color=false \
             -var "subscription_id=$ARM_SUBSCRIPTION_ID" \
+            -var "tenant_id=$ARM_TENANT_ID" \
             -var "location=$location" \
-            -var "gallery_resource_group=$gallery_rg" \
-            -var "gallery_name=$gallery_name" \
-            -var "image_version=$ver" \
+            -var "build_resource_group=$build_rg" \
+            -var "gallery=$gallery_json" \
+            -var "image_version=$IMAGE_VERSION" \
             -var "wdot_profile=$WDOT_PROFILE" \
             -var "run_windows_update=$RUN_WU" \
+            -var "install_vcredist=$INSTALL_VCREDIST" \
+            -var "gpu_preset=$GPU_PRESET" \
             -var "run_ansible_playbook=$RUN_ANSIBLE" \
             packer/avd-win11 2>&1 | redact

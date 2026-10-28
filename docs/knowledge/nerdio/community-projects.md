@@ -3,7 +3,7 @@ title: "Community projects"
 summary: "Other Nerdio + Terraform projects worth knowing about"
 topic: nerdio
 status: partial
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-27
 ---
 
 # Community projects
@@ -20,7 +20,8 @@ Other public Nerdio + Terraform work. Useful for comparison; none is endorsed by
 | [pc-dok/N4K-Github-AVD-Packer](https://github.com/pc-dok/N4K-Github-AVD-Packer) | AVD image builds with Packer and GitHub Actions. No Nerdio integration. |
 | [microsoft/terraform-provider-msgraph](https://github.com/microsoft/terraform-provider-msgraph) | Official generic Graph provider (preview, v0.6.0), for Entra/Intune gaps azuread doesn't cover. See [../stack-options.md](../stack-options.md#tool-verdicts). |
 | [Get-Nerdio/NMW](https://github.com/Get-Nerdio/NMW) | Nerdio's own repo: `templates/mainTemplate.json`, the update runbook that uses the package API, `intune-policies/` (baselines, ASR, compliance, CA, Defender, firewall), `azure-custom-roles/nme-custom-role.json` (least-privilege role) and Windows scripted actions (screen capture protection, RDP Shortpath, clipboard). See [../security/README.md](../security/README.md). |
-| [aaronparker/nerdio](https://github.com/aaronparker/nerdio) | Scripts and tools for Nerdio Manager by stealthpuppy (Aaron Parker). Found, not yet reviewed. Watched by the weekly digest, along with his other AVD, Intune and image repos. |
+| [aaronparker/nerdio](https://github.com/aaronparker/nerdio) | PowerShell Scripted Actions (`/actions`), Shell Apps (`/shell-apps`), Pester image tests (`/tests`) and sample NME deployment templates (`/nme`) by Aaron Parker (stealthpuppy, Nerdio). **GPL-3.0 licensed** (reference only; do not copy code into this Apache-2.0 repo). Focuses on inside-the-guest customization and Nerdio Scripted Actions rather than declarative Terraform control-plane management. |
+| [EUCPilots](https://github.com/EUCPilots) ([eucpilots.com](https://eucpilots.com/)) | Aaron Parker's EUC automation hub: [`evergreen-module`](https://github.com/EUCPilots/evergreen-module) (MIT; live vendor version/URL resolution for Windows apps), [`vcredist`](https://github.com/EUCPilots/vcredist) (MIT; Visual C++ Redistributable installer automation), [`evergreen-packages`](https://github.com/EUCPilots/evergreen-packages) (package definitions for Nerdio UAM Shell Apps and Intune Win32 apps) and Evergreen Workbench. Complementary to this kit: we call `Evergreen` and `VcRedist` optionally from `packer/avd-win11` ([../packer/avd-image.md](../packer/avd-image.md#evergreen-and-vcredist-optional)). |
 | [WayneBellows/fslogix-healthcheck](https://github.com/WayneBellows/fslogix-healthcheck) | PowerShell health check for FSLogix on AVD session hosts, by Wayne Bellows (Nerdio). Found, not yet reviewed. |
 | [virtualmanc/nerdioscripts](https://github.com/virtualmanc/nerdioscripts) | Nerdio scripts by Neil McLoughlin (Nerdio). Found, not yet reviewed. |
 

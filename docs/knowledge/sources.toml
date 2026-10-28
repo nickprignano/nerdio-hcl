@@ -93,6 +93,27 @@ expert = "aaron-parker"
 kb_page = "nerdio/community-projects.md"
 
 [[source]]
+name = "EUCPilots (Aaron Parker): GitHub org"
+kind = "github_org_repos"
+org = "EUCPilots"
+expert = "aaron-parker"
+kb_page = "nerdio/community-projects.md"
+
+[[source]]
+name = "EUCPilots Evergreen module: releases"
+kind = "github_releases"
+repo = "EUCPilots/evergreen-module"
+expert = "aaron-parker"
+kb_page = "packer/avd-image.md"
+
+[[source]]
+name = "EUCPilots VcRedist module: releases"
+kind = "github_releases"
+repo = "EUCPilots/vcredist"
+expert = "aaron-parker"
+kb_page = "packer/avd-image.md"
+
+[[source]]
 name = "Wayne Bellows: Modern EUC blog"
 kind = "feed"
 url = "https://modern-euc.com/feed/"

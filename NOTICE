@@ -18,6 +18,10 @@ runs the kit is responsible for accepting those terms.
   Nerdio Manager needs a Nerdio license under Nerdio's terms.
 - Windows Desktop Optimization Tool (The-Virtual-Desktop-Team): MIT license, plus a Microsoft
   sample-code EULA in the same repository. Fetched at a pinned commit during image builds.
+- Evergreen (EUCPilots/evergreen-module) and VcRedist (EUCPilots/vcredist) PowerShell modules:
+  MIT license. Installed from the PowerShell Gallery on the temporary Packer build VM only when
+  install_vcredist or evergreen_apps is enabled; any vendor application binaries they download keep
+  their respective vendor terms.
 - Terraform and Packer (HashiCorp): Business Source License 1.1.
 - Terraform providers such as hashicorp/azurerm, hashicorp/azuread and azure/azapi:
   Mozilla Public License 2.0.
