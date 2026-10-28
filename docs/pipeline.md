@@ -35,11 +35,13 @@ example to grant admin consent yourself, set `access` in `00-pipeline/terraform.
 
 ```bash
 cd ~/nerdio-hcl
-./nerdio use trial                   # once: remember this tenant and subscription as "trial"
-./nerdio init                        # if you haven't answered the setup questions yet
-gh auth login                        # choose "Login with a web browser"; works on an iPad
-./scripts/pipeline/bootstrap.sh      # review the plan, type yes
+./nerdio use trial                                         # once: remember this tenant and subscription as "trial"
+gh auth login                                              # choose "Login with a web browser"; works on an iPad
+./nerdio assistant --admin-group "AVD Admins" --pipeline   # or ./scripts/pipeline/bootstrap.sh --assistant "AVD Admins"
 ```
+
+Pass `./scripts/pipeline/bootstrap.sh` without `--assistant` if you aren't deploying the setup
+chatbot.
 
 ### Enter the tenant and subscription once
 
@@ -99,14 +101,17 @@ or save them from the chatbot. Earlier versions are kept as blob versions.
 
 ## Deploy
 
-Actions > **deploy** > **Run workflow**: pick the environment and stage (platform first, then
-config), and tick **apply** to apply after the plan. Stage **preflight** runs the read-only
-readiness check (`./nerdio preflight`) from the saved answers as the plan identity, and never
-applies. Its checks of a person's roles come back as "manual", because the apply identity holds
-those roles by design. Stage **verify** runs the same check after Nerdio's wizard
-(`--stage post-wizard`), including the kit's own Terraform checks from the platform state. Read the plan in the run summary, then
-approve the `<env>-apply` deployment (GitHub's mobile app works). Nerdio's first-run wizard
-still runs in the browser between the stages, because Nerdio has no API for it yet.
+Actions > **deploy** > **Run workflow**: pick the environment and stage (`platform` first, then
+`config`, or `assistant` to update the setup chatbot), and tick **apply** to apply after the plan.
+Stage **preflight** runs the read-only readiness check (`./nerdio preflight`) from the saved answers
+as the plan identity, and never applies. Its checks of a person's roles come back as "manual",
+because the apply identity holds those roles by design. Stage **verify** runs the same check after
+Nerdio's wizard (`--stage post-wizard`), including the kit's own Terraform checks from the platform
+state. Stages **fix-quota** and **fix-vcpu** preview an App Service quota support ticket or VM
+family vCPU quota increase in the plan job and send `./nerdio fix quota` / `vcpu --yes` in the gated
+`<env>-apply` job after a reviewer approves it. Read the plan in the run summary, then approve the
+`<env>-apply` deployment (GitHub's mobile app works). Nerdio's first-run wizard still runs in the
+browser between the stages, because Nerdio has no API for it yet.
 
 ## Connect the chatbot
 

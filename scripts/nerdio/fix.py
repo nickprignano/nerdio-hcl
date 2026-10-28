@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import uuid
@@ -25,6 +27,7 @@ PIM_ARM_API = "2020-10-01"
 QUOTA_API = "2023-02-01"
 QUOTA_SERVICE = "service and subscription limits (quotas)"
 TICKET_PREFIX = "Nerdio kit:"
+UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 # usageLocation in Entra is ISO 3166-1 alpha-2; Azure Support wants alpha-3.
 COUNTRIES = {"US": "USA", "CA": "CAN", "GB": "GBR", "IE": "IRL", "AU": "AUS", "NZ": "NZL", "DE": "DEU",
              "FR": "FRA", "NL": "NLD", "BE": "BEL", "ES": "ESP", "IT": "ITA", "SE": "SWE", "NO": "NOR",
@@ -124,8 +127,29 @@ def quota_ticket(service_id: str, classification_id: str, contact: dict, sku: st
     }}
 
 
+def _contact_profile(contact_object_ids: list[str] | None = None) -> dict:
+    """Read the signed-in user from /me, or fall back to an admin user's Entra object ID in pipelines."""
+    try:
+        me = rest("get", f"{_graph()}/me?$select=givenName,surname,mail,userPrincipalName,usageLocation") or {}
+    except FixError:
+        me = {}
+    if me.get("mail") or me.get("userPrincipalName"):
+        return me
+    for oid in contact_object_ids or []:
+        if not isinstance(oid, str) or not UUID_RE.match(oid.strip()):
+            continue
+        try:
+            user = rest("get", f"{_graph()}/users/{oid.strip()}?$select=givenName,surname,mail,userPrincipalName,usageLocation") or {}
+        except FixError:
+            continue
+        if user.get("mail") or user.get("userPrincipalName"):
+            return user
+    return me
+
+
 def fix_quota(subscription_id: str, location: str, sku: str, limit: int, country: str | None,
-              email: str | None, timezone: str, assume_yes: bool) -> int:
+              email: str | None, timezone: str, assume_yes: bool, plan_only: bool = False,
+              contact_object_ids: list[str] | None = None) -> int:
     services = rest("get", f"{_arm()}/providers/Microsoft.Support/services?api-version={SUPPORT_API}") or {}
     svc = next((s for s in services.get("value", [])
                 if (s.get("properties", {}).get("displayName") or "").lower() == QUOTA_SERVICE), None)
@@ -136,7 +160,7 @@ def fix_quota(subscription_id: str, location: str, sku: str, limit: int, country
     if not pc:
         names = sorted(c.get("properties", {}).get("displayName", "") for c in classes.get("value", []))
         raise FixError("no App Service entry under the quota service; it lists: " + ", ".join(names))
-    me = rest("get", f"{_graph()}/me?$select=givenName,surname,mail,userPrincipalName,usageLocation") or {}
+    me = _contact_profile(contact_object_ids)
     if email:
         me["mail"] = email
     contact = contact_from_me(me, country, timezone)
@@ -154,6 +178,8 @@ def fix_quota(subscription_id: str, location: str, sku: str, limit: int, country
     print(f"Azure Support request for subscription {subscription_id[:8]}...:\n"
           f"  {p['title']}\n  {p['description']}\n"
           f"  Replies go to {contact['primaryEmailAddress']} (severity: minimal; no support plan needed for quota).")
+    if plan_only:
+        return 0
     if not confirm("Open this request?", assume_yes):
         print("Nothing sent.")
         return 1
@@ -183,7 +209,33 @@ def quota_status(subscription_id: str) -> int:
 
 # --- VM vCPU quota (Azure Quota API; usually approved in minutes, no ticket) ----------------------
 
-def fix_vcpu(subscription_id: str, location: str, family: str, limit: int, assume_yes: bool) -> int:
+def infer_vcpu(location: str, values: dict) -> tuple[str, int]:
+    """Infer the VM family quota name and needed vCPU limit from the kit answers and current usage."""
+    size = values.get("vm_size") or "Standard_D4s_v5"
+    hosts = int(values.get("host_pool_capacity") or math.ceil(
+        int(values.get("user_count") or 16) / max(1, int(values.get("max_sessions_per_host") or 8))
+    ))
+    skus = az(["vm", "list-skus", "-l", location, "--size", size, "--resource-type", "virtualMachines"]) or []
+    sku = next((s for s in skus if (s.get("name") or "").lower() == size.lower()), None)
+    if not sku or not sku.get("family"):
+        raise FixError(f"couldn't determine the VM family for {size} in {location}; pass --family explicitly")
+    family = sku["family"]
+    caps = {x["name"]: x["value"] for x in sku.get("capabilities", []) if "name" in x and "value" in x}
+    vcpus = max(1, int(caps.get("vCPUs") or 4))
+    needed = vcpus * max(1, hosts)
+    used = 0
+    try:
+        usage = az(["vm", "list-usage", "-l", location]) or []
+        row = next((u for u in usage if u.get("name", {}).get("value") == family), None)
+        if row:
+            used = int(row.get("currentValue") or 0)
+    except FixError:
+        pass
+    return family, used + needed
+
+
+def fix_vcpu(subscription_id: str, location: str, family: str, limit: int, assume_yes: bool,
+             plan_only: bool = False) -> int:
     scope = f"{_arm()}/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}"
     url = f"{scope}/providers/Microsoft.Quota/quotas/{family}?api-version={QUOTA_API}"
     try:
@@ -191,6 +243,8 @@ def fix_vcpu(subscription_id: str, location: str, family: str, limit: int, assum
     except FixError:
         current = "unknown"
     print(f"Raise {family} vCPU quota in {location} from {current} to {limit} (Azure Quota API).")
+    if plan_only:
+        return 0
     if not confirm("Send this quota request?", assume_yes):
         print("Nothing sent.")
         return 1

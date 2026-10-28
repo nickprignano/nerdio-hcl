@@ -76,6 +76,16 @@ class QuotaTests(unittest.TestCase):
         self.assertEqual(p["contactDetails"]["country"], "USA")
         self.assertTrue(p["title"].startswith(fix.TICKET_PREFIX))
 
+    def test_plan_only_and_pipeline_admin_object_id_fallback(self):
+        gets = quota_gets()
+        del gets["/me?"]
+        gets[f"/users/{ZERO}?"] = {"givenName": "Ada", "surname": "Admin", "mail": "admin@contoso.com", "usageLocation": "US"}
+        fake = FakeAz(gets)
+        with mock.patch.object(fix, "rest", side_effect=fake.rest):
+            self.assertEqual(fix.fix_quota(ZERO, "eastus2", "B3", 2, None, None, "UTC", False,
+                                           plan_only=True, contact_object_ids=[ZERO]), 0)
+        self.assertEqual(fake.writes, [])
+
 
 class VcpuTests(unittest.TestCase):
     def test_sends_quota_api_request_after_yes(self):
@@ -85,6 +95,24 @@ class VcpuTests(unittest.TestCase):
         (method, url, body), = fake.writes
         self.assertIn("Microsoft.Compute/locations/eastus2/providers/Microsoft.Quota/quotas/standardDSv5Family", url)
         self.assertEqual(body["properties"]["limit"]["value"], 48)
+
+    def test_plan_only_and_infer_vcpu_from_answers(self):
+        fake = FakeAz({"Microsoft.Quota/quotas": {"properties": {"limit": {"value": 10}}}})
+        with mock.patch.object(fix, "rest", side_effect=fake.rest):
+            self.assertEqual(fix.fix_vcpu(ZERO, "eastus2", "standardDSv5Family", 48, False, plan_only=True), 0)
+        self.assertEqual(fake.writes, [])
+
+        def fake_az(args):
+            if args[:2] == ["vm", "list-skus"]:
+                return [{"name": "Standard_D4s_v5", "family": "standardDSv5Family",
+                         "capabilities": [{"name": "vCPUs", "value": "4"}]}]
+            if args[:2] == ["vm", "list-usage"]:
+                return [{"name": {"value": "standardDSv5Family"}, "currentValue": 8, "limit": 10}]
+            return []
+
+        with mock.patch.object(fix, "az", side_effect=fake_az):
+            family, limit = fix.infer_vcpu("eastus2", {"vm_size": "Standard_D4s_v5", "host_pool_capacity": 3})
+        self.assertEqual((family, limit), ("standardDSv5Family", 20))
 
 
 class RoleTests(unittest.TestCase):

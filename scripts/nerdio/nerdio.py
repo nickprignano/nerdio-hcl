@@ -428,17 +428,25 @@ def cmd_fix(args) -> int:
     engine.ensure_seed(answers)
     values = engine.resolve(schema, answers, {"tenant": "", "subscription": ""}).values
     try:
-        sub = fix.az(["account", "show", "--query", "id"])
+        sub = os.environ.get("ARM_SUBSCRIPTION_ID") or fix.az(["account", "show", "--query", "id"])
+        loc = args.location or values.get("location") or "eastus2"
         if args.what == "quota":
             if args.status:
                 return fix.quota_status(sub)
-            return fix.fix_quota(sub, args.location or values["location"], args.sku, args.limit,
-                                 args.country, args.email, args.timezone or values.get("timezone_id") or "UTC", args.yes)
+            sku = args.sku or values.get("app_service_plan_sku") or "B3"
+            limit = int(args.limit) if args.limit is not None else 2
+            contacts = [*(values.get("nerdio_admins") or []), *(values.get("admin_groups") or [])]
+            return fix.fix_quota(sub, loc, sku, limit, args.country, args.email,
+                                 args.timezone or values.get("timezone_id") or "UTC", args.yes,
+                                 plan_only=args.plan, contact_object_ids=contacts)
         if args.what == "vcpu":
-            if not args.family:
-                print("stopped: --family is needed, e.g. --family standardDSv5Family (preflight's vCPU line names it)", file=sys.stderr)
-                return 1
-            return fix.fix_vcpu(sub, args.location or values["location"], args.family, args.limit, args.yes)
+            family = args.family
+            limit = args.limit
+            if not family or limit is None:
+                inferred_family, inferred_limit = fix.infer_vcpu(loc, values)
+                family = family or inferred_family
+                limit = int(limit) if limit is not None else inferred_limit
+            return fix.fix_vcpu(sub, loc, family, int(limit), args.yes, plan_only=args.plan)
         return fix.fix_roles(sub, bool(values.get("create_entra_app")) and bool(values.get("grant_admin_consent")),
                              args.hours, args.yes)
     except fix.FixError as exc:
@@ -582,6 +590,11 @@ def connect_claude(stage: Path, tfvars: dict, console: bool) -> dict | None:
     return ids
 
 
+def _bootstrap_pipeline(*flags: str) -> int:
+    script = engine.ROOT / "scripts" / "pipeline" / "bootstrap.sh"
+    return subprocess.run(["bash", str(script), *flags], check=False).returncode
+
+
 def cmd_assistant(args) -> int:
     """Deploy the setup chatbot with Terraform. Run it in Azure Cloud Shell; IDs come from az."""
     stage = engine.ROOT / "environments" / args.env / "00-assistant"
@@ -606,18 +619,34 @@ def cmd_assistant(args) -> int:
         except claude_federation.FederationError as exc:
             print(f"✗ {exc}", file=sys.stderr)
             return 1
-    if args.pipeline:
-        link, problem = pipeline_link(stage.parent / "00-pipeline")
-        if problem:
-            print(f"✗ {problem}", file=sys.stderr)
-            return 1
-        tfvars["pipeline"] = link
     if not tfvars.get("admin_group"):
         print('✗ Name the Entra group allowed to use the assistant: --admin-group "AVD Admins"', file=sys.stderr)
         return 1
     if args.connect_claude and args.plan:
         print("✗ --connect-claude changes your Anthropic organization; run it without --plan.", file=sys.stderr)
         return 1
+    if args.pipeline:
+        pipeline_stage = stage.parent / "00-pipeline"
+        link, problem = pipeline_link(pipeline_stage)
+        if not link:
+            print("Bootstrapping 00-pipeline first so the assistant can connect to it:")
+            if _bootstrap_pipeline(*(["--plan"] if args.plan else [])) != 0:
+                return 1
+            if args.plan:
+                # In plan-only mode before 00-pipeline is applied, use a placeholder storage ID so 00-assistant plans cleanly.
+                env_name = os.environ.get("NME_ENV") or profiles.current() or "sandbox"
+                link = {
+                    "storage_account_id": f"/subscriptions/{sources['subscription']}/resourceGroups/rg-nme-pipeline/providers/Microsoft.Storage/storageAccounts/stnmepipeline",
+                    "environment": env_name,
+                    "github": {"repository": "contoso/nerdio-hcl"},
+                }
+                problem = ""
+            else:
+                link, problem = pipeline_link(pipeline_stage)
+        if problem:
+            print(f"✗ {problem}", file=sys.stderr)
+            return 1
+        tfvars["pipeline"] = link
     _write_private(out, tfvars)
     print(f"Wrote {out.relative_to(engine.ROOT)} (gitignored). Only members of \"{tfvars['admin_group']}\" will be able to sign in.")
     if _terraform(stage, "init", "-input=false"):
@@ -638,6 +667,8 @@ def cmd_assistant(args) -> int:
     action = ["plan", "-input=false"] if args.plan else ["apply"]
     code = _terraform(stage, *action)
     if code == 0 and not args.plan:
+        if tfvars.get("pipeline") and not os.environ.get("NME_SKIP_ADOPT"):
+            _bootstrap_pipeline("--adopt")
         _terraform(stage, "output", "url")
         federation = _tf_output(stage, "claude_federation")
         if federation and not federation.get("connected"):
@@ -716,15 +747,16 @@ def main(argv: list[str]) -> int:
 
     p = sub.add_parser("fix", help="request quota or activate PIM roles that preflight found missing")
     p.add_argument("what", choices=["quota", "vcpu", "roles"])
-    p.add_argument("--family", help="vcpu: VM family quota name, e.g. standardDSv5Family")
-    p.add_argument("--sku", default="B3", help="quota: App Service SKU (default B3, what Nerdio uses)")
-    p.add_argument("--limit", type=int, default=2, help="quota/vcpu: new limit to ask for (default 2; give vcpu its own)")
-    p.add_argument("--location", help="quota: region (default: your answers, else eastus2)")
+    p.add_argument("--family", help="vcpu: VM family quota name, e.g. standardDSv5Family (default: inferred from vm_size)")
+    p.add_argument("--sku", help="quota: App Service SKU (default: app_service_plan_sku from answers, else B3)")
+    p.add_argument("--limit", type=int, help="quota/vcpu: new limit to ask for (default: 2 for quota, inferred for vcpu)")
+    p.add_argument("--location", help="quota/vcpu: region (default: your answers, else eastus2)")
     p.add_argument("--country", help="quota: 3-letter country for the support contact, if Entra doesn't have it")
     p.add_argument("--email", help="quota: where Azure Support replies (default: your account's mail)")
     p.add_argument("--timezone", help="quota: your time zone for the support contact")
     p.add_argument("--status", action="store_true", help="quota: list the kit's quota requests and their status")
     p.add_argument("--hours", type=int, default=4, help="roles: activation length in hours (default 4)")
+    p.add_argument("--plan", action="store_true", help="quota/vcpu: show the request without sending it")
     p.add_argument("--yes", action="store_true", help="don't ask before sending (for pipelines)")
     p.set_defaults(func=cmd_fix)
 

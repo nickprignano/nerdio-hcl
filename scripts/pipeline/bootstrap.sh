@@ -2,13 +2,15 @@
 # One-time setup for the deploy pipeline, from Azure Cloud Shell (Bash). Decision 0016.
 #
 #   ./scripts/pipeline/bootstrap.sh                 plan, then apply after you type yes
+#   ./scripts/pipeline/bootstrap.sh --assistant "AVD Admins"  bootstrap the pipeline and deploy the
+#                                                   setup chatbot connected to it in one command
 #   ./scripts/pipeline/bootstrap.sh --plan          plan only
 #   ./scripts/pipeline/bootstrap.sh --answers-only  publish your ./nerdio answers again after a change
 #                                                   (the setup chatbot can save them too)
-#   ./scripts/pipeline/bootstrap.sh --adopt         move 01-platform and 02-nerdio-config state you
-#                                                   applied from Cloud Shell into the pipeline's
-#                                                   storage, and the variable values that run used,
-#                                                   so the pipeline takes over from there
+#   ./scripts/pipeline/bootstrap.sh --adopt         move 00-assistant, 01-platform and 02-nerdio-config
+#                                                   state you applied from Cloud Shell into the
+#                                                   pipeline's storage, and the variable values that
+#                                                   run used, so the pipeline takes over from there
 #
 # Terraform (environments/example/00-pipeline) creates the state storage, the plan and apply
 # identities with GitHub OIDC trust, the GitHub environments: <env>-plan, and <env>-apply,
@@ -23,6 +25,7 @@
 #   NME_LOCATION   region for the state storage (default eastus2)
 #   NME_NAME       short name for the pipeline's resources (default nme-<first 3 of env>)
 #   NME_REVIEWERS  comma-separated GitHub logins who may approve applies (default: you)
+#   NME_ADMIN_GROUP Entra security group display name to also deploy 00-assistant with --pipeline
 #
 # You need: Owner (or Contributor + Role Based Access Control Administrator) on the
 # subscription, Privileged Role Administrator or Global Administrator to grant the identities
@@ -32,8 +35,20 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 env_dir="$root/environments/example"
 stage="$env_dir/00-pipeline"
-mode="${1:-apply}"
-case "$mode" in apply | --plan | --answers-only | --adopt) ;; *) echo "usage: $0 [--plan|--answers-only|--adopt]" >&2; exit 64 ;; esac
+mode="apply"
+admin_group="${NME_ADMIN_GROUP:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    apply | --plan | --answers-only | --adopt) mode="$1"; shift ;;
+    --assistant)
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        echo "usage: $0 [--plan|--answers-only|--adopt] [--assistant <admin-group>]" >&2
+        exit 64
+      fi
+      admin_group="$2"; shift 2 ;;
+    *) echo "usage: $0 [--plan|--answers-only|--adopt] [--assistant <admin-group>]" >&2; exit 64 ;;
+  esac
+done
 
 env_name="${NME_ENV:-$(cat "${XDG_CONFIG_HOME:-$HOME/.config}/nerdio-hcl/current" 2>/dev/null || echo sandbox)}"
 location="${NME_LOCATION:-eastus2}"
@@ -194,10 +209,12 @@ if [ "$mode" = --adopt ]; then
   terraform -chdir="$stage" output -raw storage_account_name >/dev/null 2>&1 \
     || { echo "Run $0 first; the pipeline's storage doesn't exist yet." >&2; exit 2; }
   say "Moving Cloud Shell state into the pipeline's storage"
-  echo "Don't run this while a plan or apply is running in either stage."
+  echo "Don't run this while a plan or apply is running in any stage."
+  [ -f "$env_dir/00-assistant/terraform.tfstate" ] && migrate "$env_dir/00-assistant" assistant
   [ -f "$env_dir/01-platform/terraform.tfstate" ] && migrate "$env_dir/01-platform" platform
   [ -f "$env_dir/02-nerdio-config/terraform.tfstate" ] && migrate "$env_dir/02-nerdio-config" config
   say "Carrying over the values your Cloud Shell runs used"
+  [ -f "$env_dir/00-assistant/backend.tf" ] && adopt_values "$env_dir/00-assistant" assistant
   [ -f "$env_dir/01-platform/backend.tf" ] && adopt_values "$env_dir/01-platform" platform
   [ -f "$env_dir/02-nerdio-config/backend.tf" ] && adopt_values "$env_dir/02-nerdio-config" config
   echo "They take precedence over your answers, so the first plan keeps the names you already have."
@@ -231,12 +248,30 @@ GITHUB_TOKEN="$(gh auth token)"
 export GITHUB_TOKEN
 terraform -chdir="$stage" init -input=false >/dev/null
 case "$mode" in
-  --plan) terraform -chdir="$stage" plan -input=false; exit 0 ;;
+  --plan)
+    terraform -chdir="$stage" plan -input=false
+    unset GITHUB_TOKEN
+    if [ -n "$admin_group" ]; then
+      say "00-assistant: terraform plan"
+      NME_SKIP_ADOPT=1 "$root/nerdio" assistant --admin-group "$admin_group" --location "$location" --pipeline --plan
+    fi
+    exit 0 ;;
   *) terraform -chdir="$stage" apply -input=false ;;
 esac
 unset GITHUB_TOKEN
 
 [ -f "$stage/backend.tf" ] || { say "Moving this stage's state into the new storage"; migrate "$stage" pipeline; }
+
+if [ -n "$admin_group" ]; then
+  say "00-assistant: deploying setup chatbot connected to the pipeline"
+  NME_SKIP_ADOPT=1 "$root/nerdio" assistant --admin-group "$admin_group" --location "$location" --pipeline
+fi
+
+if [ -f "$env_dir/00-assistant/terraform.tfstate" ]; then
+  say "Moving 00-assistant state into the pipeline's storage"
+  migrate "$env_dir/00-assistant" assistant
+  [ -f "$env_dir/00-assistant/backend.tf" ] && adopt_values "$env_dir/00-assistant" assistant
+fi
 
 say "Answers"
 publish_answers
