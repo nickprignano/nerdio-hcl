@@ -10,11 +10,14 @@ output "vnet_name" {
 
 output "subnet_ids" {
   description = "Subnet IDs keyed by role."
-  value = {
-    session_hosts     = azurerm_subnet.session_hosts.id
-    private_endpoints = azurerm_subnet.private_endpoints.id
-    app_integration   = azurerm_subnet.app_integration.id
-  }
+  value = merge(
+    {
+      session_hosts     = azurerm_subnet.session_hosts.id
+      private_endpoints = azurerm_subnet.private_endpoints.id
+      app_integration   = azurerm_subnet.app_integration.id
+    },
+    var.subnets.vnet_runner != null ? { vnet_runner = azurerm_subnet.vnet_runner[0].id } : {}
+  )
 }
 
 output "private_dns_zone_ids" {

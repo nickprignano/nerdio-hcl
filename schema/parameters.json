@@ -926,6 +926,59 @@
       ]
     },
     {
+      "id": "enable_vnet_runner",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Carve a /27 subnet in the control-plane VNet for an ephemeral GitHub Actions runner?",
+      "help": "Creates snet-vnet-runner delegated to Microsoft.App/environments so modules/vnet-runner can run self-hosted jobs inside the VNet when public access is turned off.",
+      "default": false
+    },
+    {
+      "id": "vnet_runner_subnet",
+      "phase": "configure",
+      "type": "cidr",
+      "ask": "advanced",
+      "when": {
+        "enable_vnet_runner": [
+          true
+        ]
+      },
+      "question": "Subnet for the VNet GitHub Actions runner?",
+      "help": "Needs at least a /27 for the Container Apps Consumption workload profile. Defaults to the fourth /27 of the second quarter.",
+      "default": {
+        "derive": "subnet_vnet_runner"
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "regions.{location}.network.subnets.vnet_runner"
+        }
+      ]
+    },
+    {
+      "id": "enable_resource_locks",
+      "phase": "configure",
+      "type": "bool",
+      "ask": "advanced",
+      "question": "Create CanNotDelete management locks on stateful resources (SQL, Key Vaults, FSLogix/ANF)?",
+      "help": "Protects databases, vaults and profile shares from accidental deletion. Defaults to yes for production and no for sandbox/dev.",
+      "default": {
+        "map": "environment",
+        "values": {
+          "sandbox": false,
+          "dev": false,
+          "prod": true
+        }
+      },
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "enable_resource_locks"
+        }
+      ]
+    },
+    {
       "id": "nme_secret_store",
       "phase": "configure",
       "type": "enum",

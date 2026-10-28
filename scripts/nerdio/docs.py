@@ -104,6 +104,8 @@ def layout_block() -> str:
         lines.append(f"    {col:<19}{desc}")
     lines += [
         "assistant/             setup chatbot app and prompt (deployed by 00-assistant)",
+        "config/",
+        "  answers/             optional GitOps environment answer sets (config/answers/<env>.json)",
         "schema/                parameters.json single source of truth + example answer sets",
         "packer/",
         "  avd-win11/           Windows 11 multi-session image build",

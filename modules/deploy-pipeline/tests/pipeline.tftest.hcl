@@ -87,6 +87,38 @@ run "gate_and_identities" {
     condition     = keys(azurerm_storage_container.this) == ["answers", "plans", "tfstate"]
     error_message = "Expected the answers, plans and tfstate containers."
   }
+  assert {
+    condition     = length(azurerm_management_lock.state) == 1 && azurerm_management_lock.state[0].lock_level == "CanNotDelete"
+    error_message = "Expected a CanNotDelete lock on the state storage account by default."
+  }
+  assert {
+    condition     = github_actions_environment_variable.runner_labels["plan"].value == "[\"ubuntu-latest\"]"
+    error_message = "Expected NERDIO_RUNNER_LABELS environment variable to default to [\"ubuntu-latest\"]."
+  }
+}
+
+run "allow_pr_plans_and_custom_runners" {
+  command = plan
+
+  variables {
+    github = {
+      owner          = "contoso"
+      repository     = "nerdio-hcl"
+      reviewers      = ["contoso-admin"]
+      allow_pr_plans = true
+      runner_labels  = ["self-hosted", "linux", "x64", "vnet"]
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_federated_identity_credential.plan_pr) == 1 && !contains(keys(github_repository_environment_deployment_policy.this), "plan")
+    error_message = "When allow_pr_plans is true, plan should allow PR branches while apply remains restricted to main."
+  }
+
+  assert {
+    condition     = contains(keys(github_repository_environment_deployment_policy.this), "apply") && github_repository_environment_deployment_policy.this["apply"].branch_pattern == "main"
+    error_message = "The apply environment must always stay restricted to main."
+  }
 }
 
 run "needs_a_reviewer" {

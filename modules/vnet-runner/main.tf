@@ -1,6 +1,25 @@
 # Ephemeral self-hosted GitHub Actions runner inside the AVD VNet using Azure Container Apps Jobs.
 # Scales 0 -> N on queued workflow runs and terminates after a single job (--ephemeral), so
 # hardened deployments (enable_hardening = true) can reach private Key Vault, SQL, and Nerdio REST API.
+# Uses a Consumption Workload Profile so the Container Apps Environment requires only a /27 subnet.
+
+locals {
+  use_github_app     = var.github_app != null
+  kv_secret_id       = local.use_github_app ? var.github_app.private_key_key_vault_secret_id : var.github_pat_key_vault_secret_id
+  auth_trigger_param = local.use_github_app ? "appKey" : "personalAccessToken"
+  rule_metadata = merge(
+    {
+      githubAPIURL              = "https://api.github.com"
+      runnerScope               = "repo"
+      targetWorkflowQueueLength = "1"
+      labels                    = join(",", var.runner_labels)
+    },
+    local.use_github_app ? {
+      applicationID  = var.github_app.application_id
+      installationID = var.github_app.installation_id
+    } : {}
+  )
+}
 
 resource "azurerm_user_assigned_identity" "runner" {
   name                = "id-${var.name_prefix}-vnet-runner"
@@ -23,6 +42,11 @@ resource "azurerm_container_app_environment" "this" {
   infrastructure_subnet_id       = var.infrastructure_subnet_id
   internal_load_balancer_enabled = true
   tags                           = var.tags
+
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
 }
 
 resource "azurerm_container_app_job" "runner" {
@@ -30,6 +54,7 @@ resource "azurerm_container_app_job" "runner" {
   location                     = var.location
   resource_group_name          = var.resource_group_name
   container_app_environment_id = azurerm_container_app_environment.this.id
+  workload_profile_name        = "Consumption"
   replica_timeout_in_seconds   = 3600
   replica_retry_limit          = 0
   tags                         = var.tags
@@ -42,7 +67,7 @@ resource "azurerm_container_app_job" "runner" {
   secret {
     name                = "github-token"
     identity            = azurerm_user_assigned_identity.runner.id
-    key_vault_secret_id = var.github_pat_key_vault_secret_id
+    key_vault_secret_id = local.kv_secret_id
   }
 
   event_trigger_config {
@@ -57,15 +82,10 @@ resource "azurerm_container_app_job" "runner" {
       rules {
         name             = "github-runner"
         custom_rule_type = "github-runner"
-        metadata = {
-          githubAPIURL              = "https://api.github.com"
-          runnerScope               = "repo"
-          targetWorkflowQueueLength = "1"
-          labels                    = join(",", var.runner_labels)
-        }
+        metadata         = local.rule_metadata
         authentication {
           secret_name       = "github-token"
-          trigger_parameter = "personalAccessToken"
+          trigger_parameter = local.auth_trigger_param
         }
       }
     }
@@ -94,9 +114,33 @@ resource "azurerm_container_app_job" "runner" {
         name  = "LABELS"
         value = join(",", var.runner_labels)
       }
-      env {
-        name        = "ACCESS_token"
-        secret_name = "github-token"
+      dynamic "env" {
+        for_each = local.use_github_app ? [1] : []
+        content {
+          name  = "APP_ID"
+          value = var.github_app.application_id
+        }
+      }
+      dynamic "env" {
+        for_each = local.use_github_app ? [1] : []
+        content {
+          name  = "APP_INSTALLATION_ID"
+          value = var.github_app.installation_id
+        }
+      }
+      dynamic "env" {
+        for_each = local.use_github_app ? [1] : []
+        content {
+          name        = "APP_PRIVATE_KEY"
+          secret_name = "github-token"
+        }
+      }
+      dynamic "env" {
+        for_each = local.use_github_app ? [] : [1]
+        content {
+          name        = "ACCESS_TOKEN"
+          secret_name = "github-token"
+        }
       }
     }
   }

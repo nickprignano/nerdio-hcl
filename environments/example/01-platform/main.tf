@@ -179,14 +179,14 @@ module "nerdio_manager" {
 }
 
 # One of the two install modules exists. Separate locals keep the Entra app (which needs only the
-# hostname) from depending on the resources that need the Entra app.
+# hostname) and downstream modules/locks from depending on module.nerdio_core (close) and its check block.
 locals {
   nerdio_hostname               = var.nerdio_install == "terraform" ? module.nerdio_core[0].app_service_hostname : module.nerdio_manager[0].app_service_hostname
-  nerdio_app_service_id         = one(concat(module.nerdio_core[*].app_service_id, module.nerdio_manager[*].app_service_id))
-  nerdio_sql_server_ids         = merge(concat(module.nerdio_core[*].sql_server_ids, module.nerdio_manager[*].sql_server_ids)...)
-  nerdio_key_vault_ids          = merge(concat(module.nerdio_core[*].key_vault_ids, module.nerdio_manager[*].key_vault_ids)...)
-  nerdio_storage_account_ids    = merge(concat(module.nerdio_core[*].storage_account_ids, module.nerdio_manager[*].storage_account_ids)...)
-  nerdio_automation_account_ids = merge(concat(module.nerdio_core[*].automation_account_ids, module.nerdio_manager[*].automation_account_ids)...)
+  nerdio_app_service_id         = var.nerdio_install == "terraform" ? module.nerdio_core[0].app_service_id : module.nerdio_manager[0].app_service_id
+  nerdio_sql_server_ids         = var.nerdio_install == "terraform" ? module.nerdio_core[0].sql_server_ids : module.nerdio_manager[0].sql_server_ids
+  nerdio_key_vault_ids          = var.nerdio_install == "terraform" ? module.nerdio_core[0].key_vault_ids : module.nerdio_manager[0].key_vault_ids
+  nerdio_storage_account_ids    = var.nerdio_install == "terraform" ? module.nerdio_core[0].storage_account_ids : module.nerdio_manager[0].storage_account_ids
+  nerdio_automation_account_ids = var.nerdio_install == "terraform" ? module.nerdio_core[0].automation_account_ids : module.nerdio_manager[0].automation_account_ids
 }
 
 module "nerdio_identity" {
@@ -426,4 +426,54 @@ module "nerdio_rbac" {
     local.all_managed_spoke_rg_ids
   )
   extra_actions = var.nerdio_rbac.extra_actions
+}
+
+locals {
+  default_runner_kv_id = try(
+    coalesce(
+      var.vnet_runner.key_vault_id,
+      local.nme_secret_store == "key_vault" ? module.nerdio_secrets[0].key_vault_id : null
+    ),
+    null
+  )
+}
+
+module "vnet_runner" {
+  source = "../../../modules/vnet-runner"
+  count  = var.vnet_runner != null ? 1 : 0
+
+  name_prefix                    = var.prefix
+  location                       = coalesce(var.regions[local.control_plane_region_key].location, local.control_plane_region_key)
+  resource_group_name            = module.spoke_foundation[local.control_plane_region_key].resource_group_names["network"]
+  infrastructure_subnet_id       = module.network[local.control_plane_region_key].subnet_ids["vnet_runner"]
+  log_analytics_workspace_id     = module.foundation.log_analytics_workspace_id
+  github_repo_url                = var.vnet_runner.github_repo_url
+  key_vault_id                   = local.default_runner_kv_id
+  github_pat_key_vault_secret_id = var.vnet_runner.github_pat_key_vault_secret_id
+  github_app                     = var.vnet_runner.github_app
+  runner_image                   = var.vnet_runner.runner_image
+  runner_labels                  = var.vnet_runner.runner_labels
+  max_executions                 = var.vnet_runner.max_executions
+  tags                           = var.tags
+}
+
+# ---------------------------------------------------------------------------------------------
+# CanNotDelete management locks for stateful production resources
+
+locals {
+  locked_resources = !var.enable_resource_locks ? {} : merge(
+    { "rg-nerdio" = module.foundation.resource_group_ids["nerdio"] },
+    local.nme_secret_store == "key_vault" ? { "kv-nme-secrets" = module.nerdio_secrets[0].key_vault_id } : {},
+    var.cmk_encryption != null ? { "kv-cmk" = module.cmk_encryption[0].key_vault_id } : {},
+    { for k, m in module.fslogix : "fslogix-${k}" => m.storage_account_id },
+    { for k, m in module.anf : "anf-${k}" => m.volume_id }
+  )
+}
+
+resource "azurerm_management_lock" "stateful" {
+  for_each   = local.locked_resources
+  name       = "lock-${var.prefix}-${each.key}"
+  scope      = each.value
+  lock_level = "CanNotDelete"
+  notes      = "Managed by Terraform (enable_resource_locks = true): protects stateful AVD and Nerdio data from accidental deletion."
 }

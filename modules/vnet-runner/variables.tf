@@ -29,8 +29,24 @@ variable "github_repo_url" {
 }
 
 variable "github_pat_key_vault_secret_id" {
-  description = "Versionless Key Vault secret URI holding the GitHub App installation token or fine-grained PAT with Actions/Self-hosted runners access."
+  description = "Optional versionless Key Vault secret URI holding a fine-grained PAT with Actions/Self-hosted runners access (set either this or github_app)."
   type        = string
+  default     = null
+
+  validation {
+    condition     = var.github_pat_key_vault_secret_id != null || var.github_app != null
+    error_message = "Set either github_pat_key_vault_secret_id or github_app."
+  }
+}
+
+variable "github_app" {
+  description = "Optional GitHub App credentials (recommended for enterprise over a PAT). private_key_key_vault_secret_id is the versionless Key Vault secret URI holding the PEM private key."
+  type = object({
+    application_id                  = string
+    installation_id                 = string
+    private_key_key_vault_secret_id = string
+  })
+  default = null
 }
 
 variable "key_vault_id" {

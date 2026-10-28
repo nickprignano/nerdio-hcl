@@ -28,18 +28,21 @@ variable "address_space" {
 variable "subnets" {
   description = <<-EOT
     Subnet CIDRs. session_hosts is where Nerdio places host pool VMs,
-    private_endpoints holds PEs for SQL/Key Vault/storage, and app_integration
-    is delegated to Microsoft.Web for Nerdio Manager App Service VNet integration.
+    private_endpoints holds PEs for SQL/Key Vault/storage, app_integration
+    is delegated to Microsoft.Web for Nerdio Manager App Service VNet integration,
+    and optional vnet_runner is delegated to Microsoft.App/environments for ephemeral self-hosted runners.
   EOT
   type = object({
     session_hosts     = string
     private_endpoints = string
     app_integration   = string
+    vnet_runner       = optional(string)
   })
   default = {
     session_hosts     = "10.50.0.0/22"
     private_endpoints = "10.50.4.0/27"
     app_integration   = "10.50.4.32/27"
+    vnet_runner       = null
   }
 }
 

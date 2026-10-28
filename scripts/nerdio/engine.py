@@ -194,6 +194,7 @@ DERIVATIONS = {
     "subnet_private_endpoints": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=27))[0]),
     "subnet_app_integration": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=27))[1]),
     "subnet_openbao": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=28))[4]),
+    "subnet_vnet_runner": lambda v: str(list(_quarters(v["address_space"])[1].subnets(new_prefix=27))[3]),
     "host_capacity": lambda v: max(1, math.ceil(v["user_count"] / v["max_sessions_per_host"])),
 }
 
@@ -285,6 +286,8 @@ def _check_subnets(values: dict) -> dict:
                    ("session_hosts_subnet", "private_endpoints_subnet", "app_integration_subnet")}
         if "openbao_subnet" in values:
             subnets["openbao_subnet"] = ipaddress.IPv4Network(values["openbao_subnet"])
+        if "vnet_runner_subnet" in values:
+            subnets["vnet_runner_subnet"] = ipaddress.IPv4Network(values["vnet_runner_subnet"])
     except (KeyError, ValueError, TypeError):
         return {}
     errors = {}
@@ -298,6 +301,8 @@ def _check_subnets(values: dict) -> dict:
                 errors[b] = f"{subnets[b]} overlaps {a.replace('_subnet', '')} ({subnets[a]})"
     if subnets["private_endpoints_subnet"].prefixlen > 28 or subnets["app_integration_subnet"].prefixlen > 28:
         errors.setdefault("private_endpoints_subnet", "private endpoint and app integration subnets need at least a /28")
+    if "vnet_runner_subnet" in subnets and subnets["vnet_runner_subnet"].prefixlen > 27:
+        errors.setdefault("vnet_runner_subnet", "vnet runner subnet needs at least a /27 for the Container Apps Environment")
     return errors
 
 

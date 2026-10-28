@@ -104,6 +104,8 @@ environments/
     01-platform/       stage 1 root: Azure + Entra + Nerdio install
     02-nerdio-config/  stage 2 root: Nerdio configuration via nerdio/nme
 assistant/             setup chatbot app and prompt (deployed by 00-assistant)
+config/
+  answers/             optional GitOps environment answer sets (config/answers/<env>.json)
 schema/                parameters.json single source of truth + example answer sets
 packer/
   avd-win11/           Windows 11 multi-session image build

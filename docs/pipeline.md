@@ -12,11 +12,11 @@ approve one ([Connect the chatbot](#connect-the-chatbot)).
 
 | Piece | What it does |
 |---|---|
-| `<env>-plan` GitHub environment | Any run from `main` can use it. Its identity is read-only: **Reader** on the subscription, **Directory.Read.All** in Graph, and the state storage |
+| `<env>-plan` GitHub environment | Any run from `main` (and pull requests when `github.allow_pr_plans = true`) can use it. Its identity is read-only: **Reader** on the subscription, **Directory.Read.All** in Graph, and the state storage |
 | `<env>-apply` GitHub environment | Needs a reviewer's approval, from `main` only, with no admin bypass. Only then does GitHub issue the token its identity trusts |
-| Two managed identities | One per environment, federated to exactly that environment with GitHub OIDC. No client secret exists anywhere |
-| State storage account | Terraform state (container `tfstate`), saved plans and their change lists (container `plans`, deleted after 7 days) and the answers each environment plans from (container `answers`, one versioned blob per environment). Entra sign-in only; shared keys are off |
-| `.github/workflows/deploy.yml` | Plans a stage, lists the changes in the run summary, and saves the plan. If you ticked **apply**, the apply job waits for approval, checks the saved plan's hash and applies it |
+| Two managed identities | One per environment, federated to that environment with GitHub OIDC. No client secret exists anywhere |
+| State storage account | Terraform state (container `tfstate`), saved plans and their change lists (container `plans`, deleted after 7 days) and the answers each environment plans from (container `answers`, one versioned blob per environment), protected by a `CanNotDelete` management lock. Entra sign-in only; shared keys are off |
+| `.github/workflows/deploy.yml` | Plans a stage, blocks accidental deletion or replacement of stateful Stage 1/2 resources unless `allow_replace` is ticked, lists the changes in the run summary, and saves the plan. If you ticked **apply** (or merged `config/answers/<env>.json` to `main`), the apply job waits for approval, checks the saved plan's hash and applies it |
 
 Tenant, subscription and object IDs are stored as environment secrets so GitHub masks them, and
 the workflow replaces any other GUID before printing. A public repository's Actions logs are
@@ -102,7 +102,24 @@ or save them from the chatbot. Earlier versions are kept as blob versions.
 ## Deploy
 
 Actions > **deploy** > **Run workflow**: pick the environment and stage (`platform` first, then
-`config`, or `assistant` to update the setup chatbot), and tick **apply** to apply after the plan.
+`config`, `auto` to run `platform` then `config`, or `assistant` to update the setup chatbot), and tick **apply** to apply after the plan.
+By default, the plan job blocks any plan that deletes or replaces stateful Stage 1 (SQL, Key Vault,
+FSLogix/ANF, VNet, Compute Gallery) or Stage 2 (`nme_workspace`, host pools, linked networks/RGs,
+FSLogix profiles) resources when `destroy` is false; tick **allow_replace** only when a replacement
+is intentional ([decision 0030](knowledge/decisions/0030-enterprise-guardrails-locks-and-gitops.md)).
+
+### GitOps mode (`config/answers/<env>.json`)
+
+Prefer Pull Requests for Day-2 changes? Commit a non-identifying answer file to
+[`config/answers/<env>.json`](../config/answers/README.md) (containing region, workload, sizing and
+Entra group display names, with zero GUIDs per [guardrail 4](guardrails.md)):
+
+- Opening a pull request validates the file against `schema/parameters.json` and, when
+  `github.allow_pr_plans = true` is set in `00-pipeline`, automatically runs a read-only
+  `terraform plan` in `<env>-plan`.
+- Merging to `main` runs `stage = auto`, planning and gating `platform` and `config` behind the
+  `<env>-apply` reviewer approval and syncing the merged answers back to `answers/<env>.json`.
+
 Stage **preflight** runs the read-only readiness check (`./nerdio preflight`) from the saved answers
 as the plan identity, and never applies. Its checks of a person's roles come back as "manual",
 because the apply identity holds those roles by design. Stage **verify** runs the same check after
@@ -164,7 +181,9 @@ anyone opening the run's log. None of it goes to the public run log.
   For `nerdio_install = "marketplace"`, run the `platform` stage once after deploying Nerdio
   Manager from the Azure Marketplace (with `existing_entra_app_client_id` set if Nerdio's install
   script created `nerdio-nmw-app`) before running the `config` stage.
-- Key Vault and the state storage must accept connections from GitHub-hosted runners. With
-  hardening that turns public access off, run the pipeline on a self-hosted runner in the VNet.
+- Key Vault and the state storage must accept connections from GitHub-hosted runners until the
+  VNet runner is enabled. With hardening that turns public access off (`enable_hardening = true`),
+  set `enable_vnet_runner = true` and `vnet_runner` in `01-platform`, and set `github.runner_labels`
+  (or pass `runner_labels` on `deploy.yml`) to `["self-hosted", "linux", "x64", "vnet"]`.
 - Required reviewers on GitHub environments need a public repository or a paid GitHub plan.
 - Not yet run against a live tenant.

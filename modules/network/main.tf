@@ -80,6 +80,22 @@ resource "azurerm_subnet" "app_integration" {
   }
 }
 
+resource "azurerm_subnet" "vnet_runner" {
+  count                = var.subnets.vnet_runner == null ? 0 : 1
+  name                 = "snet-vnet-runner"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.avd.name
+  address_prefixes     = [var.subnets.vnet_runner]
+
+  delegation {
+    name = "container-apps"
+    service_delegation {
+      name    = "Microsoft.App/environments"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
 # Session hosts only need outbound access to the AVD control plane; inbound stays closed.
 resource "azurerm_network_security_group" "session_hosts" {
   name                = "nsg-${var.prefix}-session-hosts"

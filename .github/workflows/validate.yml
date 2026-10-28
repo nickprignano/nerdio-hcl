@@ -52,7 +52,7 @@ jobs:
           terraform validate -no-color 2>&1 | tee validate.log || { grep -v '^$' validate.log | tail -n 8 | sed 's/^/::error::/'; exit 1; }
       - name: module tests
         run: |
-          for dir in modules/assistant modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao modules/automation-workers modules/cmk-encryption modules/nerdio-rbac modules/deploy-pipeline modules/github-settings github environments/example/01-platform; do
+          for dir in modules/assistant modules/network modules/nerdio-core modules/nerdio-secrets modules/openbao modules/automation-workers modules/cmk-encryption modules/nerdio-rbac modules/vnet-runner modules/deploy-pipeline modules/github-settings github environments/example/01-platform; do
             echo "::group::$dir"
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" test
@@ -67,6 +67,16 @@ jobs:
         run: |
           tflint --init
           tflint --recursive --minimum-failure-severity=error
+      - name: trivy IaC security scan
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            aquasec/trivy:0.58.1 config \
+            --misconfig-scanners terraform \
+            --tf-exclude-downloaded-modules \
+            --severity HIGH,CRITICAL \
+            --ignorefile .trivyignore \
+            --exit-code 1 \
+            .
       - name: shellcheck pipeline scripts
         run: shellcheck scripts/pipeline/*.sh github/settings.sh
 
@@ -141,6 +151,14 @@ jobs:
             printf '::error file=%s::Tenant-specific file is tracked; remove it and keep it gitignored (docs/guardrails.md)\n' $bad
             exit 1
           fi
+          for f in config/answers/*.json; do
+            [ -f "$f" ] || continue
+            guids="$(grep -oE '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$f" | grep -v '^00000000-0000-0000-0000-000000000000$' || true)"
+            if [ -n "$guids" ]; then
+              printf '::error file=%s::GitOps answer file contains non-zero GUID(s); use group display names and omit tenant/subscription IDs (docs/guardrails.md)\n' "$f"
+              exit 1
+            fi
+          done
       - name: gitleaks
         run: |
           docker run --rm -v "$PWD:/repo" \

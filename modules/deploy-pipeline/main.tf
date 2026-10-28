@@ -85,6 +85,14 @@ resource "azurerm_storage_account" "state" {
   }
 }
 
+resource "azurerm_management_lock" "state" {
+  count      = var.enable_resource_lock ? 1 : 0
+  name       = "lock-${var.name}-state"
+  scope      = azurerm_storage_account.state.id
+  lock_level = "CanNotDelete"
+  notes      = "Protects the Terraform state, saved plans, and answers storage account from accidental deletion."
+}
+
 resource "azurerm_storage_container" "this" {
   for_each              = toset(["tfstate", "plans", "answers"])
   name                  = each.key
@@ -136,14 +144,23 @@ resource "azurerm_user_assigned_identity" "this" {
   tags                = var.tags
 }
 
-# Each identity trusts exactly one GitHub environment, so the token GitHub issues to the plan
-# environment can never act as the apply identity.
+# Each identity trusts its GitHub environment. When allow_pr_plans is true, pull requests can also
+# mint read-only plan tokens; the apply identity always trusts only the gated apply environment.
 resource "azurerm_federated_identity_credential" "this" {
   for_each                  = local.environments
   name                      = "github-${each.value}"
   user_assigned_identity_id = azurerm_user_assigned_identity.this[each.key].id
   issuer                    = "https://token.actions.githubusercontent.com"
   subject                   = "repo:${local.repository}:environment:${each.value}"
+  audience                  = ["api://AzureADTokenExchange"]
+}
+
+resource "azurerm_federated_identity_credential" "plan_pr" {
+  count                     = var.github.allow_pr_plans ? 1 : 0
+  name                      = "github-${local.environments.plan}-pr"
+  user_assigned_identity_id = azurerm_user_assigned_identity.this["plan"].id
+  issuer                    = "https://token.actions.githubusercontent.com"
+  subject                   = "repo:${local.repository}:pull_request"
   audience                  = ["api://AzureADTokenExchange"]
 }
 
@@ -223,9 +240,12 @@ resource "github_repository_environment" "plan" {
   repository  = var.github.repository
   environment = local.environments.plan
 
-  deployment_branch_policy {
-    protected_branches     = false
-    custom_branch_policies = true
+  dynamic "deployment_branch_policy" {
+    for_each = var.github.allow_pr_plans ? [] : [1]
+    content {
+      protected_branches     = false
+      custom_branch_policies = true
+    }
   }
 }
 
@@ -246,10 +266,10 @@ resource "github_repository_environment" "apply" {
 }
 
 resource "github_repository_environment_deployment_policy" "this" {
-  for_each = {
-    plan  = github_repository_environment.plan.environment
-    apply = github_repository_environment.apply.environment
-  }
+  for_each = merge(
+    var.github.allow_pr_plans ? {} : { plan = github_repository_environment.plan.environment },
+    { apply = github_repository_environment.apply.environment }
+  )
   repository     = var.github.repository
   environment    = each.value
   branch_pattern = var.github.branch
@@ -261,4 +281,15 @@ resource "github_actions_environment_secret" "this" {
   environment     = each.value.env == "plan" ? github_repository_environment.plan.environment : github_repository_environment.apply.environment
   secret_name     = each.value.name
   plaintext_value = each.value.value
+}
+
+resource "github_actions_environment_variable" "runner_labels" {
+  for_each = {
+    plan  = github_repository_environment.plan.environment
+    apply = github_repository_environment.apply.environment
+  }
+  repository    = var.github.repository
+  environment   = each.value
+  variable_name = "NERDIO_RUNNER_LABELS"
+  value         = jsonencode(var.github.runner_labels)
 }
