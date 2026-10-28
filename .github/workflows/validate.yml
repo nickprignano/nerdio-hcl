@@ -71,10 +71,12 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo \
             aquasec/trivy:0.58.1 config \
+            --misconfig-scanners terraform \
+            --tf-exclude-downloaded-modules \
             --severity HIGH,CRITICAL \
             --ignorefile .trivyignore \
             --exit-code 1 \
-            modules environments/example
+            .
       - name: shellcheck pipeline scripts
         run: shellcheck scripts/pipeline/*.sh github/settings.sh
 
