@@ -28,11 +28,19 @@ variable "environment" {
 variable "github" {
   description = "Repository the pipeline runs from, and the GitHub logins allowed to approve an apply."
   type = object({
-    owner      = string
-    repository = string
-    reviewers  = list(string)
-    branch     = optional(string, "main")
+    owner          = string
+    repository     = string
+    reviewers      = list(string)
+    branch         = optional(string, "main")
+    allow_pr_plans = optional(bool, false)
+    runner_labels  = optional(list(string), ["ubuntu-latest"])
   })
+}
+
+variable "enable_resource_lock" {
+  description = "Create a CanNotDelete management lock on the Terraform state storage account."
+  type        = bool
+  default     = true
 }
 
 variable "access" {

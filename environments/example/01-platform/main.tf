@@ -427,3 +427,55 @@ module "nerdio_rbac" {
   )
   extra_actions = var.nerdio_rbac.extra_actions
 }
+
+locals {
+  default_runner_kv_id = try(
+    coalesce(
+      var.vnet_runner.key_vault_id,
+      try(module.nerdio_secrets[0].key_vault_id, null),
+      try(values(local.nerdio_key_vault_ids)[0], null)
+    ),
+    null
+  )
+}
+
+module "vnet_runner" {
+  source = "../../../modules/vnet-runner"
+  count  = var.vnet_runner != null ? 1 : 0
+
+  name_prefix                    = var.prefix
+  location                       = coalesce(var.regions[local.control_plane_region_key].location, local.control_plane_region_key)
+  resource_group_name            = module.spoke_foundation[local.control_plane_region_key].resource_group_names["network"]
+  infrastructure_subnet_id       = module.network[local.control_plane_region_key].subnet_ids["vnet_runner"]
+  log_analytics_workspace_id     = module.foundation.log_analytics_workspace_id
+  github_repo_url                = var.vnet_runner.github_repo_url
+  key_vault_id                   = local.default_runner_kv_id
+  github_pat_key_vault_secret_id = var.vnet_runner.github_pat_key_vault_secret_id
+  github_app                     = var.vnet_runner.github_app
+  runner_image                   = var.vnet_runner.runner_image
+  runner_labels                  = var.vnet_runner.runner_labels
+  max_executions                 = var.vnet_runner.max_executions
+  tags                           = var.tags
+}
+
+# ---------------------------------------------------------------------------------------------
+# CanNotDelete management locks for stateful production resources
+
+locals {
+  locked_resources = !var.enable_resource_locks ? {} : merge(
+    { for k, id in local.nerdio_sql_server_ids : "sql-${k}" => id },
+    { for k, id in local.nerdio_key_vault_ids : "kv-${k}" => id },
+    local.nme_secret_store == "key_vault" ? { "kv-nme-secrets" = module.nerdio_secrets[0].key_vault_id } : {},
+    var.cmk_encryption != null ? { "kv-cmk" = module.cmk_encryption[0].key_vault_id } : {},
+    { for k, m in module.fslogix : "fslogix-${k}" => m.storage_account_id },
+    { for k, m in module.anf : "anf-${k}" => m.volume_id }
+  )
+}
+
+resource "azurerm_management_lock" "stateful" {
+  for_each   = local.locked_resources
+  name       = "lock-${var.prefix}-${each.key}"
+  scope      = each.value
+  lock_level = "CanNotDelete"
+  notes      = "Managed by Terraform (enable_resource_locks = true): protects stateful AVD and Nerdio data from accidental deletion."
+}

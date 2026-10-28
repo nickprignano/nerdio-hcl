@@ -86,3 +86,21 @@ run "vwan_spoke_and_extra_dns_zones" {
     error_message = "Expected 7 Private DNS zones when automation and wvd are enabled."
   }
 }
+
+run "vnet_runner_subnet_delegation" {
+  command = plan
+
+  variables {
+    subnets = {
+      session_hosts     = "10.50.0.0/22"
+      private_endpoints = "10.50.4.0/27"
+      app_integration   = "10.50.4.32/27"
+      vnet_runner       = "10.50.4.96/27"
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.vnet_runner) == 1 && one(azurerm_subnet.vnet_runner[0].delegation).service_delegation[0].name == "Microsoft.App/environments"
+    error_message = "Expected snet-vnet-runner delegated to Microsoft.App/environments."
+  }
+}

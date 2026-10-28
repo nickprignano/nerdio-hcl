@@ -458,23 +458,30 @@ def cmd_schema(args) -> int:
     schema = engine.load_schema()
     problems = engine.check_schema(schema)
     params = engine.params_by_id(schema)
-    # Every example answer set must resolve, render and pass Terraform's own checks.
+    # Every example answer set (and any tracked GitOps config/answers/*.json) must resolve, render and pass Terraform's own checks.
     examples = sorted((engine.ROOT / "schema" / "examples").glob("*.json"))
-    for example in examples:
-        answers = json.loads(example.read_text(encoding="utf-8"))
+    gitops_answers = sorted((engine.ROOT / "config" / "answers").glob("*.json"))
+    for example in [*examples, *gitops_answers]:
+        label = example.relative_to(engine.ROOT).as_posix() if example in gitops_answers else example.name
+        raw_text = example.read_text(encoding="utf-8")
+        if example in gitops_answers:
+            real_guids = [g for g in GUID_RE.findall(raw_text) if g != "00000000-0000-0000-0000-000000000000"]
+            if real_guids:
+                problems.append(f"{label}: contains non-zero GUID(s); use group display names and omit tenant/subscription IDs (docs/guardrails.md)")
+        answers = json.loads(raw_text)
         resolved = engine.resolve(schema, answers, engine.read_sources(placeholders=True))
-        problems += [f"{example.name}: {k}: {v}" for k, v in resolved.errors.items()]
+        problems += [f"{label}: {k}: {v}" for k, v in resolved.errors.items()]
         unknown = set(answers) - set(params) - {"_random4"}
-        problems += [f"{example.name}: unknown parameter {k}" for k in sorted(unknown)]
+        problems += [f"{label}: unknown parameter {k}" for k in sorted(unknown)]
         if resolved.errors:
             continue
         rendered, issues = engine.render(schema, resolved, placeholders=True)
-        problems += [f"{example.name}: {i}" for i in issues]
+        problems += [f"{label}: {i}" for i in issues]
         for stage, tfvars in rendered.items():
             good, message = tfcheck.check_stage(engine.stage_dir(schema, stage, "example"), tfvars)
-            print(("✓ " if good else "✗ ") + f"{example.name}: {message}")
+            print(("✓ " if good else "✗ ") + f"{label}: {message}")
             if not good:
-                problems.append(f"{example.name}: {message}")
+                problems.append(f"{label}: {message}")
     if not form.in_sync(schema):
         problems.append("the Actions form is out of date; run ./nerdio form --write")
     if not readiness_catalogue.page_in_sync():

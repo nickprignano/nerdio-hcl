@@ -91,6 +91,7 @@ variable "regions" {
         session_hosts     = string
         private_endpoints = string
         app_integration   = string
+        vnet_runner       = optional(string)
       })
       dns_servers                          = optional(list(string), [])
       connectivity_mode                    = optional(string, "standalone")
@@ -396,4 +397,28 @@ variable "nerdio_rbac" {
     extra_actions = optional(list(string), [])
   })
   default = null
+}
+
+variable "vnet_runner" {
+  description = "Optional ephemeral self-hosted GitHub Actions runner inside the control-plane AVD VNet using Azure Container Apps Jobs, so hardened deployments (enable_hardening = true) can reach private Key Vault, SQL, and state (null skips)."
+  type = object({
+    github_repo_url                = string
+    key_vault_id                   = optional(string)
+    github_pat_key_vault_secret_id = optional(string)
+    github_app = optional(object({
+      application_id                  = string
+      installation_id                 = string
+      private_key_key_vault_secret_id = string
+    }))
+    runner_image   = optional(string, "ghcr.io/actions/actions-runner:latest")
+    runner_labels  = optional(list(string), ["self-hosted", "linux", "x64", "vnet"])
+    max_executions = optional(number, 2)
+  })
+  default = null
+}
+
+variable "enable_resource_locks" {
+  description = "Create CanNotDelete management locks on stateful platform resources (Nerdio SQL, Key Vaults, FSLogix storage accounts and ANF volumes). Defaults to false; schema sets true for prod."
+  type        = bool
+  default     = false
 }

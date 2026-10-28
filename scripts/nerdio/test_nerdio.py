@@ -95,6 +95,18 @@ class SchemaTests(unittest.TestCase):
                                                 "openbao_subnet": "10.50.4.32/28"}, SOURCES)
         self.assertIn("openbao_subnet", resolved.errors)
 
+    def test_vnet_runner_subnet_and_resource_locks(self):
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "address_space": "172.20.0.0/22",
+                                                "enable_vnet_runner": True, "environment": "prod"}, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        self.assertTrue(resolved.values["enable_resource_locks"])
+        rendered, _ = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(rendered["platform"]["regions"]["eastus2"]["network"]["subnets"]["vnet_runner"], "172.20.1.96/27")
+        self.assertTrue(rendered["platform"]["enable_resource_locks"])
+        overlap = engine.resolve(self.schema, {"_random4": "ab12", "enable_vnet_runner": True,
+                                               "vnet_runner_subnet": "10.50.4.32/27"}, SOURCES)
+        self.assertIn("vnet_runner_subnet", overlap.errors)
+
     def test_public_or_wrong_size_ranges_are_rejected(self):
         p = self.params["address_space"]
         for bad in ("8.8.0.0/20", "10.0.0.0/8", "10.50.0.0/24", "10.50.0.1/20", "nope"):
@@ -254,6 +266,17 @@ class CliTests(unittest.TestCase):
 
     def test_form_matches_schema(self):
         self.assertTrue(form.in_sync(self.schema))
+
+    def test_schema_check_rejects_real_guid_in_config_answers(self):
+        bad_file = engine.ROOT / "config" / "answers" / "test-bad.json"
+        try:
+            bad_file.write_text(json.dumps({"environment": "prod", "existing_entra_app_client_id": "12345678-1234-1234-1234-123456789abc"}), encoding="utf-8")
+            with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()):
+                code = nerdio.main(["schema", "check"])
+            self.assertEqual(code, 1)
+            self.assertIn("non-zero GUID", out.getvalue())
+        finally:
+            bad_file.unlink(missing_ok=True)
 
     def test_form_includes_all_identity_models_and_hides_unsupported(self):
         block = form.inputs_block(self.schema)

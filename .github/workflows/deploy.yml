@@ -1,14 +1,23 @@
 name: deploy
 # The setup chatbot reads this title to tell runs apart.
-run-name: "${{ inputs.environment }} ${{ inputs.stage }}: ${{ (inputs.stage == 'preflight' || inputs.stage == 'verify') && 'readiness check' || (inputs.stage == 'fix-quota' || inputs.stage == 'fix-vcpu') && (inputs.apply && 'plan and request quota' || 'plan quota request') || inputs.apply && 'plan and apply' || 'plan' }}"
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('{0} {1}: {2}', inputs.environment, inputs.stage, (inputs.stage == 'preflight' || inputs.stage == 'verify') && 'readiness check' || (inputs.stage == 'fix-quota' || inputs.stage == 'fix-vcpu') && (inputs.apply && 'plan and request quota' || 'plan quota request') || inputs.apply && 'plan and apply' || 'plan') || format('gitops ({0}): {1}', github.event_name, github.ref_name) }}"
 
-# Plan, then apply after a reviewer approves (decision 0016). Start it from the Actions tab or
-# the setup chatbot. The plan job signs in as the read-only plan identity. The apply job
-# waits in the <environment>-apply GitHub environment until a named reviewer approves, then
-# applies exactly the saved plan: its hash is checked and Terraform refuses a stale one.
+# Plan, then apply after a reviewer approves (decision 0016, 0030). Start it from the Actions tab,
+# the setup chatbot, or via GitOps PR/push to config/answers/<env>.json. The plan job signs in as
+# the read-only plan identity. The apply job waits in the <environment>-apply GitHub environment
+# until a named reviewer approves, then applies exactly the saved plan: its hash is checked and
+# Terraform refuses a stale one.
 # One-time setup: scripts/pipeline/bootstrap.sh from Cloud Shell (docs/pipeline.md).
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "config/answers/*.json"
+  push:
+    branches: [main]
+    paths:
+      - "config/answers/*.json"
   workflow_dispatch:
     inputs:
       environment:
@@ -21,12 +30,13 @@ on:
           - prod
         default: sandbox
       stage:
-        description: "Which stage? platform (01) first, then config (02), or assistant (00). preflight/verify check readiness; fix-quota/fix-vcpu request quota."
+        description: "Which stage? platform (01) first, then config (02), auto (platform then config), or assistant (00). preflight/verify check readiness; fix-quota/fix-vcpu request quota."
         required: true
         type: choice
         options:
           - platform
           - config
+          - auto
           - assistant
           - preflight
           - verify
@@ -38,6 +48,11 @@ on:
         required: true
         type: boolean
         default: false
+      allow_replace:
+        description: "Allow plans that delete or replace stateful Stage 1 / Stage 2 resources when destroy=false?"
+        required: false
+        type: boolean
+        default: false
       destroy:
         description: "Plan a teardown (-destroy) of the chosen stage? Requires platform, config or assistant."
         required: false
@@ -45,6 +60,11 @@ on:
         default: false
       unlock_lock_id:
         description: "Force-unlock a stuck Terraform state lock ID (UUID)? Runs in the gated apply environment."
+        required: false
+        type: string
+        default: ""
+      runner_labels:
+        description: "Optional runner labels override (JSON array or comma-separated, e.g. self-hosted,linux,x64,vnet). Blank uses environment var NERDIO_RUNNER_LABELS or ubuntu-latest."
         required: false
         type: string
         default: ""
@@ -67,9 +87,9 @@ on:
 permissions:
   contents: read
 
-# One run per environment at a time; Terraform's state lock backs this up.
+# One run per environment/ref at a time; Terraform's state lock backs this up.
 concurrency:
-  group: deploy-${{ inputs.environment }}
+  group: deploy-${{ inputs.environment || github.ref_name }}
   cancel-in-progress: false
 
 defaults:
@@ -79,19 +99,66 @@ defaults:
 env:
   TF_IN_AUTOMATION: "true"
   ARM_USE_OIDC: "true"
-  STAGE: ${{ inputs.stage }}
-  NERDIO_ENV: ${{ inputs.environment }}
   DESTROY: ${{ inputs.destroy && 'true' || 'false' }}
-  LOCK_ID: ${{ inputs.unlock_lock_id }}
-  FIX_FAMILY: ${{ inputs.fix_family }}
-  FIX_LIMIT: ${{ inputs.fix_limit }}
-  FIX_CONTACT: ${{ inputs.fix_contact }}
+  ALLOW_REPLACE: ${{ inputs.allow_replace && 'true' || 'false' }}
+  LOCK_ID: ${{ inputs.unlock_lock_id || '' }}
+  FIX_FAMILY: ${{ inputs.fix_family || '' }}
+  FIX_LIMIT: ${{ inputs.fix_limit || '' }}
+  FIX_CONTACT: ${{ inputs.fix_contact || '' }}
 
 jobs:
-  plan:
-    if: inputs.unlock_lock_id == ''
+  detect:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}-plan
+    outputs:
+      environment: ${{ steps.ctx.outputs.environment }}
+      stage: ${{ steps.ctx.outputs.stage }}
+      apply: ${{ steps.ctx.outputs.apply }}
+      runner_override: ${{ steps.ctx.outputs.runner_override }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: resolve target environment and stage
+        id: ctx
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            env_name="${{ inputs.environment }}"
+            stage_name="${{ inputs.stage }}"
+            do_apply="${{ inputs.apply && 'true' || 'false' }}"
+          else
+            changed="$(git diff --name-only HEAD~1 HEAD -- 'config/answers/*.json' 2>/dev/null | head -n1 || true)"
+            if [ -z "$changed" ]; then
+              changed="$(ls config/answers/*.json 2>/dev/null | head -n1 || true)"
+            fi
+            env_name="$(basename "${changed:-sandbox.json}" .json)"
+            stage_name="auto"
+            if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              do_apply="true"
+            else
+              do_apply="false"
+            fi
+          fi
+          raw_runner="${{ inputs.runner_labels }}"
+          runner_json=""
+          if [ -n "$raw_runner" ]; then
+            if [[ "$raw_runner" == \[* ]]; then
+              runner_json="$(jq -c . <<<"$raw_runner")"
+            else
+              runner_json="$(printf '%s' "$raw_runner" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | jq -R . | jq -cs 'map(select(. != ""))')"
+            fi
+          fi
+          {
+            echo "environment=$env_name"
+            echo "stage=$stage_name"
+            echo "apply=$do_apply"
+            echo "runner_override=$runner_json"
+          } >> "$GITHUB_OUTPUT"
+
+  plan:
+    needs: detect
+    if: inputs.unlock_lock_id == ''
+    runs-on: ${{ fromJSON(needs.detect.outputs.runner_override != '' && needs.detect.outputs.runner_override || vars.NERDIO_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    environment: ${{ needs.detect.outputs.environment }}-plan
     permissions:
       contents: read
       id-token: write
@@ -99,8 +166,11 @@ jobs:
       changes: ${{ steps.plan.outputs.changes }}
       plan_blob: ${{ steps.plan.outputs.plan_blob }}
       plan_sha256: ${{ steps.plan.outputs.plan_sha256 }}
+      effective_stage: ${{ steps.plan.outputs.effective_stage }}
     # Environment secrets, so GitHub masks every ID in the logs.
     env:
+      NERDIO_ENV: ${{ needs.detect.outputs.environment }}
+      STAGE: ${{ needs.detect.outputs.stage == 'auto' && 'platform' || needs.detect.outputs.stage }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -124,19 +194,23 @@ jobs:
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./scripts/pipeline/stage.sh plan
+        run: |
+          echo "effective_stage=$STAGE" >> "$GITHUB_OUTPUT"
+          ./scripts/pipeline/stage.sh plan
 
   apply:
-    needs: plan
-    if: inputs.apply && needs.plan.outputs.changes == 'true'
-    runs-on: ubuntu-latest
+    needs: [detect, plan]
+    if: needs.detect.outputs.apply == 'true' && needs.plan.outputs.changes == 'true'
+    runs-on: ${{ fromJSON(needs.detect.outputs.runner_override != '' && needs.detect.outputs.runner_override || vars.NERDIO_RUNNER_LABELS || '["ubuntu-latest"]') }}
     # The gate: GitHub holds this job until a reviewer approves, and only then issues the token
     # the apply identity trusts.
-    environment: ${{ inputs.environment }}-apply
+    environment: ${{ needs.detect.outputs.environment }}-apply
     permissions:
       contents: read
       id-token: write
     env:
+      NERDIO_ENV: ${{ needs.detect.outputs.environment }}
+      STAGE: ${{ needs.plan.outputs.effective_stage }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -162,14 +236,97 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/pipeline/stage.sh apply
 
-  unlock:
-    if: inputs.unlock_lock_id != ''
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}-apply
+  plan-config:
+    needs: [detect, plan, apply]
+    if: |
+      always() &&
+      needs.detect.outputs.stage == 'auto' &&
+      needs.plan.result == 'success' &&
+      (needs.apply.result == 'success' || needs.apply.result == 'skipped')
+    runs-on: ${{ fromJSON(needs.detect.outputs.runner_override != '' && needs.detect.outputs.runner_override || vars.NERDIO_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    environment: ${{ needs.detect.outputs.environment }}-plan
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      changes: ${{ steps.plan.outputs.changes }}
+      plan_blob: ${{ steps.plan.outputs.plan_blob }}
+      plan_sha256: ${{ steps.plan.outputs.plan_sha256 }}
+    env:
+      NERDIO_ENV: ${{ needs.detect.outputs.environment }}
+      STAGE: config
+      SKIP_MISSING_PLATFORM: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+      TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+      NERDIO_PLAN_PRINCIPAL_ID: ${{ secrets.NERDIO_PLAN_PRINCIPAL_ID }}
+      NERDIO_APPLY_PRINCIPAL_ID: ${{ secrets.NERDIO_APPLY_PRINCIPAL_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: plan config
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/pipeline/stage.sh plan
+
+  apply-config:
+    needs: [detect, plan-config]
+    if: needs.detect.outputs.apply == 'true' && needs.plan-config.outputs.changes == 'true'
+    runs-on: ${{ fromJSON(needs.detect.outputs.runner_override != '' && needs.detect.outputs.runner_override || vars.NERDIO_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    environment: ${{ needs.detect.outputs.environment }}-apply
     permissions:
       contents: read
       id-token: write
     env:
+      NERDIO_ENV: ${{ needs.detect.outputs.environment }}
+      STAGE: config
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+      TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+      NERDIO_PLAN_PRINCIPAL_ID: ${{ secrets.NERDIO_PLAN_PRINCIPAL_ID }}
+      NERDIO_APPLY_PRINCIPAL_ID: ${{ secrets.NERDIO_APPLY_PRINCIPAL_ID }}
+      PLAN_BLOB: ${{ needs.plan-config.outputs.plan_blob }}
+      PLAN_SHA256: ${{ needs.plan-config.outputs.plan_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: apply config
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/pipeline/stage.sh apply
+
+  unlock:
+    needs: detect
+    if: inputs.unlock_lock_id != ''
+    runs-on: ${{ fromJSON(needs.detect.outputs.runner_override != '' && needs.detect.outputs.runner_override || vars.NERDIO_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    environment: ${{ needs.detect.outputs.environment }}-apply
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NERDIO_ENV: ${{ needs.detect.outputs.environment }}
+      STAGE: ${{ needs.detect.outputs.stage == 'auto' && 'platform' || needs.detect.outputs.stage }}
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

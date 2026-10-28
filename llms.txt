@@ -70,6 +70,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0027. The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner](docs/knowledge/decisions/0027-github-settings-in-terraform.md): proposed
 - [0028. Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration](docs/knowledge/decisions/0028-targeted-ansible-for-images-and-hybrid.md): accepted
 - [0029. v2 multi-region peer `regions` map, `./nerdio migrate` and enterprise landing zone architecture](docs/knowledge/decisions/0029-v2-multi-region-enterprise-landing-zone.md): accepted
+- [0030. End-to-end VNet runner, destructive-change guardrails, resource locks and GitOps answers](docs/knowledge/decisions/0030-enterprise-guardrails-locks-and-gitops.md): accepted
 
 ## Related knowledge bases
 

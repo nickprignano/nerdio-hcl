@@ -177,3 +177,12 @@ output "nerdio_rbac" {
     role_assignment_ids = module.nerdio_rbac[0].role_assignment_ids
   } : null
 }
+
+output "vnet_runner" {
+  description = "Ephemeral VNet GitHub Actions runner Container Apps Environment, Job, and Identity IDs when vnet_runner is set, else null."
+  value = var.vnet_runner != null ? {
+    container_app_environment_id = module.vnet_runner[0].container_app_environment_id
+    runner_job_id                = module.vnet_runner[0].runner_job_id
+    runner_identity_principal_id = module.vnet_runner[0].runner_identity_principal_id
+  } : null
+}

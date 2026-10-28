@@ -1,0 +1,51 @@
+# Intentional architectural exceptions for Trivy IaC security scanning (decision 0030).
+# Every entry below is documented with its architectural reason.
+
+# 1. Initial bootstrap before enable_hardening = true:
+# Stage 1 starts with public_network_access_enabled = true on Nerdio's Key Vault, SQL Server, and
+# Storage so the first deploy and Nerdio's initial setup wizard can run before Private Endpoints and
+# the VNet runner are switched on in the second apply (enable_hardening = true).
+AVD-AZU-0013
+AVD-AZU-0016
+AVD-AZU-0022
+AVD-AZU-0026
+
+# 2. Key Vault purge protection and key expiration:
+# Purge protection defaults to false on sandbox/dev so trial deployments can be torn down cleanly
+# without stranding Key Vault names for 90 days; production enables it via nerdio_core.purge_protection_enabled
+# and modules/cmk-encryption always sets purge_protection_enabled = true.
+# Data-protection wrapping keys (DataProtection-main, openbao-unseal) do not set a fixed expiration
+# date because expiring an active wrapping key without an application re-wrap bricks encrypted data.
+AVD-AZU-0014
+AVD-AZU-0015
+AVD-AZU-0017
+
+# 3. Storage Account network rules & logging:
+# State storage (modules/deploy-pipeline) and Nerdio data-protection storage use Entra OAuth only
+# (shared_access_key_enabled = false, allow_nested_items_to_be_public = false) and must be reachable
+# by GitHub OIDC / Cloud Shell during bootstrap.
+AVD-AZU-0010
+AVD-AZU-0011
+AVD-AZU-0012
+
+# 4. SQL Server auditing / threat detection:
+# Nerdio Manager's SQL database holds application state and is monitored via Nerdio's own Log
+# Analytics workspace and Application Insights; extra SQL Storage Auditing accounts are not required.
+AVD-AZU-0023
+AVD-AZU-0024
+AVD-AZU-0025
+AVD-AZU-0027
+
+# 5. NSG outbound service tags & OpenBao HTTPS ingress:
+# Session host NSGs allow outbound TCP 443 to WindowsVirtualDesktop and AzureCloud service tags and
+# TCP 1688 to Azure KMS; OpenBao allows TCP 8200 from var.allowed_source_addresses (configurable CIDR).
+AVD-AZU-0047
+AVD-AZU-0048
+AVD-AZU-0050
+AVD-AZU-0051
+
+# 6. Linux VM / VMSS SSH keys on ephemeral cloud-init or managed-identity workers:
+# modules/openbao and modules/automation-workers disable SSH and password login completely; all
+# configuration is declarative via cloud-init or Azure VM extensions.
+AVD-AZU-0038
+AVD-AZU-0039

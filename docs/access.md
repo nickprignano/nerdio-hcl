@@ -70,8 +70,14 @@ These are supported switches, not forks of the kit. Set them in `00-pipeline/ter
   through PIM for the step.
 - **Keep the approval gate tight.** Name specific reviewers (`NME_REVIEWERS`), not a team, and
   keep the branch ruleset on (`ruleset.enabled` in `github/main.tf`).
-- **Private networking.** `enable_hardening` turns public access off; plans and applies then
-  need a runner inside the network (chatbot-first inventory, step 19).
+- **Private networking.** `enable_hardening` turns public access off; enable `enable_vnet_runner`
+  and `modules/vnet-runner` in `01-platform` (`github.runner_labels = ["self-hosted", "linux", "x64", "vnet"]`
+  in `00-pipeline`) so plans and applies run inside the AVD spoke VNet ([decision 0030](knowledge/decisions/0030-enterprise-guardrails-locks-and-gitops.md)).
+- **Resource locks (`CanNotDelete`).** `enable_resource_locks` defaults to `true` for `prod` in
+  `01-platform` (and `enable_resource_lock = true` on `00-pipeline`), locking SQL, Key Vaults,
+  FSLogix/ANF storage and state storage against accidental deletion. Creating or removing
+  `azurerm_management_lock` resources requires `Microsoft.Authorization/locks/*` (included in
+  `Owner` and `User Access Administrator`, or add a custom lock role to `access.apply_roles`).
 
 ## Not covered yet
 

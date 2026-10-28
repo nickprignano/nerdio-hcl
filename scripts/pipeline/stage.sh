@@ -19,6 +19,8 @@
 # Inputs (set by the workflow from the GitHub environment's variables):
 #   STAGE                    assistant | platform | config | preflight | verify | fix-quota | fix-vcpu
 #   NERDIO_ENV               sandbox | dev | prod
+#   ALLOW_REPLACE            true | false (default false: blocks plans that delete or replace stateful resources when DESTROY=false)
+#   SKIP_MISSING_PLATFORM    true | false (default false: used by GitOps auto mode so config is skipped cleanly before 01-platform is applied)
 #   ARM_TENANT_ID ARM_SUBSCRIPTION_ID ARM_CLIENT_ID
 #   TFSTATE_RESOURCE_GROUP TFSTATE_STORAGE_ACCOUNT
 #   NERDIO_PLAN_PRINCIPAL_ID NERDIO_APPLY_PRINCIPAL_ID
@@ -118,11 +120,17 @@ fi
 
 if [ "$action" = plan ]; then
   mkdir -p "$root/.nerdio"
+  gitops_answers="$root/config/answers/$NERDIO_ENV.json"
   if [ "$STAGE" != assistant ]; then
     echo "== Answers to tfvars"
-    # One versioned blob per environment, written by the bootstrap script or the setup chatbot.
-    blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null \
-      || fail "No answers for $NERDIO_ENV yet. Save them from the setup chatbot, or run scripts/pipeline/bootstrap.sh --answers-only."
+    # Prefer a tracked GitOps answer file (config/answers/<env>.json) when present; otherwise download from the answers container.
+    if [ -f "$gitops_answers" ]; then
+      echo "Using tracked GitOps answers from config/answers/$NERDIO_ENV.json"
+      cp "$gitops_answers" "$root/.nerdio/answers.json"
+    else
+      blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null \
+        || fail "No answers for $NERDIO_ENV yet. Save them from the setup chatbot, commit config/answers/$NERDIO_ENV.json, or run scripts/pipeline/bootstrap.sh --answers-only."
+    fi
     if [ -z "${fix_target:-}" ]; then
       # Tenant and subscription come from ARM_*; group names are looked up with the plan identity.
       log="$work/init.log"
@@ -130,7 +138,11 @@ if [ "$action" = plan ]; then
       grep -E '^(✓|✗|Wrote)' "$log" | redact || true
     fi
   else
-    blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null || true
+    if [ -f "$gitops_answers" ]; then
+      cp "$gitops_answers" "$root/.nerdio/answers.json"
+    else
+      blob download answers "$NERDIO_ENV.json" "$root/.nerdio/answers.json" 2>/dev/null || true
+    fi
   fi
 
   if [ -n "${fix_target:-}" ]; then
@@ -244,9 +256,22 @@ if [ "$action" = plan ]; then
   if [ "$STAGE" = config ]; then
     echo "== Inputs from 01-platform"
     init_stage "$platform" platform
-    terraform -chdir="$platform" output -json nerdio_config_inputs > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null \
-      || fail "01-platform has no outputs yet. Plan and apply the platform stage first."
+    if ! terraform -chdir="$platform" output -json nerdio_config_inputs > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null; then
+      if [ "${SKIP_MISSING_PLATFORM:-false}" = true ]; then
+        echo "01-platform has no state outputs yet; skipping 02-nerdio-config in GitOps auto mode."
+        { echo "## $NERDIO_ENV / $dir_name"; echo; echo 'Skipped: `01-platform` has not been applied yet.'; } | summary
+        echo "changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+        exit 0
+      fi
+      fail "01-platform has no outputs yet. Plan and apply the platform stage first."
+    fi
     base_url="$(jq -r '.nme_base_url // empty' "$stage_dir/platform.auto.tfvars.json")"
+    if [ -z "$base_url" ] && [ "${SKIP_MISSING_PLATFORM:-false}" = true ]; then
+      echo "01-platform has no nme_base_url yet; skipping 02-nerdio-config in GitOps auto mode."
+      { echo "## $NERDIO_ENV / $dir_name"; echo; echo 'Skipped: `01-platform` has not been applied yet.'; } | summary
+      echo "changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+      exit 0
+    fi
     [ -n "$base_url" ] || fail "01-platform has no nme_base_url yet. For a Marketplace install, deploy Nerdio Manager into the nerdio resource group and re-run the platform stage to discover it."
     client_id="$(jq -r '.nme_client_id // empty' "$stage_dir/platform.auto.tfvars.json")"
     [ -n "$client_id" ] || fail "01-platform has no nme_client_id yet. Set create_entra_app = true or existing_entra_app_client_id and re-run the platform stage."
@@ -292,6 +317,53 @@ if [ "$action" = plan ]; then
   # The change list for the setup chatbot: private storage, so values aren't redacted here.
   adopted_json="$(printf '%s\n' "${adopted[@]}" | jq -R . | jq -s 'map(select(. != ""))')"
   if [ "$code" = 2 ]; then
+    # Destructive-change guardrail: block accidental delete/replace of stateful Stage 1 and Stage 2
+    # resources when DESTROY=false unless ALLOW_REPLACE=true was explicitly passed.
+    if [ "${DESTROY:-false}" != true ] && [ "${ALLOW_REPLACE:-false}" != true ]; then
+      destructive="$(terraform -chdir="$stage_dir" show -json "$work/tfplan" | jq -r '
+        [
+          "azurerm_mssql_server",
+          "azurerm_mssql_database",
+          "azurerm_key_vault",
+          "azurerm_storage_account",
+          "azurerm_storage_share",
+          "azurerm_netapp_account",
+          "azurerm_netapp_pool",
+          "azurerm_netapp_volume",
+          "azurerm_virtual_network",
+          "azurerm_subnet",
+          "azurerm_shared_image_gallery",
+          "azurerm_shared_image",
+          "azurerm_disk_encryption_set",
+          "nme_workspace",
+          "nme_dynamic_host_pool",
+          "nme_static_host_pool",
+          "nme_linked_network",
+          "nme_linked_resource_group",
+          "nme_fslogix_profile"
+        ] as $protected
+        | [ .resource_changes[]
+            | select((.type as $t | $protected | index($t)) != null)
+            | select((.change.actions | index("delete")) != null)
+            | "| <code>\(.change.actions | join(" then "))</code> | <code>\(.address)</code> |"
+          ]
+        | join("\n")
+      ')"
+      if [ -n "$destructive" ]; then
+        {
+          echo
+          echo "> [!CAUTION]"
+          echo '> **Destructive change blocked:** This plan deletes or replaces stateful resources while `destroy=false` and `allow_replace=false`.'
+          echo "> Re-run with **allow_replace = true** only if you intend to replace or delete these resources:"
+          echo
+          echo "| Planned Action | Stateful Resource |"
+          echo "|---|---|"
+          echo "$destructive"
+        } | summary
+        fail "Plan deletes or replaces stateful resources; blocked by destructive-change guardrail. Re-run with allow_replace=true if intentional."
+      fi
+    fi
+
     terraform -chdir="$stage_dir" show -json "$work/tfplan" \
       | jq --arg stage "$STAGE" --arg summary "$(grep -E '^Plan:' "$work/plan.log" || true)" --argjson adopted "$adopted_json" \
         '{stage: $stage, status: "planned", summary: $summary, adopted: $adopted, changes: [.resource_changes[] | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | {action: (.change.actions | join(" then ")), address}]}' \
@@ -351,6 +423,11 @@ set -e
 redact < "$log"
 [ "$code" = 0 ] || fail "terraform apply failed"
 { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Applied the reviewed plan."; } | summary
+
+# Keep the answers container in sync when applying from a tracked GitOps config/answers/<env>.json file.
+if [ -f "$root/config/answers/$NERDIO_ENV.json" ]; then
+  blob upload answers "$NERDIO_ENV.json" "$root/config/answers/$NERDIO_ENV.json" --overwrite 2>/dev/null || true
+fi
 
 # The result for the chatbot. After the platform stage, include the names Nerdio's first-run
 # wizard asks for, so the chat can walk the user through it with the exact values. Names only:

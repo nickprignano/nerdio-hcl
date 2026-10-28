@@ -34,4 +34,5 @@ marked *Superseded by NNNN*.
 | [0027](0027-github-settings-in-terraform.md) | The repository's own GitHub settings are Terraform with no saved state, planned daily and applied only by the owner | Proposed |
 | [0028](0028-targeted-ansible-for-images-and-hybrid.md) | Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration | Accepted |
 | [0029](0029-v2-multi-region-enterprise-landing-zone.md) | v2 multi-region peer `regions` map, `./nerdio migrate` and enterprise landing zone architecture | Accepted |
+| [0030](0030-enterprise-guardrails-locks-and-gitops.md) | End-to-end VNet runner, destructive-change guardrails, resource locks and GitOps answers | Accepted |
 <!-- END GENERATED: decision-index -->

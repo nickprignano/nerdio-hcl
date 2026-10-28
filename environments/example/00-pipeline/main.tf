@@ -6,13 +6,14 @@
 module "pipeline" {
   source = "../../../modules/deploy-pipeline"
 
-  name            = var.name
-  location        = var.location
-  tenant_id       = var.tenant_id
-  subscription_id = var.subscription_id
-  environment     = var.environment
-  github          = var.github
-  tags            = var.tags
+  name                 = var.name
+  location             = var.location
+  tenant_id            = var.tenant_id
+  subscription_id      = var.subscription_id
+  environment          = var.environment
+  github               = var.github
+  enable_resource_lock = var.enable_resource_lock
+  tags                 = var.tags
 
   apply_roles            = var.access.apply_roles
   apply_assignable_roles = var.access.apply_assignable_roles

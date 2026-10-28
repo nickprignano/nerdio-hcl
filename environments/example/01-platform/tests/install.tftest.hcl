@@ -286,10 +286,42 @@ run "enterprise_opt_in_modules_wire_up" {
       custom_location_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-azlocal/providers/Microsoft.ExtendedLocation/customLocations/cl-01"
       vm_switch_name     = "ConvergedSwitch"
     }
+    regions = {
+      eastus2 = {
+        resource_groups = {
+          network   = "rg-example-network"
+          hostpools = "rg-example-hostpools"
+          storage   = "rg-example-storage"
+        }
+        network = {
+          address_space = ["10.50.0.0/20"]
+          subnets = {
+            session_hosts     = "10.50.0.0/22"
+            private_endpoints = "10.50.4.0/27"
+            app_integration   = "10.50.4.32/27"
+            vnet_runner       = "10.50.4.96/27"
+          }
+        }
+      }
+    }
+    vnet_runner = {
+      github_repo_url = "https://github.com/contoso/nerdio-hcl"
+      github_app = {
+        application_id                  = "123456"
+        installation_id                 = "789012"
+        private_key_key_vault_secret_id = "https://kv-test.vault.azure.net/secrets/gh-app-key"
+      }
+    }
+    enable_resource_locks = true
   }
 
   assert {
-    condition     = length(module.avd_insights) == 1 && length(module.cmk_encryption) == 1 && length(module.nerdio_rbac) == 1 && length(module.intune_policies) == 1 && length(module.windows_365) == 1 && length(module.azure_local) == 1
-    error_message = "All six opt-in enterprise landing zone modules should instantiate when configured."
+    condition     = length(module.avd_insights) == 1 && length(module.cmk_encryption) == 1 && length(module.nerdio_rbac) == 1 && length(module.intune_policies) == 1 && length(module.windows_365) == 1 && length(module.azure_local) == 1 && length(module.vnet_runner) == 1
+    error_message = "All seven opt-in enterprise landing zone modules should instantiate when configured."
+  }
+
+  assert {
+    condition     = length(azurerm_management_lock.stateful) >= 4
+    error_message = "Expected CanNotDelete management locks on SQL, Nerdio Key Vault, secrets Key Vault, and CMK Key Vault."
   }
 }
