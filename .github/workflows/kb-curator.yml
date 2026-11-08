@@ -47,7 +47,7 @@ jobs:
           old_open=$(gh issue list --label kb-digest --state open --json number,body)
           new_url=$(gh issue create --label kb-digest --title "KB digest: $(date -u +%F)" --body-file digest.md)
           echo "Opened $new_url"
-          echo "$old_open" | jq -r '.[] | select((.body // "") | test("^- \\[[xX]\\]"; "m") | not) | .number' | while read -r num; do
+          echo "$old_open" | jq -r '.[] | select((.body // "") | test("(^|\n)- \\[[xX]\\]") | not) | .number' | while read -r num; do
             if [ -n "$num" ]; then
               gh issue close "$num" --comment "Superseded by $new_url (no items were ticked)."
             fi
