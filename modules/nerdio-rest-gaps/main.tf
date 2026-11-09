@@ -288,3 +288,74 @@ resource "restapi_object" "host_pool_reimage_schedule" {
     stagedRingDelayHours = each.value.staged_ring_delay_hours
   })
 }
+
+resource "restapi_object" "notification_condition" {
+  for_each = var.notification_conditions
+
+  path          = "/api/v1/notifications/conditions/nerdio"
+  create_path   = "/api/v1/notifications/conditions/nerdio"
+  read_path     = "/api/v1/notifications/conditions/nerdio/{id}"
+  update_path   = "/api/v1/notifications/conditions/nerdio/{id}"
+  destroy_path  = "/api/v1/notifications/conditions/nerdio/{id}"
+  create_method = "POST"
+  update_method = "PATCH"
+  id_attribute  = "payload/id"
+
+  data = jsonencode({
+    name = each.value.name
+    targets = [
+      for t in each.value.targets : {
+        scope = t.scope
+        value = t.value
+      }
+    ]
+    tasks = each.value.tasks
+    runByUsers = [
+      for u in each.value.run_by_users : {
+        username = u.username
+        userType = u.user_type
+      }
+    ]
+    statuses          = each.value.statuses
+    exclusionKeywords = each.value.exclusion_keywords
+  })
+}
+
+resource "restapi_object" "notification_action" {
+  for_each = var.notification_actions
+
+  path          = "/api/v1/notifications/actions"
+  create_path   = "/api/v1/notifications/actions"
+  read_path     = "/api/v1/notifications/actions/{id}"
+  update_path   = "/api/v1/notifications/actions/{id}"
+  destroy_path  = "/api/v1/notifications/actions/{id}"
+  create_method = "POST"
+  update_method = "PATCH"
+  id_attribute  = "payload/id"
+
+  data = jsonencode({
+    conditions = {
+      nerdioConditionIds = concat(
+        each.value.condition_ids,
+        [for k in each.value.condition_keys : tonumber(restapi_object.notification_condition[k].id)]
+      )
+    }
+    delivery = {
+      email = {
+        enable            = each.value.email.enable
+        sendTo            = each.value.email.send_to
+        builtInRecipients = each.value.email.built_in_recipients
+        mailboxId         = each.value.email.mailbox_id
+      }
+      webhook = each.value.webhook == null ? {
+        enable = false
+        id     = null
+        } : {
+        enable = each.value.webhook.enable
+        id     = each.value.webhook.id
+      }
+    }
+    includeTaskDetails = each.value.include_task_details
+    isActive           = each.value.is_active
+  })
+}

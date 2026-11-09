@@ -74,6 +74,23 @@ variable "rest_api_client_extra_owner_object_ids" {
   default     = []
 }
 
+variable "rest_api_federated_credentials" {
+  description = "Federated identity credentials (OIDC workload identity federation) added to the REST API client app so external callers such as ServiceNow Flow Designer / MID Server, Logic Apps, or CI/CD runners can obtain Nerdio REST API tokens without a client secret."
+  type = map(object({
+    issuer      = string
+    subject     = string
+    description = optional(string, "Federated identity credential for Nerdio REST API client")
+    audiences   = optional(list(string), ["api://AzureADTokenExchange"])
+  }))
+  default = {}
+}
+
+variable "rest_api_additional_principal_object_ids" {
+  description = "Additional Entra service principal object IDs (for example an existing ServiceNow OAuth app registration or an Azure Logic App managed identity) granted the RestClient app role on nerdio-nmw-app when grant_admin_consent is true."
+  type        = list(string)
+  default     = []
+}
+
 variable "create_client_secret" {
   description = "Create a client secret on the Nerdio app. Needed for Nerdio's \"Use existing AD app\" install path; modules/nerdio-core signs in with Key Vault certificates instead."
   type        = bool

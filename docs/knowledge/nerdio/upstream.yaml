@@ -115,6 +115,17 @@ feature_gaps:
     The kit can create Cloud PC objects through Graph (`microsoft365` provider), but Terraform and Nerdio
     can't agree on who owns them without at least a read API in Nerdio.
   status: candidate
+- id: notification-conditions-and-actions
+  title: Notification conditions and webhook/email actions (`nme_notification_condition`, `nme_notification_action`)
+  evidence: >-
+    The OpenAPI spec (`internal/client/api.json`, commit `65e547f`) has full `GET`/`POST`/`PATCH`/`DELETE`
+    CRUD on `/api/v1/notifications/conditions/nerdio` and `/api/v1/notifications/actions`, plus read access
+    to linked webhooks on `GET /api/v1/notifications/webhooks` (`General` JSON payload for ServiceNow or
+    `TeamsAdaptiveCard`), but `nerdio/nme` has no notification resources or data sources.
+  why: >-
+    Enterprise ITSM integrations (ServiceNow incident creation on failed Nerdio tasks) have to use the
+    `Mastercard/restapi` bridge in `modules/nerdio-rest-gaps` ([servicenow.md](servicenow.md)).
+  status: candidate
 api_asks:
 - id: directory-profile-create-api-and-provider-resource
   title: Directory profile create API and provider resource
@@ -200,6 +211,16 @@ api_asks:
   title: A published schema for NmeReadinessOutput.json
   evidence: The readiness script writes JSON with no documented format
   why: The kit could import its results into one report instead of asking people to compare two.
+  status: candidate
+- id: notification-webhooks-crud-api
+  title: Webhook target CRUD API (`POST`/`PATCH`/`DELETE /api/v1/notifications/webhooks`)
+  evidence: >-
+    `/api/v1/notifications/webhooks` only supports `GET` in `internal/client/api.json` (commit `65e547f`),
+    whereas `/api/v1/notifications/conditions/nerdio` and `/api/v1/notifications/actions` support full CRUD.
+  why: >-
+    Linking a ServiceNow or Teams webhook URL under Settings > Environment > Nerdio > Email and webhook
+    notifications still requires one manual console step before Terraform can bind notification actions to its ID
+    ([servicenow.md](servicenow.md)).
   status: candidate
 docs_packaging:
 - id: registry-publishing-plus-a-license

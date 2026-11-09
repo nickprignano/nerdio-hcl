@@ -78,6 +78,13 @@ entra_app = {
   wvd_admin_object_ids = ["22222222-2222-2222-2222-222222222222"]
   grant_admin_consent  = false
   # existing_client_id = "00000000-0000-0000-0000-000000000000"   # when create_entra_app = false, so Terraform still builds the stage 2 REST client
+  # Keyless OIDC federation for ServiceNow ITSM / Flow Designer calling the Nerdio REST API:
+  # rest_api_federated_credentials = {
+  #   servicenow = {
+  #     issuer  = "https://contoso.service-now.com"
+  #     subject = "nerdio-rest-client"
+  #   }
+  # }
 }
 
 # Second apply, after the Marketplace deployment exists:
@@ -87,6 +94,16 @@ enable_hardening = false
 # avd_insights = {
 #   alert_email_receivers = ["avd-ops@contoso.com"]
 #   monthly_budget_amount = 5000
+#   webhook_receivers = {
+#     servicenow-events = {
+#       service_uri             = "https://contoso.service-now.com/api/sn_em_connector/em/inbound_event?source=azuremonitor"
+#       use_common_alert_schema = true
+#       aad_auth = {
+#         object_id      = "00000000-0000-0000-0000-000000000000"
+#         identifier_uri = "api://contoso-servicenow-azuremonitor"
+#       }
+#     }
+#   }
 # }
 # cmk_encryption = {
 #   rotation_period = "P1Y"

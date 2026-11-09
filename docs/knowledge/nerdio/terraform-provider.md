@@ -75,11 +75,13 @@ Auto-scale profile notes (`internal/provider/resource_auto_scale_profile.go`):
 ## Gaps
 
 Not covered natively by `nerdio/nme` at last review: session hosts, app groups, RemoteApps, MSIX
-app attach, desktop image definitions, schedules and monitoring. Where Nerdio's REST API exposes
+app attach, desktop image definitions, schedules, notifications and monitoring. Where Nerdio's REST API exposes
 full CRUD (host pool user/group assignments, per-pool RDP profile and Shortpath bindings, RemoteApps,
 UAM app groups, UAM Shell Apps at `/api/v1/shell-apps` and custom repositories, Azure Files storage
 auto-scale, MSIX App Attach packages at `/api/v1/msix-app-attach/package`, Desktop Image pipelines
-at `/api/v1/desktop-image`, and host pool re-image schedules at `/api/v1/arm/hostpool/.../schedule`),
+at `/api/v1/desktop-image`, host pool re-image schedules at `/api/v1/arm/hostpool/.../schedule`,
+and notification conditions and webhook/email actions at `/api/v1/notifications/conditions/nerdio`
+and `/api/v1/notifications/actions` for [ServiceNow](servicenow.md)),
 the kit bridges them with `modules/nerdio-rest-gaps` (`Mastercard/restapi`). Nerdio treats imperative
 actions (power, reimage, drain, run script) as out of scope for the provider by design. Gaps worth
 contributing are tracked in [upstream-contributions.md](upstream-contributions.md).

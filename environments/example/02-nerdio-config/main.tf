@@ -52,7 +52,9 @@ locals {
     length(var.rest_gaps.remote_apps) > 0 ||
     length(var.rest_gaps.uam_repositories) > 0 ||
     length(var.rest_gaps.uam_shell_apps) > 0 ||
-    length(var.rest_gaps.host_pool_reimage_schedules) > 0
+    length(var.rest_gaps.host_pool_reimage_schedules) > 0 ||
+    length(var.rest_gaps.notification_conditions) > 0 ||
+    length(var.rest_gaps.notification_actions) > 0
   )
 }
 
@@ -72,6 +74,8 @@ module "nerdio_rest_gaps" {
   uam_repositories              = var.rest_gaps.uam_repositories
   uam_shell_apps                = var.rest_gaps.uam_shell_apps
   host_pool_reimage_schedules   = var.rest_gaps.host_pool_reimage_schedules
+  notification_conditions       = var.rest_gaps.notification_conditions
+  notification_actions          = var.rest_gaps.notification_actions
 
   depends_on = [module.nerdio_config]
 }
