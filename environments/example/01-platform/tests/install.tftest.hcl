@@ -264,9 +264,28 @@ run "enterprise_opt_in_modules_wire_up" {
   command = plan
 
   variables {
+    entra_app = {
+      rest_api_federated_credentials = {
+        servicenow = {
+          issuer  = "https://contoso.service-now.com"
+          subject = "nerdio-rest-client"
+        }
+      }
+    }
     avd_insights = {
       alert_email_receivers = ["avd-ops@contoso.com"]
       monthly_budget_amount = 2500
+      webhook_receivers = {
+        servicenow-events = {
+          service_uri             = "https://contoso.service-now.com/api/sn_em_connector/em/inbound_event?source=azuremonitor"
+          use_common_alert_schema = true
+          aad_auth = {
+            object_id      = "00000000-0000-0000-0000-000000000000"
+            identifier_uri = "api://contoso-servicenow-azuremonitor"
+            tenant_id      = "11111111-1111-1111-1111-111111111111"
+          }
+        }
+      }
     }
     cmk_encryption = {
       rotation_period = "P1Y"

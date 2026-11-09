@@ -107,6 +107,20 @@ class SchemaTests(unittest.TestCase):
                                                "vnet_runner_subnet": "10.50.4.32/27"}, SOURCES)
         self.assertIn("vnet_runner_subnet", overlap.errors)
 
+    def test_servicenow_webhook_uri_renders_avd_insights_receiver(self):
+        default_res = engine.resolve(self.schema, {"_random4": "ab12"}, SOURCES)
+        default_rendered, _ = engine.render(self.schema, default_res, placeholders=True)
+        self.assertNotIn("avd_insights", default_rendered["platform"])
+
+        sn_uri = "https://contoso.service-now.com/api/sn_em_connector/em/inbound_event?source=azuremonitor"
+        resolved = engine.resolve(self.schema, {"_random4": "ab12", "servicenow_webhook_uri": sn_uri}, SOURCES)
+        self.assertEqual(resolved.errors, {})
+        rendered, _ = engine.render(self.schema, resolved, placeholders=True)
+        self.assertEqual(
+            rendered["platform"]["avd_insights"]["webhook_receivers"]["nme-sandbox-ab12"]["service_uri"],
+            sn_uri,
+        )
+
     def test_public_or_wrong_size_ranges_are_rejected(self):
         p = self.params["address_space"]
         for bad in ("8.8.0.0/20", "10.0.0.0/8", "10.50.0.0/24", "10.50.0.1/20", "nope"):

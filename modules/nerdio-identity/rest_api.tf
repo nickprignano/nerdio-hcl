@@ -43,3 +43,20 @@ resource "azuread_app_role_assignment" "rest_client" {
   principal_object_id = azuread_service_principal.rest_client[0].object_id
   resource_object_id  = local.nerdio_service_principal_object_id
 }
+
+resource "azuread_application_federated_identity_credential" "rest_client" {
+  for_each       = var.create_rest_api_client ? var.rest_api_federated_credentials : {}
+  application_id = azuread_application.rest_client[0].id
+  display_name   = each.key
+  description    = each.value.description
+  audiences      = each.value.audiences
+  issuer         = each.value.issuer
+  subject        = each.value.subject
+}
+
+resource "azuread_app_role_assignment" "rest_client_additional" {
+  for_each            = var.grant_admin_consent ? toset(var.rest_api_additional_principal_object_ids) : toset([])
+  app_role_id         = local.app_roles.RestClient.id
+  principal_object_id = each.value
+  resource_object_id  = local.nerdio_service_principal_object_id
+}

@@ -84,5 +84,26 @@ host_pools = {
 #     script = "Write-Output 'Defender exclusions configured'"
 #   }
 # }
-#
 # workspace_user_assignments = ["11111111-1111-1111-1111-111111111111"]
+#
+# Route failed Nerdio tasks to a ServiceNow webhook (linked under Settings > Environment > Nerdio >
+# Email and webhook notifications with Payload Kind = "General"):
+# rest_gaps = {
+#   notification_conditions = {
+#     failed-avd-tasks = {
+#       name     = "All failed Nerdio tasks"
+#       tasks    = ["ALL"]
+#       statuses = ["Error"]
+#     }
+#   }
+#   notification_actions = {
+#     servicenow-incidents = {
+#       condition_keys       = ["failed-avd-tasks"]
+#       include_task_details = true
+#       webhook = {
+#         enable = true
+#         id     = 1
+#       }
+#     }
+#   }
+# }
