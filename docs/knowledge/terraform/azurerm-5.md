@@ -3,7 +3,7 @@ title: "azurerm 5.x and azuread 3.x"
 summary: "azurerm 5.x and azuread 3.x changes we hit, with fixes"
 topic: terraform
 status: verified
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-09
 ---
 
 # azurerm 5.x and azuread 3.x
@@ -30,6 +30,10 @@ Changes hit while moving the kit from azurerm 4.x to 5.x. Versions at the time:
   `network_security_group_id_wo` and `route_table_id_wo` arguments; keep using
   `azurerm_subnet_network_security_group_association` and `azurerm_subnet_route_table_association`.
 - `azurerm_subnet` adds `default_outbound_access_enabled` and `sharing_scope`.
+- `azurerm_monitor_action_group`'s `itsm_receiver.workspace_id` validates that both sides of
+  `<subscription_id>|<workspace_id>` are UUIDs (the Log Analytics workspace's `workspace_id` GUID,
+  not its ARM resource ID), whereas `azurerm_monitor_data_collection_rule` takes the full ARM
+  resource ID on `workspace_resource_id`.
 - Several resources gained write-only `*_wo` / `*_wo_version` arguments for secrets, which keep
   values out of state.
 

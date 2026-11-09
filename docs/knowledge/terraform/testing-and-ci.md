@@ -132,6 +132,22 @@ Tips:
   `"strict": true` on a tool definition requires every property in `input_schema.properties` to
   appear in `required`. Omit `"strict": true` on tools that accept optional inputs (such as
   `pipeline_start`, `pipeline_plan`, and `set_answers`).
+- **`schema/parameters.json` `tfvars` paths into `map(object(...))` attributes:**
+  `SchemaTests.test_every_tfvar_target_is_a_declared_variable` in `scripts/nerdio/test_nerdio.py`
+  verifies every literal segment in `tfvars[*].path` after the top-level variable name against
+  `tfcheck.attribute_declared(block, attr)` unless the segment starts with `{` (or `top == "tags"`).
+  When a parameter writes into a `map(object(...))` attribute (such as `host_pools` or
+  `avd_insights.webhook_receivers`), always use a `{...}` placeholder for the map key (for example
+  `avd_insights.webhook_receivers.{prefix}.service_uri`).
+- **Pinning legacy Python 3.9 CI jobs to `ubuntu-24.04`:** GitHub Actions rolled `ubuntu-latest` to
+  Ubuntu 26.04, and `actions/python-versions` does not build EOL Python 3.9 for Ubuntu 26.04. Jobs
+  that intentionally verify Python 3.9 compatibility (`preflight-zipapp` in
+  `.github/workflows/validate.yml` and `release` in `.github/workflows/preflight-release.yml`) must
+  pin `runs-on: ubuntu-24.04` rather than floating on `ubuntu-latest`.
+- **`httpx` / `anthropic` SDK vs IPv6 brackets in `NO_PROXY`:** In environments where `NO_PROXY`
+  includes `[::1]`, `httpx`'s proxy mount parser raises `InvalidURL: Invalid port: ':1]'` when
+  `anthropic.Anthropic()` initializes. Override `NO_PROXY="localhost,127.0.0.1"` when running
+  `python3 -m unittest discover -s assistant`.
 
 ## Post-deployment checks
 

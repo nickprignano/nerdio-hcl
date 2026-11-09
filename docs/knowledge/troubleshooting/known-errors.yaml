@@ -136,3 +136,25 @@ errors:
   source: curation.md#weekly-digest-kb-curator
   status: verified
   added: '2026-10-28'
+- id: azurerm-action-group-itsm-workspace-id-uuid
+  symptom: '`expected the <workSpace id> in "itsm_receiver.0.workspace_id" to be a valid UUID, but got "/subscriptions/..."` on `azurerm_monitor_action_group`'
+  cause: 'Unlike `azurerm_monitor_data_collection_rule` (which takes a full ARM resource ID), `itsm_receiver.workspace_id` in `hashicorp/azurerm` v5 validates that both sides of `<subscription_id>|<workspace_id>` are UUIDs (`CustomerId` of the Log Analytics workspace, not its ARM resource ID)'
+  fix: 'Pass `<subscription_uuid>|<workspace_uuid>` (for example `"${var.subscription_id}|${azurerm_log_analytics_workspace.law.workspace_id}"`) to `itsm_receivers[*].workspace_id`'
+  source: terraform/azurerm-5.md#other-5x-schema-notes
+  status: verified
+  added: '2026-11-09'
+- id: github-actions-ubuntu-26-04-python-39-missing
+  symptom: '`The version ''3.9'' with architecture ''x64'' was not found for Ubuntu 26.04` in `actions/setup-python@v5` on `preflight-zipapp` or `preflight-release`'
+  cause: 'GitHub Actions rolled `ubuntu-latest` to Ubuntu 26.04, and `actions/python-versions` does not build EOL Python 3.9 for Ubuntu 26.04 (only Ubuntu 22.04 and 24.04)'
+  fix: 'Pin jobs that intentionally test legacy Python 3.9 compatibility (`preflight-zipapp` in `.github/workflows/validate.yml` and `release` in `.github/workflows/preflight-release.yml`) to `runs-on: ubuntu-24.04`'
+  source: terraform/testing-and-ci.md#ci-workflow
+  status: verified
+  added: '2026-11-09'
+- id: httpx-no-proxy-ipv6-bracket-port-error
+  symptom: '`httpx.InvalidURL: Invalid port: '':1]''` when running `python3 -m unittest discover -s assistant`'
+  cause: 'When `NO_PROXY` or `no_proxy` in the shell environment contains an unport-qualified IPv6 bracket literal (`[::1]`), `httpx` fails to parse proxy mount rules while initializing `anthropic.Anthropic()`'
+  fix: 'Run the assistant unit test suite with `NO_PROXY="localhost,127.0.0.1" no_proxy="localhost,127.0.0.1" python3 -m unittest discover -s assistant`'
+  source: terraform/testing-and-ci.md#ci-workflow
+  status: verified
+  added: '2026-11-09'
+
