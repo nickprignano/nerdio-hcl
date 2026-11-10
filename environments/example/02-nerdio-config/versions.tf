@@ -32,6 +32,7 @@ terraform {
 # Only the ephemeral Key Vault read uses azurerm, and only with the key_vault hand-off.
 provider "azurerm" {
   features {}
+  environment                     = var.cloud
   subscription_id                 = var.subscription_id
   tenant_id                       = var.nme_tenant_id
   resource_provider_registrations = "none"
@@ -74,7 +75,7 @@ provider "restapi" {
   oauth_client_credentials {
     oauth_client_id      = var.nme_client_id
     oauth_client_secret  = coalesce(local.nme_client_secret, "unused-when-no-rest-gaps")
-    oauth_token_endpoint = "https://login.microsoftonline.com/${var.nme_tenant_id}/oauth2/v2.0/token"
+    oauth_token_endpoint = "${local.login_endpoint}/${var.nme_tenant_id}/oauth2/v2.0/token"
     oauth_scopes         = [var.nme_scope]
   }
 }

@@ -20,6 +20,13 @@ locals {
   compact            = replace(var.name, "-", "")
   storage_name       = "st${local.compact}tf${substr(sha1(var.subscription_id), 0, 6)}"
 
+  # Entra's token-exchange audience differs per cloud (Microsoft Learn: workload identity
+  # federation, "configure an application to trust a managed identity").
+  token_exchange_audience = {
+    public       = "api://AzureADTokenExchange"
+    usgovernment = "api://AzureADTokenExchangeUSGov"
+  }[var.cloud]
+
   environments = {
     plan  = "${var.environment}-plan"
     apply = "${var.environment}-apply"
@@ -152,7 +159,7 @@ resource "azurerm_federated_identity_credential" "this" {
   user_assigned_identity_id = azurerm_user_assigned_identity.this[each.key].id
   issuer                    = "https://token.actions.githubusercontent.com"
   subject                   = "repo:${local.repository}:environment:${each.value}"
-  audience                  = ["api://AzureADTokenExchange"]
+  audience                  = [local.token_exchange_audience]
 }
 
 resource "azurerm_federated_identity_credential" "plan_pr" {
@@ -161,7 +168,7 @@ resource "azurerm_federated_identity_credential" "plan_pr" {
   user_assigned_identity_id = azurerm_user_assigned_identity.this["plan"].id
   issuer                    = "https://token.actions.githubusercontent.com"
   subject                   = "repo:${local.repository}:pull_request"
-  audience                  = ["api://AzureADTokenExchange"]
+  audience                  = [local.token_exchange_audience]
 }
 
 resource "azurerm_role_assignment" "plan" {
@@ -317,4 +324,17 @@ resource "github_actions_environment_variable" "runner_labels" {
   environment   = each.value
   variable_name = "NERDIO_RUNNER_LABELS"
   value         = jsonencode(var.github.runner_labels)
+}
+
+# The workflows read this to sign in to the right cloud (azure/login environment and audience,
+# and ARM_ENVIRONMENT for Terraform). Unset means public, so existing repositories keep working.
+resource "github_actions_environment_variable" "cloud" {
+  for_each = {
+    plan  = github_repository_environment.plan.environment
+    apply = github_repository_environment.apply.environment
+  }
+  repository    = var.github.repository
+  environment   = each.value
+  variable_name = "NERDIO_CLOUD"
+  value         = var.cloud
 }

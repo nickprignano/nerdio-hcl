@@ -17,6 +17,14 @@ resource "azurerm_user_assigned_identity" "app" {
 # --- Which Claude: Microsoft Foundry, or the Claude API (claude_api.tf) ------------------
 
 locals {
+  # Entra sign-in host for this cloud (decision 0034). It sets the Easy Auth issuer and the issuer
+  # the Claude API's federation rule must match.
+  login_endpoint = {
+    public       = "https://login.microsoftonline.com"
+    usgovernment = "https://login.microsoftonline.us"
+  }[var.cloud]
+  entra_issuer = "${local.login_endpoint}/${var.tenant_id}/v2.0"
+
   use_foundry = var.model_provider == "foundry"
   model_env = local.use_foundry ? {
     NERDIO_FOUNDRY_RESOURCE = azurerm_cognitive_account.foundry[0].custom_subdomain_name
@@ -126,6 +134,18 @@ resource "azurerm_container_app" "this" {
         value = azurerm_user_assigned_identity.app.client_id
       }
       env {
+        name  = "NERDIO_CLOUD"
+        value = var.cloud
+      }
+      # azure-identity defaults to the commercial authority; point it at the Government one.
+      dynamic "env" {
+        for_each = var.cloud == "public" ? {} : { AZURE_AUTHORITY_HOST = local.login_endpoint }
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      env {
         name  = "NERDIO_MODEL_PROVIDER"
         value = var.model_provider
       }
@@ -223,7 +243,7 @@ resource "azapi_resource" "auth" {
           enabled = true
           registration = {
             clientId     = azuread_application.signin.client_id
-            openIdIssuer = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
+            openIdIssuer = local.entra_issuer
           }
           validation = {
             allowedAudiences = [azuread_application.signin.client_id]
@@ -234,5 +254,17 @@ resource "azapi_resource" "auth" {
         tokenStore = { enabled = false }
       }
     }
+  }
+}
+
+# Claude isn't documented as available inside Azure Government: Microsoft lists no Claude models
+# in Foundry there, and Anthropic's federation guide covers only login.microsoftonline.com
+# issuers. Both paths would also send prompts outside the Government boundary. Plan and apply
+# still work; this warns so nobody turns it on in a GCC High tenant by accident. See
+# docs/government.md.
+check "claude_in_government" {
+  assert {
+    condition     = var.cloud == "public"
+    error_message = "cloud is usgovernment: neither Claude path (Claude API or Foundry) is documented for Azure Government, and both would leave the Government boundary. Run the chat from a commercial tenant, or set up with ./nerdio init and the pipeline instead. See docs/government.md."
   }
 }

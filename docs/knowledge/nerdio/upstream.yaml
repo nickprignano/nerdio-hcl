@@ -231,6 +231,18 @@ api_asks:
     notifications still requires one manual console step before Terraform can bind notification actions to its ID
     ([servicenow.md](servicenow.md)).
   status: candidate
+- id: ai-features-in-azure-government
+  title: Nerdio AI features (Copilot, ScriptPro, AnalyticsPro) in Azure Government
+  evidence: >-
+    Nerdio's Gov article says most features match commercial and lists only User Cost Attribution as unsupported
+    ([40495096260493](https://nmehelp.getnerdio.com/hc/en-us/articles/40495096260493)); it doesn't mention the AI
+    features. Azure OpenAI is available in Azure Government (US Gov Arizona and Virginia, `openai.azure.us`), with
+    a different model list and no batch deployments.
+  why: >-
+    GCC High tenants can't plan for the AI features without knowing whether they're on, which Azure OpenAI models
+    they need, and whether Nerdio's prompts stay inside the Government boundary (decision 0034).
+  status: candidate
+
 docs_packaging:
 - id: registry-publishing-plus-a-license
   title: Registry publishing plus a LICENSE

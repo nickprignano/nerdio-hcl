@@ -155,3 +155,26 @@ run "foundry_needs_its_settings" {
 
   expect_failures = [var.foundry]
 }
+
+# Decision 0034: in Azure Government the sign-in issuer moves to login.microsoftonline.us, and the
+# check warns that Claude isn't documented there.
+run "usgovernment_issuer_and_warning" {
+  command = plan
+
+  variables {
+    cloud = "usgovernment"
+  }
+
+  expect_failures = [check.claude_in_government]
+
+  assert {
+    condition     = output.claude_federation.issuer_url == "https://login.microsoftonline.us/00000000-0000-0000-0000-000000000000/v2.0"
+    error_message = "In Azure Government the issuer must be login.microsoftonline.us/<tenant>/v2.0."
+  }
+
+  assert {
+    condition = anytrue([for e in azurerm_container_app.this.template[0].container[0].env :
+    e.name == "NERDIO_CLOUD" && e.value == "usgovernment"])
+    error_message = "The app must be told which cloud it runs in (NERDIO_CLOUD)."
+  }
+}

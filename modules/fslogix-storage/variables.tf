@@ -70,7 +70,7 @@ variable "private_endpoint_subnet_id" {
 }
 
 variable "private_dns_zone_id" {
-  description = "privatelink.file.core.windows.net zone ID."
+  description = "File private DNS zone ID: privatelink.file.core.windows.net (or privatelink.file.core.usgovcloudapi.net in Azure Government)."
   type        = string
 }
 

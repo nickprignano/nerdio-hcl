@@ -183,7 +183,13 @@ def console_steps(name: str, federation: dict) -> str:
     """The same setup by hand, for organizations where the Admin API isn't an option."""
     want = plan(name, federation)
     rule = want["rule"]
-    return "\n".join([
+    # Anthropic documents only the commercial Entra issuer; an Azure Government issuer
+    # (login.microsoftonline.us) is unverified (decision 0034, docs/government.md).
+    gov = [] if "login.microsoftonline.com/" in federation["issuer_url"] else [
+        "! This issuer isn't login.microsoftonline.com. Anthropic's guide covers only the commercial",
+        "  Entra issuer, and the chat would send prompts outside your cloud. See docs/government.md.",
+    ]
+    return "\n".join(gov + [
         "In the Claude Console (platform.claude.com/settings/workload-identity-federation), choose",
         "Connect workload, then Microsoft Entra, and enter:",
         "  Token issuer:        v2.0 (login.microsoftonline.com)",

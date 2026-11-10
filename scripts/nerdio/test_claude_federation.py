@@ -115,6 +115,11 @@ class HelperTests(unittest.TestCase):
         text = cf.console_steps("nme-assistant", FEDERATION)
         for value in (FEDERATION["issuer_url"], FEDERATION["audience"], FEDERATION["object_id"], "86400", "workspace:inference"):
             self.assertIn(value, text)
+        self.assertNotIn("docs/government.md", text)
+
+    def test_console_steps_warn_for_a_government_issuer(self):
+        gov = {**FEDERATION, "issuer_url": "https://login.microsoftonline.us/00000000-0000-0000-0000-000000000000/v2.0"}
+        self.assertIn("docs/government.md", cf.console_steps("nme-assistant", gov))
 
 
 if __name__ == "__main__":

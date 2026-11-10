@@ -87,11 +87,10 @@ These are supported switches, not forks of the kit. Set them in `00-pipeline/ter
 ## Not covered yet
 
 - **Sovereign clouds (such as Azure Government) and on-premises.** The kit targets Azure public
-  cloud. Before using it elsewhere, check at least: the cloud's endpoints for every provider and
-  for Cloud Shell, whether GitHub OIDC federation, Claude on Foundry and the Claude API's federation
-  with that cloud's Entra issuer are offered there, which
-  Nerdio edition runs there, and the tenant's own approval rules. The Azure Government and Azure
-  Local gaps found so far are in [stack-options.md](knowledge/stack-options.md); the apply
-  identity's rights there also depend on Nerdio's app-credential linking in Government.
+  cloud. Azure Government (GCC High) can be selected with `cloud = "usgovernment"`, but stage 02
+  and the setup chat don't work there yet and nothing has been tested in a Government
+  subscription: see [government.md](government.md). The apply identity's rights there also depend
+  on Nerdio's app-credential linking in Government. Azure Local gaps are in
+  [stack-options.md](knowledge/stack-options.md).
 - **Removing rights after setup.** Nothing yet expires the apply identity's rights between
   deployments. Until it does, the approval gate is what protects them.

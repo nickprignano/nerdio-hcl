@@ -15,7 +15,7 @@ output "claude_federation" {
     `./nerdio assistant --connect-claude` reads it. Null with Foundry.
   EOT
   value = local.use_claude_api ? {
-    issuer_url = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
+    issuer_url = local.entra_issuer
     audience   = local.claude_audience
     object_id  = azurerm_user_assigned_identity.app.principal_id
     tenant_id  = var.tenant_id

@@ -26,7 +26,7 @@ data "azuread_service_principal" "msgraph" {
 
 locals {
   tenant_id = data.azurerm_client_config.current.tenant_id
-  fqdn      = "${var.name}.${replace(lower(var.location), " ", "")}.cloudapp.azure.com"
+  fqdn      = "${var.name}.${replace(lower(var.location), " ", "")}.${var.cloud == "usgovernment" ? "cloudapp.usgovcloudapi.net" : "cloudapp.azure.com"}"
   address   = "https://${local.fqdn}:8200"
   login_ids = distinct(concat([data.azuread_client_config.current.object_id], var.login_object_ids))
 

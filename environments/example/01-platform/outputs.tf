@@ -67,6 +67,7 @@ output "nerdio_config_inputs" {
     nme_client_id          = try(module.nerdio_identity[0].rest_api_client_id, null)
     nme_scope              = try("api://${module.nerdio_identity[0].client_id}/.default", null)
     subscription_id        = var.subscription_id
+    cloud                  = var.cloud
     control_plane_location = var.control_plane_location
     regions = {
       for k, r in var.regions : k => {

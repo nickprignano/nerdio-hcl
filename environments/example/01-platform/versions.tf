@@ -75,5 +75,6 @@ provider "azapi" {
 }
 
 provider "msgraph" {
-  tenant_id = var.tenant_id
+  environment = var.cloud
+  tenant_id   = var.tenant_id
 }
