@@ -33,7 +33,7 @@ jobs:
       # Pinned by commit: the token action receives the App key, so a moved tag must not change them.
       - name: repository name
         run: echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_ENV"
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: check if read-only GitHub App is configured
         id: check_app
         env:
@@ -53,7 +53,7 @@ jobs:
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         if: steps.check_app.outputs.configured == 'true'
         with:
           terraform_version: "1.16.6"
@@ -61,7 +61,7 @@ jobs:
       - name: read-only token for this repository
         id: app
         if: steps.check_app.outputs.configured == 'true'
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ vars.SETTINGS_APP_ID }}
           private-key: ${{ secrets.SETTINGS_APP_KEY }}
