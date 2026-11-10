@@ -1,7 +1,8 @@
 """Azure cloud endpoints, read from `az cloud show` instead of hard-coded.
 
-The kit itself only targets the commercial cloud today, but the readiness engine and `./nerdio fix`
-take every endpoint from here so Azure Government works when it reaches the roadmap.
+The kit's `cloud` setting picks commercial or Azure Government (decision 0034, docs/government.md);
+the readiness engine and `./nerdio fix` take every endpoint from here so they follow whichever
+cloud az is signed in to.
 """
 
 from __future__ import annotations

@@ -75,6 +75,7 @@ DOCS: dict[str, str] = {
     "codespaces.md": "VS Code in the browser as an optional workbench",
     "architecture.md": "diagram and design decisions across stages",
     "model-pilot.md": "measuring and reporting the model-selection pilot",
+    "government.md": "Azure Government and GCC High: what works, gaps and plan",
 }
 
 CODE_FENCE = re.compile(r"```.*?```", re.S)

@@ -14,6 +14,16 @@ variable "use_azure_cli_auth" {
   description = "Authenticate with the current az login. Set false and export ARM_CLIENT_ID / ARM_CLIENT_SECRET (or OIDC) for CI."
 }
 
+variable "cloud_environment_name" {
+  type        = string
+  default     = "Public"
+  description = "Azure cloud for the build: Public, or USGovernment for Azure Government (GCC High tenants). Decision 0034."
+  validation {
+    condition     = contains(["Public", "USGovernment"], var.cloud_environment_name)
+    error_message = "Use Public or USGovernment."
+  }
+}
+
 variable "location" {
   type    = string
   default = "eastus2"

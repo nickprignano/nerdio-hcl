@@ -259,6 +259,19 @@ class SchemaTests(unittest.TestCase):
              mock.patch.object(engine, "az_json", side_effect=AssertionError("az should not run")):
             self.assertEqual(engine.read_sources(), {"tenant": "t", "subscription": "s"})
 
+    def test_cloud_prefers_arm_environment_then_az(self):
+        """Decision 0034: ARM_ENVIRONMENT wins, then az cloud show; public whenever neither says."""
+        with mock.patch.dict(os.environ, {"ARM_ENVIRONMENT": "usgovernment"}), \
+             mock.patch.object(engine, "az_json", side_effect=AssertionError("az should not run")):
+            self.assertEqual(engine.read_cloud(), "usgovernment")
+        with mock.patch.dict(os.environ, {"ARM_ENVIRONMENT": ""}):
+            with mock.patch.object(engine, "az_json", return_value="AzureUSGovernment"):
+                self.assertEqual(engine.read_cloud(), "usgovernment")
+            with mock.patch.object(engine, "az_json", return_value="AzureChinaCloud"):
+                self.assertEqual(engine.read_cloud(), "public")
+            with mock.patch.object(engine, "az_json", return_value=None):
+                self.assertEqual(engine.read_cloud(), "public")
+
 
 class CliTests(unittest.TestCase):
     def setUp(self):

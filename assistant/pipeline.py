@@ -35,6 +35,16 @@ FIXES = ("fix-quota", "fix-vcpu")  # gated App Service quota and VM vCPU request
 RUNNABLE = STAGES + CHECKS + FIXES
 TIMEOUT = 30
 
+# Data-plane endpoints per cloud (decision 0034). NERDIO_CLOUD comes from modules/assistant;
+# anything else falls back to the commercial cloud.
+CLOUD_ENDPOINTS = {
+    "public": {"blob_suffix": "blob.core.windows.net", "storage_scope": "https://storage.azure.com/.default",
+               "vault_scope": "https://vault.azure.net/.default"},
+    "usgovernment": {"blob_suffix": "blob.core.usgovcloudapi.net",
+                     "storage_scope": "https://storage.azure.com/.default",
+                     "vault_scope": "https://vault.usgovcloudapi.net/.default"},
+}
+
 
 class PipelineError(Exception):
     """Something the user can act on, phrased for them."""
@@ -52,6 +62,7 @@ class Pipeline:
         self.repository = env.get("NERDIO_GITHUB_REPO", "")
         self.key_url = env.get("NERDIO_GITHUB_KEY_URL", "").rstrip("/")
         self.branch = env.get("NERDIO_PIPELINE_BRANCH", "main")
+        self.cloud = CLOUD_ENDPOINTS.get(env.get("NERDIO_CLOUD", "public"), CLOUD_ENDPOINTS["public"])
         self._credential = credential
         self._open = opener or urllib.request.urlopen
         self._installation_token = ""
@@ -78,7 +89,7 @@ class Pipeline:
             return exc.code, exc.read()
 
     def _vault_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self._token('https://vault.azure.net/.default')}",
+        return {"Authorization": f"Bearer {self._token(self.cloud['vault_scope'])}",
                 "Content-Type": "application/json"}
 
     def app_key(self) -> dict | None:
@@ -146,10 +157,10 @@ class Pipeline:
         return status, (json.loads(raw) if raw else {})
 
     def _blob_url(self, container: str, name: str) -> str:
-        return f"https://{self.storage}.blob.core.windows.net/{container}/{urllib.parse.quote(name)}"
+        return f"https://{self.storage}.{self.cloud['blob_suffix']}/{container}/{urllib.parse.quote(name)}"
 
     def _blob_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self._token('https://storage.azure.com/.default')}",
+        return {"Authorization": f"Bearer {self._token(self.cloud['storage_scope'])}",
                 "x-ms-version": "2023-11-03"}
 
     # -- what the tools call -------------------------------------------------

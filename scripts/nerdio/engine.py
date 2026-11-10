@@ -337,6 +337,22 @@ def read_sources(placeholders: bool = False) -> dict:
     return {"tenant": tenant, "subscription": sub}
 
 
+# az cloud names to the kit's cloud values (decision 0034). Anything else isn't supported yet.
+AZ_CLOUDS = {"AzureCloud": "public", "AzureUSGovernment": "usgovernment"}
+
+
+def read_cloud() -> str:
+    """The kit's cloud value: ARM_ENVIRONMENT first (what the azurerm provider reads), then az cloud show.
+
+    Falls back to public when neither says, so commercial behavior never changes.
+    """
+    env = (os.environ.get("ARM_ENVIRONMENT") or "").lower()
+    if env in ("public", "usgovernment"):
+        return env
+    name = az_json(["cloud", "show", "--query", "name"])
+    return AZ_CLOUDS.get(name, "public") if isinstance(name, str) else "public"
+
+
 def resolve_principals(names: list[str], placeholders: bool = False) -> tuple[list[str], list[str]]:
     """Group names (or "me") to object IDs. GUIDs pass straight through."""
     ids, problems = [], []

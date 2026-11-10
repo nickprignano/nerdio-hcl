@@ -91,6 +91,9 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          # Decision 0034: NERDIO_CLOUD (set on each GitHub environment by 00-pipeline) picks the cloud.
+          environment: ${{ vars.NERDIO_CLOUD == 'usgovernment' && 'azureusgovernment' || 'azurecloud' }}
+          audience: ${{ vars.NERDIO_CLOUD == 'usgovernment' && 'api://AzureADTokenExchangeUSGov' || 'api://AzureADTokenExchange' }}
       - name: Install Ansible & WinRM dependencies (when enabled)
         if: inputs.run_ansible_playbook
         run: |
@@ -118,6 +121,7 @@ jobs:
           packer build -color=false \
             -var "subscription_id=$ARM_SUBSCRIPTION_ID" \
             -var "tenant_id=$ARM_TENANT_ID" \
+            -var "cloud_environment_name=${{ vars.NERDIO_CLOUD == 'usgovernment' && 'USGovernment' || 'Public' }}" \
             -var "location=$location" \
             -var "build_resource_group=$build_rg" \
             -var "gallery=$gallery_json" \

@@ -22,6 +22,7 @@ terraform {
 
 provider "azurerm" {
   features {}
+  environment                     = var.cloud
   subscription_id                 = var.subscription_id
   tenant_id                       = var.tenant_id
   resource_provider_registrations = "none"
@@ -30,7 +31,8 @@ provider "azurerm" {
 }
 
 provider "azuread" {
-  tenant_id = var.tenant_id
+  environment = var.cloud
+  tenant_id   = var.tenant_id
 }
 
 # Reads GITHUB_TOKEN from the environment. It manages the plan and apply environments only;

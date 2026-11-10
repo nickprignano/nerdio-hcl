@@ -613,7 +613,11 @@ def cmd_assistant(args) -> int:
     if not (sources["tenant"] and sources["subscription"]):
         print("✗ Not signed in: run az login (Cloud Shell already is), then try again.", file=sys.stderr)
         return 1
-    tfvars.update({"tenant_id": sources["tenant"], "subscription_id": sources["subscription"]})
+    tfvars.update({"tenant_id": sources["tenant"], "subscription_id": sources["subscription"],
+                   "cloud": engine.read_cloud()})
+    if tfvars["cloud"] != "public":
+        print("! This is Azure Government. Claude isn't documented there, so the chat would send prompts outside "
+              "the Government boundary. See docs/government.md before you apply.", file=sys.stderr)
     for key, value in (("admin_group", args.admin_group), ("location", args.location), ("image", args.image),
                        ("model_provider", args.model_provider)):
         if value:

@@ -30,7 +30,7 @@ resource "azuread_application" "claude_audience" {
   sign_in_audience = "AzureADMyOrg"
 
   api {
-    # v2.0 tokens carry iss https://login.microsoftonline.com/<tenant>/v2.0 and aud = the client ID.
+    # v2.0 tokens carry iss <login endpoint>/<tenant>/v2.0 (local.entra_issuer) and aud = the client ID.
     requested_access_token_version = 2
   }
 }

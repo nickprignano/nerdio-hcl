@@ -144,3 +144,14 @@ variable "certificate_validity_months" {
   type        = number
   default     = 12
 }
+
+variable "cloud" {
+  description = "Azure cloud environment: public (AzureCloud) or usgovernment (AzureUSGovernment, which GCC High tenants use). Decision 0034."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgovernment"], var.cloud)
+    error_message = "cloud must be public or usgovernment."
+  }
+}
