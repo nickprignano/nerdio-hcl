@@ -211,6 +211,12 @@ resource buildGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = if (image_
   tags: tags
 }
 
+// Same definitions as the Terraform module's default.
+var imageDefinitions = {
+  'win11-avd-m365': { publisher: 'AVD', offer: 'Windows11-MultiSession', sku: 'm365', acceleratedNetwork: true, hibernation: false }
+  'win11-avd-gpu': { publisher: 'AVD', offer: 'Windows11-MultiSession', sku: 'gpu', acceleratedNetwork: true, hibernation: false }
+}
+
 module gallery 'modules/image-gallery.bicep' = if (image_gallery != null) {
   name: 'nerdio-image-gallery'
   scope: resourceGroup(regions[controlPlaneRegionKey].resource_groups.hostpools)
@@ -220,6 +226,7 @@ module gallery 'modules/image-gallery.bicep' = if (image_gallery != null) {
     location: control_plane_location
     tags: tags
     packerPrincipalId: image_gallery.?packer_principal_id
+    imageDefinitions: imageDefinitions
   }
 }
 
@@ -245,3 +252,42 @@ output subnet_ids array = [for (r, i) in regionList: { region: r.key, ids: netwo
 output private_dns_zone_ids object = zoneIds
 output log_analytics_workspace_id string = logAnalytics.outputs.id
 output image_gallery_id string = gallery.?outputs.galleryId ?? ''
+
+// What the Terraform config stage (02-nerdio-config) needs, in the same shape as the Terraform
+// output of this name, so the pipeline can run stage 2 after the stack. Every value is derived
+// from inputs and the kit's naming, not read back from Azure. The nme_* values come from the
+// identity and Nerdio install slices, which aren't ported yet, so they are null for now and
+// stage 2 can't run against a Bicep-only platform until they are.
+var fileSuffix = 'file.${environment().suffixes.storage}'
+output nerdio_config_inputs object = {
+  nme_base_url: null
+  nme_tenant_id: tenant().tenantId
+  nme_client_id: null
+  nme_scope: null
+  subscription_id: subscription().subscriptionId
+  control_plane_location: control_plane_location
+  regions: toObject(regionList, r => r.key, r => {
+    location: r.location
+    subscription_id: subscription().subscriptionId
+    hostpools_resource_group_name: r.rgs.hostpools
+    network: {
+      resource_group_name: r.rgs.network
+      vnet_name: 'vnet-${r.prefix}-avd'
+      subnet_name: 'snet-session-hosts'
+    }
+    fslogix_profile_share_unc: r.fslogix == null ? null : '\\\\${r.fslogix!.storage_account_name}.${fileSuffix}\\profiles'
+    app_attach_share_unc: r.fslogix.?app_attach_share_quota_gb == null ? null : '\\\\${r.fslogix!.storage_account_name}.${fileSuffix}\\appattach'
+    disk_encryption_set_id: null
+  })
+  gallery_image_definition_ids: image_gallery == null ? {} : toObject(
+    objectKeys(imageDefinitions),
+    d => d,
+    d => resourceId(regions[controlPlaneRegionKey].resource_groups.hostpools, 'Microsoft.Compute/galleries/images', image_gallery.?name ?? '', d)
+  )
+  nme_secret_source: null
+  nme_key_vault: null
+  openbao: null
+}
+
+output nerdio_url string = '' // set once the Nerdio install slice is ported
+output avd_vnet_names object = toObject(regionList, r => r.key, r => 'vnet-${r.prefix}-avd')

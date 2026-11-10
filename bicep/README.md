@@ -62,6 +62,10 @@ environment from Terraform to Bicep (or back) isn't supported yet.
 | nerdio-manager (Marketplace) | not planned | the Terraform-native install is the default |
 | nerdio-config (stage 2) | stays Terraform | needs `nerdio/nme`; see decision 0032 |
 
+`main.bicep` also outputs `nerdio_config_inputs` in the same shape as the Terraform output, so a
+pipeline can run the Terraform config stage after the stack. Its `nme_*` values stay null until the
+identity and Nerdio install slices are ported.
+
 Per-region `subscription_id` isn't used yet: every region deploys into the signed-in subscription.
 
 ## Checks
