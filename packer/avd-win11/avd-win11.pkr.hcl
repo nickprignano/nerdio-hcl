@@ -11,6 +11,8 @@ source "azure-arm" "avd" {
   tenant_id          = var.tenant_id
   use_azure_cli_auth = var.use_azure_cli_auth
 
+  cloud_environment_name = var.cloud_environment_name
+
   build_resource_group_name = var.build_resource_group
   vm_size                   = var.vm_size
 

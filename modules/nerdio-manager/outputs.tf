@@ -15,7 +15,7 @@ output "app_service_name" {
 
 output "app_service_hostname" {
   description = "Default hostname; open https://<this> to run the post-deploy install step. Null before the Marketplace deployment exists."
-  value       = try("${local.web_app.name}.azurewebsites.net", null)
+  value       = try("${local.web_app.name}.${var.cloud == "usgovernment" ? "azurewebsites.us" : "azurewebsites.net"}", null)
 }
 
 output "sql_server_ids" {

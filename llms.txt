@@ -75,6 +75,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0031. AI tools in the kit are read-only by default, with an allowlist CI enforces](docs/knowledge/decisions/0031-ai-tools-read-only-by-default.md): proposed
 - [0032. A Bicep variant of the kit lives in `bicep/`, shares the schema and answers, and hands Nerdio configuration to stage 2](docs/knowledge/decisions/0032-bicep-variant.md): proposed
 - [0033. CI/CD: one reusable stage workflow, plans on pull requests, daily drift check, Bicep stage](docs/knowledge/decisions/0033-ci-cd-reusable-stage-pr-plans-drift.md): proposed
+- [0034. One `cloud` setting, default commercial, for Azure Government (GCC High)](docs/knowledge/decisions/0034-azure-government-cloud-parameter.md): proposed
 
 ## Related knowledge bases
 

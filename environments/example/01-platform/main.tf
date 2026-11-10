@@ -174,6 +174,7 @@ module "nerdio_manager" {
 
   resource_group_name = module.foundation.resource_group_names["nerdio"]
   template_file       = var.nerdio_template_file
+  cloud               = var.cloud
   parameters          = var.nerdio_template_parameters
   tags                = var.tags
 }
@@ -263,6 +264,7 @@ module "openbao" {
   resource_group_name = module.foundation.resource_group_names["nerdio"]
   tags                = var.tags
   subscription_id     = var.subscription_id
+  cloud               = var.cloud
   virtual_network = {
     name                = module.network[local.control_plane_region_key].vnet_name
     resource_group_name = module.spoke_foundation[local.control_plane_region_key].resource_group_names["network"]

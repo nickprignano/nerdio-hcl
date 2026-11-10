@@ -130,6 +130,19 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(headers["Authorization"], "Bearer token-for-https://storage.azure.com/.default")
         self.assertEqual(body, {"location": "centralus"})
 
+    def test_usgovernment_uses_government_endpoints(self):
+        """Decision 0034: blob host and Key Vault scope follow NERDIO_CLOUD; the storage scope is the same everywhere."""
+        env = {**ENV, "NERDIO_CLOUD": "usgovernment"}
+        http = FakeHttp({("PUT", "https://stexampletf000000.blob.core.usgovcloudapi.net/answers/sandbox.json"): (201, b"")})
+        p = Pipeline(env, credential=Credential(), opener=http)
+        self.assertTrue(p.save_answers({"location": "usgovvirginia"})["saved"])
+        self.assertEqual(http.calls[0][2]["Authorization"], "Bearer token-for-https://storage.azure.com/.default")
+        self.assertEqual(p._vault_headers()["Authorization"], "Bearer token-for-https://vault.usgovcloudapi.net/.default")
+
+    def test_unknown_cloud_falls_back_to_commercial(self):
+        p = Pipeline({**ENV, "NERDIO_CLOUD": "nonsense"}, credential=Credential())
+        self.assertEqual(p._blob_url("answers", "x.json"), "https://stexampletf000000.blob.core.windows.net/answers/x.json")
+
     def test_plan_summary(self):
         url = "https://stexampletf000000.blob.core.windows.net/plans/sandbox/7-1/platform.json"
         no_apply = ("GET", "https://stexampletf000000.blob.core.windows.net/plans/sandbox/7-")

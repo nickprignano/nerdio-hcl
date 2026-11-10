@@ -11,6 +11,7 @@ module "pipeline" {
   tenant_id            = var.tenant_id
   subscription_id      = var.subscription_id
   environment          = var.environment
+  cloud                = var.cloud
   github               = var.github
   enable_resource_lock = var.enable_resource_lock
   tags                 = var.tags

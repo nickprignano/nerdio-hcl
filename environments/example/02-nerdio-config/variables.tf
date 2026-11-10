@@ -1,5 +1,5 @@
 variable "nme_base_url" {
-  description = "Nerdio Manager URL (https://<app service>.azurewebsites.net)."
+  description = "Nerdio Manager URL (https://<app service>.azurewebsites.net, or .azurewebsites.us in Azure Government)."
   type        = string
 }
 
@@ -375,4 +375,15 @@ variable "rest_gaps" {
     })), {})
   })
   default = {}
+}
+
+variable "cloud" {
+  description = "Azure cloud environment: public (AzureCloud) or usgovernment (AzureUSGovernment, which GCC High tenants use). Decision 0034."
+  type        = string
+  default     = "public"
+
+  validation {
+    condition     = contains(["public", "usgovernment"], var.cloud)
+    error_message = "cloud must be public or usgovernment."
+  }
 }

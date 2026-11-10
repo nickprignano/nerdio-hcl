@@ -190,3 +190,22 @@ run "bicep_whatif_role" {
     error_message = "The what-if role is assignable only on the kit's subscription."
   }
 }
+
+# Decision 0034: Entra for US Government expects a different token-exchange audience.
+run "usgovernment_audience" {
+  command = plan
+
+  variables {
+    cloud = "usgovernment"
+  }
+
+  assert {
+    condition     = alltrue([for c in azurerm_federated_identity_credential.this : one(c.audience) == "api://AzureADTokenExchangeUSGov"])
+    error_message = "In Azure Government the GitHub federated credentials must use api://AzureADTokenExchangeUSGov."
+  }
+
+  assert {
+    condition     = alltrue([for v in github_actions_environment_variable.cloud : v.value == "usgovernment"])
+    error_message = "Both GitHub environments must carry NERDIO_CLOUD so the workflows sign in to the right cloud."
+  }
+}

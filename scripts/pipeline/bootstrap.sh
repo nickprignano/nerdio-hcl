@@ -234,12 +234,20 @@ echo "Repository $owner/$repo; applies need approval from: $reviewers"
 
 say "Variables"
 umask 077
+# Decision 0034: the cloud az is signed in to (AzureUSGovernment for GCC High tenants) picks the
+# Terraform environment and the GitHub federation audience. Anything else stays public.
+case "$(az cloud show --query name -o tsv 2>/dev/null)" in
+  AzureUSGovernment) cloud="usgovernment" ;;
+  *) cloud="public" ;;
+esac
+echo "Azure cloud: $cloud"
 jq -n \
   --arg tenant "$(az account show --query tenantId -o tsv)" \
   --arg sub "$(az account show --query id -o tsv)" \
   --arg name "$name" --arg location "$location" --arg env "$env_name" \
   --arg owner "$owner" --arg repo "$repo" --arg reviewers "$reviewers" \
-  '{tenant_id: $tenant, subscription_id: $sub, name: $name, location: $location, environment: $env,
+  --arg cloud "$cloud" \
+  '{tenant_id: $tenant, subscription_id: $sub, name: $name, location: $location, environment: $env, cloud: $cloud,
     github: {owner: $owner, repository: $repo, reviewers: ($reviewers | split(",") | map(gsub("^\\s+|\\s+$"; "")))}}' > "$stage/pipeline.auto.tfvars.json"
 echo "Wrote 00-pipeline/pipeline.auto.tfvars.json (gitignored)"
 

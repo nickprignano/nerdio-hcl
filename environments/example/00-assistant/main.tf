@@ -16,6 +16,7 @@ module "assistant" {
   location              = var.location
   resource_group_name   = azurerm_resource_group.this.name
   tenant_id             = var.tenant_id
+  cloud                 = var.cloud
   tags                  = var.tags
   image                 = var.image
   admin_group_object_id = data.azuread_group.admins.object_id
