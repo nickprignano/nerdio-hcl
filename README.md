@@ -118,6 +118,7 @@ docs/
   guardrails.md          non-negotiable security, browser and license rules
   setup.md               guided setup across chat, CLI and the Actions form
   assistant.md           deploying and connecting the self-hosted setup chatbot
+  ai.md                  AI assistants and MCP servers: what they may touch, and the build plan
   deployment-runbook.md  end-to-end order of operations and manual wizard steps
   pipeline.md            plan and apply from GitHub Actions behind an approval
   access.md              every Azure, Entra, GitHub and Anthropic right the kit needs

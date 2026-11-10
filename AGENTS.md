@@ -19,8 +19,12 @@ Read [docs/guardrails.md](docs/guardrails.md) before changing anything. These ar
 - `schema/parameters.json` is the single source of truth for setup questions, defaults and
   validation. The setup chatbot, `./nerdio init` and the Actions form all read it.
 - `scripts/nerdio/` is the engine behind `./nerdio` (Python standard library only).
+- AI tools are read-only by default ([docs/ai.md](docs/ai.md), decision 0031): `.mcp.json` pins a
+  read-only Azure MCP Server to a namespace allowlist, and `.claude/settings.json` denies applies and
+  deletes. Widening either needs a decision; `scripts/mcp/test_mcp_config.py` guards both.
 - `assistant/` is the self-hosted setup chatbot (its prompt is `assistant/prompt.md`);
   `modules/assistant` and `environments/example/00-assistant` deploy it. See [docs/assistant.md](docs/assistant.md).
 - After touching the schema, engine, chatbot, modules or docs, run `./nerdio docs --write` (to sync
   generated layout, catalogue and form blocks), `./nerdio schema check`,
-  `python3 -m unittest discover -s scripts/nerdio` and `python3 -m unittest discover -s assistant`.
+  `python3 -m unittest discover -s scripts/nerdio`, `python3 -m unittest discover -s assistant` and
+  `python3 -m unittest discover -s scripts/mcp`.
