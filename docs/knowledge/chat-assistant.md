@@ -3,7 +3,7 @@ title: "Chat assistant: the white-glove guide"
 summary: "What the chat assistant covers across the lifecycle: planning, security review, readiness, troubleshooting and day 2"
 topic: roadmap
 status: plan
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-10
 ---
 
 # Chat assistant: the white-glove guide
@@ -13,7 +13,7 @@ extends the "Guided setup by chat" section of the [roadmap](stack-options.md#gui
 and follows [decision 0008](decisions/0008-chat-front-door.md) and [decision 0014](decisions/0014-self-hosted-setup-chatbot.md):
 chat is the front door, and the engine underneath stays deterministic and usable without AI.
 The self-hosted setup chatbot (`assistant/`, `modules/assistant`, `environments/example/00-assistant`),
-the Claude Code phase skills (`.claude/skills/`), the read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`)
+the Claude Code phase skills (`.claude/skills/`), the MCP servers in `.mcp.json` (read-only Azure, the kit's repository server and Microsoft Learn; [docs/ai.md](../ai.md))
 and the deterministic `./nerdio` engine are built; live trial-tenant end-to-end validation is next
 ([chatbot-first.md](chatbot-first.md)).
 
@@ -159,10 +159,12 @@ Each section lists the decisions the assistant guides, what it checks, and where
   connected to the gated deploy pipeline (`assistant/pipeline.py`).
 - **`CLAUDE.md` and `.claude/skills/`:** five lifecycle phase skills (`setup`, `deploy`, `image`,
   `troubleshoot` and `handover`) that cover the nine domains above for Claude Code users.
-- **MCP servers (`.mcp.json`):**
+- **MCP servers (`.mcp.json`, [decision 0031](decisions/0031-ai-tools-read-only-by-default.md)):**
+  - Microsoft's Azure MCP Server, read-only and limited to a namespace allowlist, for live Azure and AVD state.
   - Microsoft Learn MCP, for grounded Azure, Entra and Intune answers.
-  - HashiCorp's Terraform MCP server, for provider docs.
-  - The kit's read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`), for live Nerdio state.
+  - The kit's repository MCP server (`scripts/mcp/nerdio_mcp.py`): readiness catalogue, KB search
+    and the parameter schema. It reads repository files only; live Nerdio state would come from
+    Nerdio's own MCP connector (optional, per user).
 - **Deterministic commands and CI checks:** `./nerdio init | preflight | fix | migrate | redact | docs | form | schema check | assistant`,
   plus Trivy IaC scanning in `.github/workflows/validate.yml`.
 - **KB backing data:** [`troubleshooting/`](troubleshooting/README.md) (known errors),
