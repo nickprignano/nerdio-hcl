@@ -542,7 +542,7 @@ if [ -n "${bicep_stage:-}" ]; then
   [ "$code" = 0 ] || fail "az stack sub create failed"
   { echo "## $NERDIO_ENV / bicep"; echo; echo "Applied the reviewed template as stack $stack."; } | summary
   outputs="$(az stack sub show --only-show-errors --name "$stack" --query outputs -o json 2>/dev/null \
-    | jq '{nerdio_url, avd_vnet_name, resource_group_names, fslogix_share_unc} | with_entries(select(.value != null) | .value = .value.value)' \
+    | jq '{nerdio_url, avd_vnet_names, resource_group_names} | with_entries(select(.value != null) | .value = .value.value)' \
     || echo '{}')"
   jq -n --arg stage "$STAGE" --argjson outputs "$outputs" \
     '{stage: $stage, action: "apply", status: "applied", outputs: $outputs}' > "$work/applied.json"

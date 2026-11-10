@@ -35,8 +35,9 @@ identities and environments the bootstrap already creates, and adds no stored se
   `<env>-apply`. Environment secrets are read inside it, so callers pass none. `deploy.yml` and
   `drift.yml` both call it.
 - **Pull request plans.** A same-repository pull request touching `modules/`, `environments/example/`,
-  `bicep/`, `scripts/pipeline/` or `schema/parameters.json` plans `NERDIO_PR_PLAN_ENV` (default
-  `sandbox`) as the plan identity, only when `github.allow_pr_plans = true`, and a job with only
+  `bicep/`, `scripts/pipeline/` or `schema/parameters.json` plans the environment named in the
+  repository variable `NERDIO_PR_PLAN_ENV` (unset: off) as the plan identity, only when
+  `github.allow_pr_plans = true`, and a job with only
   `pull-requests: write` posts the masked summary as one comment, updated per push. Fork pull
   requests are skipped; they get no OIDC token anyway. Merged code never applies on its own.
 - **Drift.** `drift.yml` runs daily for the environments in `NERDIO_DRIFT_ENVS` (off when unset),

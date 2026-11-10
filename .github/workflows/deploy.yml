@@ -5,7 +5,8 @@ run-name: "${{ github.event_name == 'workflow_dispatch' && format('{0} {1}: {2}'
 # Plan, then apply after a reviewer approves (decisions 0016, 0030, 0033). Start it from the Actions
 # tab, the setup chatbot, or via GitOps PR/push to config/answers/<env>.json. A pull request that
 # changes the kit's code (modules, environments, bicep, pipeline scripts) gets a read-only plan
-# posted as a comment when the plan environment allows pull requests (github.allow_pr_plans).
+# posted as a comment, once the repository variable NERDIO_PR_PLAN_ENV names an environment whose
+# plan environment allows pull requests (github.allow_pr_plans).
 # Each stage runs in the reusable stage.yml. The plan job signs in as
 # the read-only plan identity. The apply job waits in the <environment>-apply GitHub environment
 # until a named reviewer approves, then applies exactly the saved plan: its hash is checked and
@@ -141,8 +142,10 @@ jobs:
             if [ -n "$changed" ]; then
               env_name="$(basename "$changed" .json)"
             else
-              # A code change: plan the environment named for pull request plans (sandbox by default).
+              # A code change: plan the environment named in NERDIO_PR_PLAN_ENV. Unset means off,
+              # so a repository without a bootstrapped pipeline doesn't get a failing plan on every PR.
               env_name="${PR_PLAN_ENV:-sandbox}"
+              [ -n "$PR_PLAN_ENV" ] || run=false
             fi
             stage_name="auto"
             if git diff --name-only HEAD~1 HEAD -- 'bicep/**' | grep -q . \

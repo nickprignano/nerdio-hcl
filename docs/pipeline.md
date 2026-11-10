@@ -138,9 +138,10 @@ browser between the stages, because Nerdio has no API for it yet.
 With `github.allow_pr_plans = true` in `00-pipeline`, a pull request from a branch of this
 repository that changes `modules/`, `environments/example/`, `bicep/`, `scripts/pipeline/` or
 `schema/parameters.json` gets a read-only plan of the platform and config stages, posted as one
-comment that each push updates. It plans the environment in the repository variable
-`NERDIO_PR_PLAN_ENV` (default `sandbox`), or the environment whose `config/answers/<env>.json`
-changed. Nothing applies from a pull request, and merged code doesn't apply on its own either:
+comment that each push updates. Turn it on by naming the environment to plan in the repository
+variable `NERDIO_PR_PLAN_ENV` (`gh variable set NERDIO_PR_PLAN_ENV --body sandbox`); while it's
+unset, code changes get no plan, so a repository without a pipeline isn't sent failing runs. A
+pull request that changes `config/answers/<env>.json` plans that environment, as before. Nothing applies from a pull request, and merged code doesn't apply on its own either:
 run **deploy** with apply ticked, and a reviewer approves it. Pull requests from forks are
 skipped; GitHub gives them no OIDC token.
 
