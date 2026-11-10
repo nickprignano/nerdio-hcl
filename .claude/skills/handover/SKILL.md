@@ -3,7 +3,7 @@ name: handover
 description: Generate a sanitized, customer-ready operational handover runbook from the environment's answers and readiness report.
 ---
 
-# Handover Skill (`nerdio-hcl`)
+# Handover Skill (`nme-automation`)
 
 Use this skill after Stage 1, Stage 2, and `--stage post-wizard` verification complete to produce an
 operational handover guide for the customer's AVD administration team.

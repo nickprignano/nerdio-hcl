@@ -367,13 +367,13 @@ class AssistantPipelineLinkTests(unittest.TestCase):
 
     def test_reads_pipeline_outputs_and_repository(self):
         link, problem = self.run_with({"storage_account_id": "/subscriptions/x/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st",
-                                       "environment": "sandbox"}, "https://github.com/contoso/nerdio-hcl.git\n")
+                                       "environment": "sandbox"}, "https://github.com/contoso/nme-automation.git\n")
         self.assertEqual(problem, "")
-        self.assertEqual(link["github"], {"repository": "contoso/nerdio-hcl"})
+        self.assertEqual(link["github"], {"repository": "contoso/nme-automation"})
         self.assertEqual(link["environment"], "sandbox")
 
     def test_needs_the_pipeline(self):
-        _, problem = self.run_with({}, "git@github.com:contoso/nerdio-hcl.git")
+        _, problem = self.run_with({}, "git@github.com:contoso/nme-automation.git")
         self.assertIn("bootstrap.sh", problem)
 
     def test_single_command_bootstrap_runs_pipeline_when_missing(self):
@@ -381,7 +381,7 @@ class AssistantPipelineLinkTests(unittest.TestCase):
         links = [
             ({}, "No deploy pipeline here yet"),
             ({"storage_account_id": "/subscriptions/x/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st",
-              "environment": "sandbox", "github": {"repository": "contoso/nerdio-hcl"}}, ""),
+              "environment": "sandbox", "github": {"repository": "contoso/nme-automation"}}, ""),
         ]
         assistant_tfvars = engine.ROOT / "environments" / "example" / "00-assistant" / "assistant.auto.tfvars.json"
         backup = assistant_tfvars.read_bytes() if assistant_tfvars.exists() else None

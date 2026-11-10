@@ -22,7 +22,7 @@ from pipeline import Pipeline, PipelineError  # noqa: E402
 ENV = {
     "NERDIO_PIPELINE_STORAGE": "stexampletf000000",
     "NERDIO_PIPELINE_ENV": "sandbox",
-    "NERDIO_GITHUB_REPO": "contoso/nerdio-hcl",
+    "NERDIO_GITHUB_REPO": "contoso/nme-automation",
     "NERDIO_GITHUB_KEY_URL": "https://kv-example.vault.azure.net/keys/github-app",
 }
 USER = "11111111-1111-1111-1111-111111111111"
@@ -77,7 +77,7 @@ class FakeHttp:
 GITHUB_AUTH = {
     ("GET", ENV["NERDIO_GITHUB_KEY_URL"] + "?"): (200, {"tags": {"client_id": "Iv1.example", "slug": "nerdio-chat-abc123"}}),
     ("POST", ENV["NERDIO_GITHUB_KEY_URL"] + "/sign"): (200, {"value": "c2lnbmF0dXJl"}),
-    ("GET", "https://api.github.com/repos/contoso/nerdio-hcl/installation"): (200, {"id": 42}),
+    ("GET", "https://api.github.com/repos/contoso/nme-automation/installation"): (200, {"id": 42}),
     ("POST", "https://api.github.com/app/installations/42/access_tokens"): (201, {"token": "ghs_example"}),
 }
 
@@ -93,7 +93,7 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(Pipeline(ENV).configured)
 
     def test_start_signs_with_key_vault_and_dispatches_deploy_only(self):
-        p, http = pipeline({("POST", "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"): (204, b"")})
+        p, http = pipeline({("POST", "https://api.github.com/repos/contoso/nme-automation/actions/workflows/deploy.yml/dispatches"): (204, b"")})
         out = p.start("platform", True)
         self.assertTrue(out["started"])
         sign = http.calls[1]
@@ -105,7 +105,7 @@ class PipelineTests(unittest.TestCase):
         self.assertLessEqual(claims["exp"] - claims["iat"], 600)
         self.assertEqual(jwt.split(".")[2], "c2lnbmF0dXJl")
         # The installation token is cut down to this repository and Actions.
-        self.assertEqual(http.calls[3][3], {"repositories": ["nerdio-hcl"], "permissions": {"actions": "write"}})
+        self.assertEqual(http.calls[3][3], {"repositories": ["nme-automation"], "permissions": {"actions": "write"}})
         dispatch = http.calls[4]
         self.assertEqual(dispatch[2]["Authorization"], "Bearer ghs_example")
         self.assertEqual(dispatch[3], {"ref": "main", "inputs": {"environment": "sandbox", "stage": "platform", "apply": "true"}})
@@ -175,7 +175,7 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("quota", out["log_tail"])
 
     def test_preflight_runs_and_never_applies(self):
-        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        dispatch = "https://api.github.com/repos/contoso/nme-automation/actions/workflows/deploy.yml/dispatches"
         p, http = pipeline({(("POST", dispatch)): (204, b"")})
         out = p.start("preflight", True)
         self.assertFalse(out["apply_requested"])
@@ -192,7 +192,7 @@ class PipelineTests(unittest.TestCase):
             p.start("destroy", False)
 
     def test_verify_runs_and_never_applies(self):
-        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        dispatch = "https://api.github.com/repos/contoso/nme-automation/actions/workflows/deploy.yml/dispatches"
         p, http = pipeline({(("POST", dispatch)): (204, b"")})
         self.assertFalse(p.start("verify", True)["apply_requested"])
         self.assertEqual(http.calls[-1][3]["inputs"]["stage"], "verify")
@@ -202,7 +202,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(p.plan(9, "verify")["verdict"], "GO")
 
     def test_assistant_stage_plans_and_applies(self):
-        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        dispatch = "https://api.github.com/repos/contoso/nme-automation/actions/workflows/deploy.yml/dispatches"
         p, http = pipeline({(("POST", dispatch)): (204, b"")})
         out = p.start("assistant", True)
         self.assertTrue(out["apply_requested"])
@@ -218,7 +218,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(plan_out["apply"]["outputs"]["url"], "https://ca-nme-assistant.example.azurecontainerapps.io")
 
     def test_fix_quota_and_vcpu_stages_pass_optional_inputs(self):
-        dispatch = "https://api.github.com/repos/contoso/nerdio-hcl/actions/workflows/deploy.yml/dispatches"
+        dispatch = "https://api.github.com/repos/contoso/nme-automation/actions/workflows/deploy.yml/dispatches"
         p, http = pipeline({(("POST", dispatch)): (204, b"")})
         out = p.start("fix-vcpu", True, fix_family="standardDSv5Family", fix_limit=48)
         self.assertTrue(out["apply_requested"])
@@ -253,7 +253,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(plan_out["apply"]["status"], "applied")
 
     def test_runs_flag_waiting_for_approval(self):
-        base = "https://api.github.com/repos/contoso/nerdio-hcl/actions"
+        base = "https://api.github.com/repos/contoso/nme-automation/actions"
         p, _ = pipeline({
             ("GET", f"{base}/workflows/deploy.yml/runs"): (200, {"workflow_runs": [
                 {"id": 7, "run_attempt": 1, "display_title": "sandbox platform: plan and apply", "status": "waiting",

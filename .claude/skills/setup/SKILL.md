@@ -1,9 +1,9 @@
 ---
 name: setup
-description: Interactive setup and configuration guide for Nerdio Manager for Enterprise (nerdio-hcl). Reads schema/parameters.json, runs ./nerdio preflight, and renders tfvars.
+description: Interactive setup and configuration guide for Nerdio Manager for Enterprise (nme-automation). Reads schema/parameters.json, runs ./nerdio preflight, and renders tfvars.
 ---
 
-# Setup Skill (`nerdio-hcl`)
+# Setup Skill (`nme-automation`)
 
 Use this skill when the user wants to configure a new Nerdio Manager for Enterprise + Azure Virtual
 Desktop environment or update their deployment answers.

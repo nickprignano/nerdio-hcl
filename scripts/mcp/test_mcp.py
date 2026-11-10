@@ -15,7 +15,7 @@ import nerdio_mcp  # noqa: E402
 class McpServerTests(unittest.TestCase):
     def test_initialize_and_tools_list(self):
         init = nerdio_mcp.handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize"})
-        self.assertEqual(init["result"]["serverInfo"]["name"], "nerdio-hcl-mcp")
+        self.assertEqual(init["result"]["serverInfo"]["name"], "nme-automation-mcp")
         tools = nerdio_mcp.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         names = [t["name"] for t in tools["result"]["tools"]]
         self.assertEqual(names, ["nerdio_readiness_catalogue", "nerdio_kb_search", "nerdio_schema_parameters"])

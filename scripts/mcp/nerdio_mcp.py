@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Model Context Protocol (MCP) server over stdio for nerdio-hcl.
+"""Read-only Model Context Protocol (MCP) server over stdio for nme-automation.
 
 Standard library only (Python 3.9+). It reads only files in this repository: no Azure, Nerdio or
 network calls (live Azure state comes from the read-only Azure MCP server in .mcp.json; decision 0031).
@@ -23,7 +23,7 @@ import engine  # noqa: E402
 from readiness import checks as _checks  # noqa: F401, E402
 from readiness.model import REGISTRY  # noqa: E402
 
-SERVER_INFO = {"name": "nerdio-hcl-mcp", "version": "1.0.0"}
+SERVER_INFO = {"name": "nme-automation-mcp", "version": "1.0.0"}
 PROTOCOL_VERSION = "2024-11-05"
 
 # MCP tool annotations: every tool only reads repository files.
@@ -32,7 +32,7 @@ READ_ONLY = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": T
 TOOLS: List[Dict[str, Any]] = [
     {
         "name": "nerdio_readiness_catalogue",
-        "description": "List read-only readiness checks from the nerdio-hcl registry, optionally filtered by stage or feature.",
+        "description": "List read-only readiness checks from the nme-automation registry, optionally filtered by stage or feature.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -44,7 +44,7 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "nerdio_kb_search",
-        "description": "Search the nerdio-hcl knowledge base pages (docs/knowledge/**/*.md) by query text or topic.",
+        "description": "Search the nme-automation knowledge base pages (docs/knowledge/**/*.md) by query text or topic.",
         "inputSchema": {
             "type": "object",
             "properties": {

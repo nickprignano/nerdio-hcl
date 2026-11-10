@@ -19,7 +19,7 @@ resource "msgraph_resource" "provisioning_policy" {
   url = "deviceManagement/virtualEndpoint/provisioningPolicies"
   body = {
     displayName            = "w365-${var.name_prefix}-policy"
-    description            = "Managed by Terraform (nerdio-hcl)"
+    description            = "Managed by Terraform (nme-automation)"
     provisioningType       = "dedicated"
     managedBy              = "windows365"
     enableSingleSignOn     = var.enable_single_sign_on

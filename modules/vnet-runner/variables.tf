@@ -24,7 +24,7 @@ variable "log_analytics_workspace_id" {
 }
 
 variable "github_repo_url" {
-  description = "Full HTTPS URL of the GitHub repository (for example, https://github.com/contoso/nerdio-hcl)."
+  description = "Full HTTPS URL of the GitHub repository (for example, https://github.com/contoso/nme-automation)."
   type        = string
 }
 

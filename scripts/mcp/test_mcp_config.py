@@ -45,7 +45,7 @@ class McpConfigTests(unittest.TestCase):
         self.servers = load(".mcp.json")["mcpServers"]
 
     def test_only_known_servers(self):
-        self.assertEqual(set(self.servers), {"azure", "nerdio-hcl", "microsoft-learn"},
+        self.assertEqual(set(self.servers), {"azure", "nme-automation", "microsoft-learn"},
                          "a new MCP server needs a decision-0031 review and a guard here")
 
     def test_no_secrets_in_config(self):

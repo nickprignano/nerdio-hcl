@@ -324,7 +324,7 @@ run "enterprise_opt_in_modules_wire_up" {
       }
     }
     vnet_runner = {
-      github_repo_url = "https://github.com/contoso/nerdio-hcl"
+      github_repo_url = "https://github.com/contoso/nme-automation"
       github_app = {
         application_id                  = "123456"
         installation_id                 = "789012"

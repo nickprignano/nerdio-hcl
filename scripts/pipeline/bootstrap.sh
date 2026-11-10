@@ -50,7 +50,12 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-env_name="${NME_ENV:-$(cat "${XDG_CONFIG_HOME:-$HOME/.config}/nerdio-hcl/current" 2>/dev/null || echo sandbox)}"
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+kit_config="$config_home/nme-automation"
+# Profiles saved before the repository rename live under its old name (legacy fallback).
+legacy_config="$config_home/nerdio-hcl"
+[[ ! -e "$kit_config" && -d "$legacy_config" ]] && kit_config="$legacy_config"
+env_name="${NME_ENV:-$(cat "$kit_config/current" 2>/dev/null || echo sandbox)}"
 location="${NME_LOCATION:-eastus2}"
 name="${NME_NAME:-nme-${env_name:0:3}}"
 

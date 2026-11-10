@@ -19,9 +19,13 @@ import engine
 ENV_RE = re.compile(r"^[a-z][a-z0-9-]{0,15}$")
 
 
+LEGACY_DIR = "nerdio-hcl"  # the repository's old name; profiles saved before the rename live here
+
+
 def home() -> Path:
-    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "nerdio-hcl"
+    base = Path(os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config"))
+    new, legacy = base / "nme-automation", base / LEGACY_DIR
+    return legacy if legacy.is_dir() and not new.exists() else new
 
 
 def path(env: str) -> Path:

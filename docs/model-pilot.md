@@ -63,7 +63,7 @@ page (`claude-api/README.md`). Counts and percentages only: no tenant, subscript
 resource or user names, no employer or customer detail, and no transcript text.
 
 ```markdown
-Project: Nerdio (nerdio-hcl), pilot 2026-10-18 to 2026-11-30, convention ai-brain 0006
+Project: Nerdio (nme-automation), pilot 2026-10-18 to 2026-11-30, convention ai-brain 0006
 
 Claude sessions
 - Threads: <n>; bumped: <n> (<pct>%): to high <n>, to xhigh <n>, to Fable <n>; redone <n>

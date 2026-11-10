@@ -3,7 +3,7 @@
 mock_provider "github" {}
 
 variables {
-  repository = "nerdio-hcl"
+  repository = "nme-automation"
   labels = {
     "kb-feedback" = { color = "1d76db", description = "Knowledge base feedback" }
     "no-kb"       = { color = "ededed" }

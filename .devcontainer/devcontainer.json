@@ -4,7 +4,7 @@
 // docs/codespaces.md. Tools come from the official dev container
 // features; post-create.sh only adds the nerdio/nme provider from Nerdio's own release.
 {
-  "name": "nerdio-hcl",
+  "name": "nme-automation",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/devcontainers/features/azure-cli:1": {},

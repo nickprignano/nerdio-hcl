@@ -6,7 +6,7 @@ RoleManagement scopes). Graph PowerShell asks for those scopes itself, signing i
 code, which works from Cloud Shell in any browser. The caller has already shown the plan and
 had the person type yes.
 
-Part of github.com/nickprignano/nerdio-hcl (scripts/nerdio). Prints no IDs or tokens.
+Part of github.com/nickprignano/nme-automation (scripts/nerdio). Prints no IDs or tokens.
 #>
 param(
     [Parameter(Mandatory = $true)] [string[]] $Roles,
@@ -43,7 +43,7 @@ foreach ($role in $plan) {
             principalId      = $me
             roleDefinitionId = $eligible[$role]
             directoryScopeId = '/'
-            justification    = 'Deploying Nerdio Manager with the nerdio-hcl kit'
+            justification    = 'Deploying Nerdio Manager with the nme-automation kit'
             scheduleInfo     = @{
                 startDateTime = (Get-Date).ToUniversalTime().ToString('o')
                 expiration    = @{ type = 'AfterDuration'; duration = "PT$($Hours)H" }

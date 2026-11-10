@@ -34,7 +34,7 @@ variable "admin_group" {
 variable "image" {
   description = "Assistant container image. Pin a digest for production."
   type        = string
-  default     = "ghcr.io/nickprignano/nerdio-hcl-assistant:main"
+  default     = "ghcr.io/nickprignano/nme-automation-assistant:main"
 }
 
 variable "model_provider" {
@@ -83,7 +83,7 @@ variable "foundry" {
 variable "kit_repo_url" {
   description = "Repository the Cloud Shell commands clone (your fork, if you use one)."
   type        = string
-  default     = "https://github.com/nickprignano/nerdio-hcl"
+  default     = "https://github.com/nickprignano/nme-automation"
 }
 
 variable "tags" {

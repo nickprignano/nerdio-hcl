@@ -21,7 +21,7 @@
         "--namespace", "azureterraformbestpractices"
       ]
     },
-    "nerdio-hcl": {
+    "nme-automation": {
       "type": "stdio",
       "command": "python3",
       "args": ["scripts/mcp/nerdio_mcp.py"]

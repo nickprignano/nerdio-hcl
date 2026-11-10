@@ -47,7 +47,7 @@ locals {
 
   wdot_settings = {
     enabled      = local.wdot_enabled
-    profile_name = "nerdio-hcl"
+    profile_name = "nme-automation"
     optimizations = distinct(concat(
       local.wdot_profile.optimizations,
       [for f in keys(var.wdot_overrides) : local.wdot_file_category[f] if f != "EdgeSettings"],

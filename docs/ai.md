@@ -24,10 +24,10 @@ project servers the first time you open the repository.
 | Server | Runs as | What it does |
 |---|---|---|
 | `azure` | Microsoft's Azure MCP Server (`@azure/mcp`, pinned), started with `npx` and `--read-only`, limited to the namespaces below | Lists subscriptions, resource groups, AVD host pools, session hosts and user sessions, VMs, Monitor logs and metrics, resource health, quota, policy and role assignments, and Microsoft's Terraform guidance |
-| `nerdio-hcl` | `scripts/mcp/nerdio_mcp.py`, Python standard library | The readiness check catalogue, KB search and the parameter schema. Repository files only; no network |
+| `nme-automation` | `scripts/mcp/nerdio_mcp.py`, Python standard library | The readiness check catalogue, KB search and the parameter schema. Repository files only; no network |
 | `microsoft-learn` | Microsoft's hosted Learn MCP endpoint | Grounded Azure, Entra and Intune documentation |
 
-Cloud Shell already has what they need: Node.js and `npx` for `azure`, Python for `nerdio-hcl`,
+Cloud Shell already has what they need: Node.js and `npx` for `azure`, Python for `nme-automation`,
 and your Cloud Shell sign-in, which the Azure MCP Server picks up from the Azure CLI. Nothing to
 install beyond Claude Code itself. In GovCloud, run `az cloud set --name AzureUSGovernment` and
 `az login` first, as for the rest of the kit.

@@ -7,7 +7,7 @@ environment     = "sandbox"
 
 github = {
   owner      = "contoso"
-  repository = "nerdio-hcl"
+  repository = "nme-automation"
   reviewers  = ["contoso-admin"]
 }
 
