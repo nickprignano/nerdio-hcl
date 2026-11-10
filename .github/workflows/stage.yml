@@ -129,13 +129,13 @@ jobs:
       NERDIO_PLAN_PRINCIPAL_ID: ${{ secrets.NERDIO_PLAN_PRINCIPAL_ID }}
       NERDIO_APPLY_PRINCIPAL_ID: ${{ secrets.NERDIO_APPLY_PRINCIPAL_ID }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: "1.16.6"
           terraform_wrapper: false
       # az signs in for group lookups, blobs and Bicep; Terraform gets its own OIDC tokens.
-      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -163,7 +163,7 @@ jobs:
           cp "$RUNNER_TEMP/nerdio-$STAGE/summary.md" "$out/summary.md" 2>/dev/null || : > "$out/summary.md"
       - name: upload drift result
         if: always() && inputs.drift
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: drift-${{ inputs.environment }}-${{ inputs.stage }}
           path: ${{ runner.temp }}/drift-result/
