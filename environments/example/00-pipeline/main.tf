@@ -19,6 +19,7 @@ module "pipeline" {
   apply_assignable_roles = var.access.apply_assignable_roles
   apply_graph_roles      = var.access.apply_graph_roles
   plan_graph_roles       = var.access.plan_graph_roles
+  plan_bicep_whatif      = var.access.plan_bicep_whatif
 }
 
 # Repository settings (labels, workflow token, the ruleset on the branch the apply trusts) moved to

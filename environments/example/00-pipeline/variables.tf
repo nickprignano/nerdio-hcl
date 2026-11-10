@@ -51,12 +51,14 @@ variable "access" {
       apply_assignable_roles the only roles it may assign (Azure enforces this with a condition)
       apply_graph_roles      Microsoft Graph roles for the apply identity
       plan_graph_roles       Microsoft Graph roles for the read-only plan identity
+      plan_bicep_whatif      let the plan identity run Bicep what-if (Bicep variant only)
   EOT
   type = object({
     apply_roles            = optional(list(string))
     apply_assignable_roles = optional(list(string))
     apply_graph_roles      = optional(list(string))
     plan_graph_roles       = optional(list(string))
+    plan_bicep_whatif      = optional(bool, false)
   })
   default = {}
 }

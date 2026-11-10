@@ -16,6 +16,8 @@ approve one ([Connect the chatbot](#connect-the-chatbot)).
 | `<env>-apply` GitHub environment | Needs a reviewer's approval, from `main` only, with no admin bypass. Only then does GitHub issue the token its identity trusts |
 | Two managed identities | One per environment, federated to that environment with GitHub OIDC. No client secret exists anywhere |
 | State storage account | Terraform state (container `tfstate`), saved plans and their change lists (container `plans`, deleted after 7 days) and the answers each environment plans from (container `answers`, one versioned blob per environment), protected by a `CanNotDelete` management lock. Entra sign-in only; shared keys are off |
+| `.github/workflows/stage.yml` | The reusable job every pipeline workflow calls: signs in to one environment with OIDC, masks IDs and runs `scripts/pipeline/stage.sh` to plan, apply or unlock one stage ([decision 0033](knowledge/decisions/0033-ci-cd-reusable-stage-pr-plans-drift.md)) |
+| `.github/workflows/drift.yml` | A daily read-only plan of each environment you list, with an `infra-drift` issue when Azure or Nerdio no longer match `main` ([Drift](#drift)) |
 | `.github/workflows/deploy.yml` | Plans a stage, blocks accidental deletion or replacement of stateful Stage 1/2 resources unless `allow_replace` is ticked, lists the changes in the run summary, and saves the plan. If you ticked **apply** (or merged `config/answers/<env>.json` to `main`), the apply job waits for approval, checks the saved plan's hash and applies it |
 
 Tenant, subscription and object IDs are stored as environment secrets so GitHub masks them, and
@@ -102,7 +104,8 @@ or save them from the chatbot. Earlier versions are kept as blob versions.
 ## Deploy
 
 Actions > **deploy** > **Run workflow**: pick the environment and stage (`platform` first, then
-`config`, `auto` to run `platform` then `config`, or `assistant` to update the setup chatbot), and tick **apply** to apply after the plan.
+`config`, `auto` to run `platform` then `config`, `assistant` to update the setup chatbot, or
+`bicep` for the [Bicep variant](#bicep-variant)), and tick **apply** to apply after the plan.
 By default, the plan job blocks any plan that deletes or replaces stateful Stage 1 (SQL, Key Vault,
 FSLogix/ANF, VNet, Compute Gallery) or Stage 2 (`nme_workspace`, host pools, linked networks/RGs,
 FSLogix profiles) resources when `destroy` is false; tick **allow_replace** only when a replacement
@@ -129,6 +132,74 @@ family vCPU quota increase in the plan job and send `./nerdio fix quota` / `vcpu
 `<env>-apply` job after a reviewer approves it. Read the plan in the run summary, then approve the
 `<env>-apply` deployment (GitHub's mobile app works). Nerdio's first-run wizard still runs in the
 browser between the stages, because Nerdio has no API for it yet.
+
+### Plans on pull requests
+
+With `github.allow_pr_plans = true` in `00-pipeline`, a pull request from a branch of this
+repository that changes `modules/`, `environments/example/`, `bicep/`, `scripts/pipeline/` or
+`schema/parameters.json` gets a read-only plan of the platform and config stages, posted as one
+comment that each push updates. Turn it on by naming the environment to plan in the repository
+variable `NERDIO_PR_PLAN_ENV` (`gh variable set NERDIO_PR_PLAN_ENV --body sandbox`); while it's
+unset, code changes get no plan, so a repository without a pipeline isn't sent failing runs. A
+pull request that changes `config/answers/<env>.json` plans that environment, as before. Nothing applies from a pull request, and merged code doesn't apply on its own either:
+run **deploy** with apply ticked, and a reviewer approves it. Pull requests from forks are
+skipped; GitHub gives them no OIDC token.
+
+A pull request plan runs the branch's Terraform as the plan identity, which can read state and
+the secrets in it. That's why it is off by default and limited to this repository's branches,
+which only people with write access can push.
+
+## Drift
+
+`drift.yml` plans each environment every day at 05:17 UTC as the read-only plan identity and
+saves nothing that could be applied. Turn it on with two repository variables (Settings >
+Secrets and variables > Actions > Variables, or `gh variable set`):
+
+```bash
+gh variable set NERDIO_DRIFT_ENVS --body '["sandbox"]'
+gh variable set NERDIO_DRIFT_STAGES --body '["platform","config"]'   # optional; this is the default
+```
+
+When a plan shows changes, it opens an issue titled `Drift: <env>`, labelled `infra-drift`, with
+the masked change list. Later runs update it, and the first clean run closes it. A change means
+one of three things: someone changed a resource outside the pipeline (the portal, a script),
+someone changed Nerdio Manager's console (the `config` stage refreshes the `nerdio/nme`
+resources), or `main` has code or answers that were never applied. To restore `main`, run
+**deploy** with apply; to keep the outside change, change the code or answers to match. A plan
+that would delete or replace a stateful resource is reported, not blocked, because nothing
+applies from a drift run. Run it now from Actions > **drift** > **Run workflow**.
+
+## Bicep variant
+
+Stage **bicep** deploys the platform from the Bicep variant (decision 0032, in progress)
+(`bicep/main.bicep`, with `bicep/environments/<env>/platform.bicepparam`) through the same gate:
+
+1. **Plan** (plan identity): renders the answers like a Terraform plan, builds the template and
+   parameters, and runs `az deployment sub what-if --validation-level ProviderNoRbac`. The
+   compiled template, parameters and change list are saved with their SHA-256, like a Terraform plan.
+2. **Apply** (after a reviewer approves): checks the hash, runs what-if again as the apply
+   identity and stops if Azure would now change anything the reviewer didn't see. ARM has no
+   saved plan that goes stale on its own, so this re-check stands in for Terraform's. Then it
+   deploys exactly that template as the subscription deployment stack `nerdio-<prefix>-platform`
+   (`detachAll`, no deny settings yet).
+3. Run stage **config** afterwards as usual: it reads `nerdio_config_inputs` from the stack's
+   outputs when there's no Terraform platform state.
+
+Reader can't call what-if (it's an action, not a read), so set `access = { plan_bicep_whatif = true }`
+in `00-pipeline` first: it gives the plan identity a custom role with only the what-if and
+validate actions. What-if can list values it can't evaluate (`reference()`, secure values) as
+changes, so the apply's re-check may ask you to plan again. Add `"bicep"` to
+`NERDIO_DRIFT_STAGES` to drift-check the stack.
+
+## Keeping the pipeline itself safe
+
+- Every action in every workflow is pinned to a commit SHA, with the version in a comment.
+  Dependabot (`.github/dependabot.yml`) opens a weekly pull request to bump them, and the
+  setup chatbot's Python packages and base image; each goes through the normal checks.
+- `validate.yml` lints every workflow with actionlint (checksum-verified) and builds and lints the
+  Bicep variant when it's in the tree.
+- Reusing the stage from another repository isn't supported: `stage.yml` checks out the calling
+  repository and its GitHub environments, so fork or template this repository instead.
 
 ## Connect the chatbot
 
@@ -186,4 +257,5 @@ anyone opening the run's log. None of it goes to the public run log.
   set `enable_vnet_runner = true` and `vnet_runner` in `01-platform`, and set `github.runner_labels`
   (or pass `runner_labels` on `deploy.yml`) to `["self-hosted", "linux", "x64", "vnet"]`.
 - Required reviewers on GitHub environments need a public repository or a paid GitHub plan.
-- Not yet run against a live tenant.
+- Not yet run against a live tenant, including the pull request plans, drift issues and Bicep
+  stage from [decision 0033](knowledge/decisions/0033-ci-cd-reusable-stage-pr-plans-drift.md).

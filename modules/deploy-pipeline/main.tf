@@ -170,6 +170,31 @@ resource "azurerm_role_assignment" "plan" {
   principal_id         = local.identities.plan.principal_id
 }
 
+# Bicep variant (decision 0033): what-if is an action, not a read, so Reader alone can't call it.
+# These two actions preview and validate a deployment; neither creates or changes a resource.
+resource "azurerm_role_definition" "plan_whatif" {
+  count       = var.plan_bicep_whatif ? 1 : 0
+  name        = "Nerdio pipeline what-if (${var.name}-${var.environment})"
+  scope       = local.subscription_scope
+  description = "Preview (what-if) and validate ARM/Bicep deployments. Cannot deploy."
+
+  permissions {
+    actions = [
+      "Microsoft.Resources/deployments/whatIf/action",
+      "Microsoft.Resources/deployments/validate/action",
+    ]
+  }
+
+  assignable_scopes = [local.subscription_scope]
+}
+
+resource "azurerm_role_assignment" "plan_whatif" {
+  count              = var.plan_bicep_whatif ? 1 : 0
+  scope              = local.subscription_scope
+  role_definition_id = azurerm_role_definition.plan_whatif[0].role_definition_resource_id
+  principal_id       = local.identities.plan.principal_id
+}
+
 # Constrained delegation: the apply identity's Azure role-assignment rights only reach the roles
 # the kit assigns (apply_assignable_roles). Azure checks the condition on every assignment it
 # creates or deletes, so an approved run can't grant Owner through Azure RBAC. The condition does

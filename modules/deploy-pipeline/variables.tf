@@ -123,6 +123,18 @@ variable "apply_assignable_roles" {
   }
 }
 
+variable "plan_bicep_whatif" {
+  description = <<-EOT
+    Let the read-only plan identity preview the Bicep variant (stage bicep): a custom role on the
+    subscription with only the deployment what-if and validate actions. What-if runs with
+    validation level ProviderNoRbac, so it checks read rights, not write rights; the identity
+    still can't deploy, write or delete anything. Off unless you use the Bicep variant.
+  EOT
+  type        = bool
+  nullable    = false
+  default     = false
+}
+
 variable "plan_retention_days" {
   description = "Days to keep saved plans. They hold the values Terraform will apply, so they don't linger."
   type        = number

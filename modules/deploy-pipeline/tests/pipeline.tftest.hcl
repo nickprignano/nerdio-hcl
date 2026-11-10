@@ -157,3 +157,36 @@ run "assignable_roles_never_include_owner" {
 
   expect_failures = [var.apply_assignable_roles]
 }
+
+run "bicep_whatif_is_opt_in_and_cannot_deploy" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_role_definition.plan_whatif) == 0
+    error_message = "The what-if role exists only for the Bicep variant."
+  }
+}
+
+run "bicep_whatif_role" {
+  command = plan
+
+  variables {
+    plan_bicep_whatif = true
+  }
+
+  assert {
+    condition = toset(azurerm_role_definition.plan_whatif[0].permissions[0].actions) == toset([
+      "Microsoft.Resources/deployments/whatIf/action",
+      "Microsoft.Resources/deployments/validate/action",
+    ])
+    error_message = "The plan identity may only preview and validate deployments."
+  }
+  assert {
+    condition     = length(coalesce(azurerm_role_definition.plan_whatif[0].permissions[0].data_actions, [])) == 0
+    error_message = "No data actions for the plan identity's what-if role."
+  }
+  assert {
+    condition     = one(azurerm_role_definition.plan_whatif[0].assignable_scopes) == "/subscriptions/00000000-0000-0000-0000-000000000000"
+    error_message = "The what-if role is assignable only on the kit's subscription."
+  }
+}
