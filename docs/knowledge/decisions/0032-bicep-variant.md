@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-10
 decision-makers: [maintainers]
 ---
@@ -102,5 +102,6 @@ identity (Graph extension), `nerdio-core`, hardening.
 - [Deployment stacks known issues](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks-known-issues)
 - [Deployment stack what-if](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks-what-if)
 - [loadJsonContent](https://learn.microsoft.com/azure/azure-resource-manager/bicep/bicep-functions-files#loadjsoncontent)
-- Accept by merging the PR that introduces it after the maintainer agrees; revisit when Nerdio
-  answers the Bicep extension ask or stage 1 parity passes a live sandbox run.
+- Accepted by the maintainer on 2026-11-10, choosing the mix (Bicep stage 1, Terraform stage 2)
+  over REST API scripts or waiting for Nerdio. Revisit when Nerdio answers the Bicep extension ask
+  or stage 1 parity passes a live sandbox run.

@@ -1,5 +1,5 @@
 // Bicep variant of stage 01 (environments/example/01-platform), landing-zone slice.
-// Proposed in decision 0032. Same answers, same names, same layout as the Terraform root; the
+// Decision 0032. Same answers, same names, same layout as the Terraform root; the
 // parity table in bicep/README.md lists what is ported and what is still Terraform-only.
 //
 // Plan (what-if) and deploy from Cloud Shell Bash; see bicep/README.md.
