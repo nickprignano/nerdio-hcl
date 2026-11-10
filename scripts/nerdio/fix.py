@@ -118,7 +118,7 @@ def quota_ticket(service_id: str, classification_id: str, contact: dict, sku: st
         "title": f"{TICKET_PREFIX} App Service {sku} quota in {location}",
         "description": (f"Please raise this subscription's App Service quota for {sku} (Windows) in {location} "
                         f"to {limit}. The current limit is {current}. It is needed for one App Service plan that "
-                        "hosts Nerdio Manager for Enterprise. Opened by the nme-deployment-toolkit kit's ./nerdio fix quota."),
+                        "hosts Nerdio Manager for Enterprise. Opened by the nme-automation kit's ./nerdio fix quota."),
         "serviceId": service_id,
         "problemClassificationId": classification_id,
         "severity": "minimal",
@@ -345,7 +345,7 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
         try:
             rest("post", f"{_graph()}/roleManagement/directory/roleAssignmentScheduleRequests", {
                 "action": "selfActivate", "principalId": me, "roleDefinitionId": role_id, "directoryScopeId": "/",
-                "justification": "Deploying Nerdio Manager with the nme-deployment-toolkit kit", "scheduleInfo": when})
+                "justification": "Deploying Nerdio Manager with the nme-automation kit", "scheduleInfo": when})
             print(f"  activated {name}")
         except FixError as exc:
             failed.append(f"{name}: {exc}")
@@ -357,7 +357,7 @@ def fix_roles(subscription_id: str, needs_consent: bool, hours: int, assume_yes:
                         f"?api-version={PIM_ARM_API}", {"properties": {
                             "principalId": me, "roleDefinitionId": role_id, "requestType": "SelfActivate",
                             "linkedRoleEligibilityScheduleId": sched,
-                            "justification": "Deploying Nerdio Manager with the nme-deployment-toolkit kit", "scheduleInfo": when}})
+                            "justification": "Deploying Nerdio Manager with the nme-automation kit", "scheduleInfo": when}})
             print("  activated Owner")
         except FixError as exc:
             failed.append(f"Owner: {exc}")

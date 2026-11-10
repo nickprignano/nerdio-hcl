@@ -179,7 +179,7 @@ def render_family() -> str:
 
 def render_llms_txt() -> str:
     lines = [
-        "# NME deployment toolkit",
+        "# NME automation kit",
         "",
         "> A HashiCorp-stack (Terraform + Packer) deployment kit for Nerdio Manager for Enterprise on Azure",
         "> Virtual Desktop, with a living knowledge base of findings, gotchas and decisions.",

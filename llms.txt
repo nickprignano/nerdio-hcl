@@ -1,4 +1,4 @@
-# NME deployment toolkit
+# NME automation kit
 
 > A HashiCorp-stack (Terraform + Packer) deployment kit for Nerdio Manager for Enterprise on Azure
 > Virtual Desktop, with a living knowledge base of findings, gotchas and decisions.
@@ -72,7 +72,7 @@ contribute, open a KB feedback or known-error issue; changes land only through r
 - [0028. Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration](docs/knowledge/decisions/0028-targeted-ansible-for-images-and-hybrid.md): accepted
 - [0029. v2 multi-region peer `regions` map, `./nerdio migrate` and enterprise landing zone architecture](docs/knowledge/decisions/0029-v2-multi-region-enterprise-landing-zone.md): accepted
 - [0030. End-to-end VNet runner, destructive-change guardrails, resource locks and GitOps answers](docs/knowledge/decisions/0030-enterprise-guardrails-locks-and-gitops.md): accepted
-- [0035. Rename the repository to nme-deployment-toolkit, in place, keeping GitHub's redirect](docs/knowledge/decisions/0035-rename-repository-to-nme-deployment-toolkit.md): proposed
+- [0035. Rename the repository to nme-automation, in place, keeping GitHub's redirect](docs/knowledge/decisions/0035-rename-repository-to-nme-automation.md): proposed
 
 ## Related knowledge bases
 

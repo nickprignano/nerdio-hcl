@@ -4,13 +4,13 @@ date: 2026-11-10
 decision-makers: [maintainers]
 ---
 
-# 0035. Rename the repository to nme-deployment-toolkit, in place, keeping GitHub's redirect
+# 0035. Rename the repository to nme-automation, in place, keeping GitHub's redirect
 
 ## Context and Problem Statement
 
 The repository was named for its first tool (HCL), but it now also carries a Bicep variant, a setup
 chatbot, a readiness preflight and CI/CD for Nerdio Manager for Enterprise (NME). The owner wants it
-called `nme-deployment-toolkit`. A GitHub rename redirects web, git and API traffic from the old
+called `nme-automation`. A GitHub rename redirects web, git and API traffic from the old
 name, but some things embed the repository name and do not follow a redirect: GitHub OIDC token
 subjects that Azure federated credentials match, container image names, settings saved in the
 deployed chat, and signed release attestations. How is it renamed without breaking a deployment,

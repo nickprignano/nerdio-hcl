@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
-USER_AGENT = "nme-deployment-toolkit-kb-curator"
+USER_AGENT = "nme-automation-kb-curator"
 GITHUB_API = "https://api.github.com"
 
 

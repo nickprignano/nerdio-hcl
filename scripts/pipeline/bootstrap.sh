@@ -51,7 +51,7 @@ while [ $# -gt 0 ]; do
 done
 
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
-kit_config="$config_home/nme-deployment-toolkit"
+kit_config="$config_home/nme-automation"
 # Profiles saved before the repository rename live under its old name (legacy fallback).
 legacy_config="$config_home/nerdio-hcl"
 [[ ! -e "$kit_config" && -d "$legacy_config" ]] && kit_config="$legacy_config"

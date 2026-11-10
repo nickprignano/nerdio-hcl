@@ -106,7 +106,7 @@ def plan(name: str, federation: dict) -> dict:
         "issuer": {"name": f"entra-{federation['tenant_id'][:8]}", "issuer_url": federation["issuer_url"],
                    "jwks": {"type": "discovery"}, "max_jwt_lifetime_seconds": MAX_JWT_LIFETIME},
         "service_account": {"name": f"{name}-chat", "organization_role": "developer",
-                            "description": "Nerdio setup chat (nme-deployment-toolkit). Federated from its Azure managed identity."},
+                            "description": "Nerdio setup chat (nme-automation). Federated from its Azure managed identity."},
         "rule": {
             "name": f"{name}-chat",
             "match": {

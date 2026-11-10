@@ -7,7 +7,7 @@ resource "msgraph_resource" "wufb_ring" {
   body = {
     "@odata.type"                      = "#microsoft.graph.windowsUpdateForBusinessConfiguration"
     displayName                        = "avd-${var.name_prefix}-wufb-ring"
-    description                        = "AVD session host Windows Update ring managed by Terraform (nme-deployment-toolkit)"
+    description                        = "AVD session host Windows Update ring managed by Terraform (nme-automation)"
     microsoftUpdateServiceAllowed      = true
     driversExcluded                    = true
     qualityUpdatesDeferralPeriodInDays = var.wufb_quality_deferral_days

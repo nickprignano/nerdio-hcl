@@ -7,7 +7,7 @@ environment     = "sandbox"
 
 github = {
   owner      = "contoso"
-  repository = "nme-deployment-toolkit"
+  repository = "nme-automation"
   reviewers  = ["contoso-admin"]
 }
 

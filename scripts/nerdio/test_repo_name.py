@@ -33,7 +33,7 @@ class RepoNameTests(unittest.TestCase):
             for n, line in enumerate(text.splitlines(), 1):
                 if OLD in line and not any(r in line.lower() for r in REASONS):
                     stray.append(f"{rel}:{n}: {line.strip()[:100]}")
-        self.assertEqual(stray, [], "rename leftovers; use nme-deployment-toolkit, or say why "
+        self.assertEqual(stray, [], "rename leftovers; use nme-automation, or say why "
                                     "the old name stays (legacy / old name) on the same line")
 
 

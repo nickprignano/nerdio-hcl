@@ -21,7 +21,7 @@ instead; it then shows up under **Code** > **Codespaces** to open in the browser
 
 ```bash
 gh auth refresh -h github.com -s codespace   # once, adds the codespace scope
-gh codespace create -R <owner>/nme-deployment-toolkit -b main --idle-timeout 240m
+gh codespace create -R <owner>/nme-automation -b main --idle-timeout 240m
 ```
 
 GitHub has no API for the account-wide default, so if you'd rather keep using the button, set

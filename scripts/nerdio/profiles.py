@@ -24,7 +24,7 @@ LEGACY_DIR = "nerdio-hcl"  # the repository's old name; profiles saved before th
 
 def home() -> Path:
     base = Path(os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config"))
-    new, legacy = base / "nme-deployment-toolkit", base / LEGACY_DIR
+    new, legacy = base / "nme-automation", base / LEGACY_DIR
     return legacy if legacy.is_dir() and not new.exists() else new
 
 

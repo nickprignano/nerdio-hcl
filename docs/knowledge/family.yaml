@@ -6,9 +6,9 @@
 format_version: 1
 projects:
 - id: nerdio-hcl  # stable family key; the repository's old name, kept so sibling KBs still match it
-  name: NME deployment toolkit
+  name: NME automation kit
   self: true
-  repo: nickprignano/nme-deployment-toolkit
+  repo: nickprignano/nme-automation
   kb_path: docs/knowledge
   role: reference
   focus: Nerdio Manager on Azure Virtual Desktop, deployed with Terraform and Packer

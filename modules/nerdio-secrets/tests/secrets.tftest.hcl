@@ -41,7 +41,7 @@ run "github_oidc_and_extra_readers" {
 
   variables {
     reader_object_ids = ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"]
-    github_oidc       = { repository = "example/nme-deployment-toolkit" }
+    github_oidc       = { repository = "example/nme-automation" }
   }
 
   assert {
@@ -49,7 +49,7 @@ run "github_oidc_and_extra_readers" {
     error_message = "Expected the deployer (deduplicated), one extra reader and the GitHub identity."
   }
   assert {
-    condition     = azurerm_federated_identity_credential.github[0].subject == "repo:example/nme-deployment-toolkit:environment:sandbox"
+    condition     = azurerm_federated_identity_credential.github[0].subject == "repo:example/nme-automation:environment:sandbox"
     error_message = "The federated credential should trust the sandbox environment of the repo."
   }
 }

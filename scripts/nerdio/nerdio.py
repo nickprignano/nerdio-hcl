@@ -645,7 +645,7 @@ def cmd_assistant(args) -> int:
                 link = {
                     "storage_account_id": f"/subscriptions/{sources['subscription']}/resourceGroups/rg-nme-pipeline/providers/Microsoft.Storage/storageAccounts/stnmepipeline",
                     "environment": env_name,
-                    "github": {"repository": "contoso/nme-deployment-toolkit"},
+                    "github": {"repository": "contoso/nme-automation"},
                 }
                 problem = ""
             else:

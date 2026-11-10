@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Model Context Protocol (MCP) server over stdio for nme-deployment-toolkit.
+"""Read-only Model Context Protocol (MCP) server over stdio for nme-automation.
 
 Standard library only (Python 3.9+). Exposes three read-only tools:
   - nerdio_readiness_catalogue: list registered readiness checks (optionally filtered by stage/feature)
@@ -21,13 +21,13 @@ import engine  # noqa: E402
 from readiness import checks as _checks  # noqa: F401, E402
 from readiness.model import REGISTRY  # noqa: E402
 
-SERVER_INFO = {"name": "nme-deployment-toolkit-mcp", "version": "1.0.0"}
+SERVER_INFO = {"name": "nme-automation-mcp", "version": "1.0.0"}
 PROTOCOL_VERSION = "2024-11-05"
 
 TOOLS: List[Dict[str, Any]] = [
     {
         "name": "nerdio_readiness_catalogue",
-        "description": "List read-only readiness checks from the nme-deployment-toolkit registry, optionally filtered by stage or feature.",
+        "description": "List read-only readiness checks from the nme-automation registry, optionally filtered by stage or feature.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -38,7 +38,7 @@ TOOLS: List[Dict[str, Any]] = [
     },
     {
         "name": "nerdio_kb_search",
-        "description": "Search the nme-deployment-toolkit knowledge base index (docs/knowledge/index.json) by query text or topic.",
+        "description": "Search the nme-automation knowledge base index (docs/knowledge/index.json) by query text or topic.",
         "inputSchema": {
             "type": "object",
             "properties": {

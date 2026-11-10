@@ -263,7 +263,7 @@ def add_digest(issue: dict, today: str) -> tuple[str, str]:
 def add_settings_drift(issue: dict, today: str, repo_data: dict | None = None) -> tuple[str, str]:
     if repo_data is None:
         from sources import github
-        repo_slug = os.environ.get("GITHUB_REPOSITORY", "nickprignano/nme-deployment-toolkit")
+        repo_slug = os.environ.get("GITHUB_REPOSITORY", "nickprignano/nme-automation")
         repo_data = github(f"/repos/{repo_slug}")
     main_tf = kblib.ROOT / "github" / "main.tf"
     if not main_tf.is_file():

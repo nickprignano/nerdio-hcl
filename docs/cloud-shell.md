@@ -10,13 +10,13 @@ Terraform keeps its local state in your home directory.
 
 ```bash
 az account show --query name -o tsv      # the right subscription? else: az account set --subscription "<name>"
-git clone https://github.com/nickprignano/nme-deployment-toolkit.git && cd nme-deployment-toolkit
+git clone https://github.com/nickprignano/nme-automation.git && cd nme-automation
 ./scripts/cloudshell-bootstrap.sh platform           # plan
 ./scripts/cloudshell-bootstrap.sh platform --apply   # apply; Terraform asks for yes
 ```
 
 Cloned before the repository was renamed? Your clone still works (GitHub redirects the old name).
-To match these docs: `mv ~/nerdio-hcl ~/nme-deployment-toolkit && git -C ~/nme-deployment-toolkit remote set-url origin https://github.com/nickprignano/nme-deployment-toolkit.git` (old name first).
+To match these docs: `mv ~/nerdio-hcl ~/nme-automation && git -C ~/nme-automation remote set-url origin https://github.com/nickprignano/nme-automation.git` (old name first).
 
 The script writes `01-platform/sandbox.auto.tfvars` with the IDs, a random `nme-sbx-xxxx` prefix,
 `eastus2`, you as WVD Admin, and the terraform install. Later runs reuse it. To change the
