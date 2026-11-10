@@ -46,7 +46,7 @@ param enable_resource_locks bool = false
 
 var regionKeys = objectKeys(regions)
 var multiRegion = length(regionKeys) > 1
-var controlPlaneRegionKey = contains(regionKeys, control_plane_location) ? control_plane_location : first(regionKeys)
+var controlPlaneRegionKey = contains(regionKeys, control_plane_location) ? control_plane_location : regionKeys[0]
 var hubOwnsDns = !empty(existing_private_dns_zone_ids)
 var controlPlaneRgs = filter(items(resource_groups), rg => contains(['nerdio', 'monitoring'], rg.key))
 
@@ -197,7 +197,7 @@ module fslogix 'modules/fslogix-storage.bicep' = [
       tags: tags
       fslogix: r.fslogix!
       privateEndpointSubnetId: network[i].outputs.subnetIds.private_endpoints
-      privateDnsZoneId: zoneIds.file
+      privateDnsZoneId: zoneIds.?file ?? ''
       lockAgainstDelete: enable_resource_locks
     }
   }
@@ -239,8 +239,11 @@ output resource_group_names object = union(
   toObject(controlPlaneRgs, rg => rg.key, rg => rg.value),
   toObject(regionList, r => r.key, r => r.rgs)
 )
-output vnet_ids object = toObject(range(0, length(regionList)), i => regionList[i].key, i => network[i].outputs.vnetId)
-output subnet_ids object = toObject(range(0, length(regionList)), i => regionList[i].key, i => network[i].outputs.subnetIds)
+// Bicep can't index a module array inside a lambda, so collect the outputs with a for-expression first.
+var networkOutputs = [for (r, i) in regionList: { key: r.key, vnetId: network[i].outputs.vnetId, subnetIds: network[i].outputs.subnetIds }]
+
+output vnet_ids object = toObject(networkOutputs, n => n.key, n => n.vnetId)
+output subnet_ids object = toObject(networkOutputs, n => n.key, n => n.subnetIds)
 output private_dns_zone_ids object = zoneIds
 output log_analytics_workspace_id string = logAnalytics.outputs.id
-output image_gallery_id string = image_gallery == null ? '' : gallery.outputs.galleryId
+output image_gallery_id string = gallery.?outputs.galleryId ?? ''

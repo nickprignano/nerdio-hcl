@@ -180,7 +180,7 @@ var runnerSubnet = network.subnets.?vnet_runner == null
       {
         name: 'snet-vnet-runner'
         properties: {
-          addressPrefix: network.subnets.vnet_runner
+          addressPrefix: network.subnets.?vnet_runner ?? ''
           delegations: [{ name: 'container-apps', properties: { serviceName: 'Microsoft.App/environments' } }]
         }
       }
@@ -194,7 +194,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   dependsOn: [nat, routeTable]
   properties: {
     addressSpace: { addressPrefixes: network.address_space }
-    dhcpOptions: empty(network.?dns_servers ?? []) ? null : { dnsServers: network.dns_servers }
+    dhcpOptions: empty(network.?dns_servers ?? []) ? null : { dnsServers: network.?dns_servers ?? [] }
     subnets: concat(baseSubnets, runnerSubnet)
   }
 }
