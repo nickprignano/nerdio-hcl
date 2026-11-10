@@ -17,8 +17,8 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: "1.16.6"
       - name: fmt
@@ -58,7 +58,7 @@ jobs:
             terraform -chdir="$dir" test
             echo "::endgroup::"
           done
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
       - name: tflint
         env:
           # tflint --init downloads rulesets from the GitHub API; unauthenticated calls hit the
@@ -83,8 +83,8 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: "1.16.6"
           terraform_wrapper: false
@@ -100,8 +100,8 @@ jobs:
   preflight-zipapp:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           # Azure Cloud Shell's Python; the standalone check must run there.
           python-version: "3.9"
@@ -122,11 +122,31 @@ jobs:
           python3 -I a.pyz --no-input --format md > smoke.md || [ $? -le 3 ]
           head -n 3 smoke.md
 
+  # The deploy, stage and drift workflows hold the apply identity's gate, so lint them on every
+  # pull request; and build the Bicep variant when it's in the tree (decision 0033).
+  pipelines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: actionlint
+        run: |
+          curl -sSfL -o /tmp/actionlint.tgz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          echo "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757  /tmp/actionlint.tgz" | sha256sum --check --quiet -
+          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
+          /tmp/actionlint -color
+      - name: bicep build and lint
+        if: hashFiles('bicep/main.bicep') != ''
+        run: |
+          az bicep install --only-show-errors
+          az bicep build --file bicep/main.bicep --stdout > /dev/null
+          az bicep lint --file bicep/main.bicep
+
   packer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-packer@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789 # v3.4.0
         with:
           version: "1.16.1"
       - name: init, fmt, validate
@@ -139,7 +159,7 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: no tenant files tracked
@@ -148,6 +168,7 @@ jobs:
           bad="$(git ls-files | grep -E '(\.tfvars|\.tfvars\.json|\.pkrvars\.hcl|\.tfstate(\..*)?|\.tfplan|\.plan|\.terraformrc|\.env(\..*)?|\.pem|\.pfx|\.p12|\.key)$' \
             | grep -vE '(\.tfvars\.example|/example\.pkrvars\.hcl|\.env\.example)$' || true)"
           if [ -n "$bad" ]; then
+            # shellcheck disable=SC2086 # one annotation per file: split on purpose
             printf '::error file=%s::Tenant-specific file is tracked; remove it and keep it gitignored (docs/guardrails.md)\n' $bad
             exit 1
           fi

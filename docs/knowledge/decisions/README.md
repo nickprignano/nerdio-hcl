@@ -35,4 +35,5 @@ marked *Superseded by NNNN*.
 | [0028](0028-targeted-ansible-for-images-and-hybrid.md) | Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration | Accepted |
 | [0029](0029-v2-multi-region-enterprise-landing-zone.md) | v2 multi-region peer `regions` map, `./nerdio migrate` and enterprise landing zone architecture | Accepted |
 | [0030](0030-enterprise-guardrails-locks-and-gitops.md) | End-to-end VNet runner, destructive-change guardrails, resource locks and GitOps answers | Accepted |
+| [0033](0033-ci-cd-reusable-stage-pr-plans-drift.md) | CI/CD: one reusable stage workflow, plans on pull requests, daily drift check, Bicep stage | Proposed |
 <!-- END GENERATED: decision-index -->

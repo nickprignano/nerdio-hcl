@@ -42,7 +42,8 @@ it after.
 
 | Identity | Created by | Azure rights | Entra (Microsoft Graph) rights | Used when |
 |---|---|---|---|---|
-| Pipeline **plan** identity | Bootstrap | **Reader** on the subscription; the state storage | **Directory.Read.All** | Any plan or readiness check from `main` |
+| Pipeline **plan** identity | Bootstrap | **Reader** on the subscription; the state storage. With the Bicep variant (`access.plan_bicep_whatif = true`), a custom role with only `Microsoft.Resources/deployments/whatIf/action` and `validate/action`, because Reader can't call what-if; it still can't deploy | **Directory.Read.All** | Any plan or readiness check from `main`, the daily drift check (`drift.yml`), and same-repository pull request plans when `github.allow_pr_plans = true` |
+| Workflow token (`GITHUB_TOKEN`) in the report jobs | GitHub, per run | None | None. On GitHub: *pull-requests: write* in `deploy.yml`'s comment job (the plan comment) and *issues: write* in `drift.yml`'s report job (the `infra-drift` issue). Neither job signs in to Azure; they post summaries the plan jobs already masked | Pull request plans; the daily drift check |
 | Pipeline **apply** identity | Bootstrap | **Contributor** and **Role Based Access Control Administrator** on the subscription. Azure only lets it assign or remove the roles in `apply_assignable_roles` (a role assignment condition), so it can't grant Owner or widen its own access | **Application.ReadWrite.All**, **Group.ReadWrite.All**, **Directory.Read.All**, and by default **AppRoleAssignment.ReadWrite.All** and **DelegatedPermissionGrant.ReadWrite.All** so it can grant admin consent (drop both if you consent yourself, below) | Only after a reviewer approves the run in GitHub |
 | Setup chat (managed identity) | Chat deploy | With Foundry, **Cognitive Services User** on its Foundry resource. With the pipeline, **Storage Blob Data Contributor** on the `answers` container, **Storage Blob Data Reader** on `plans` and **Key Vault Crypto Officer** on its own vault, which holds only the GitHub App key | None. With the Claude API it asks Entra for tokens for its audience app, which has no permissions of its own | While someone is chatting |
 | Setup chat on the Claude side (service account) | `--connect-claude` | None | None. In Anthropic: *developer* organization role, *user* in its own workspace, and a federation rule that accepts only the chat's managed identity (object ID, tenant, audience) and mints 10-minute `workspace:inference` tokens | While someone is chatting |
@@ -68,6 +69,9 @@ These are supported switches, not forks of the kit. Set them in `00-pipeline/ter
 - **Split the bootstrap.** The Azure part needs a subscription admin; the Graph roles need a
   Privileged Role Administrator. They can be different people, each activating their role
   through PIM for the step.
+- **Leave pull request plans off** (`github.allow_pr_plans = false`, the default) where state holds
+  secrets you can't let a branch read: a pull request plan runs that branch's Terraform as the plan
+  identity, which can read state. Drift checks and plans from `main` don't need it.
 - **Keep the approval gate tight.** Name specific reviewers (`NME_REVIEWERS`), not a team, and
   keep the branch ruleset on (`ruleset.enabled` in `github/main.tf`).
 - **Private networking.** `enable_hardening` turns public access off; enable `enable_vnet_runner`
