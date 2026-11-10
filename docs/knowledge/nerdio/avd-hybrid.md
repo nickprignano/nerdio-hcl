@@ -166,7 +166,7 @@ What this means for your lab:
 - **You need a site-to-site VPN from home to Azure** for NME to reach Prism: an Azure VPN Gateway plus a home router or firewall that does IPsec. The VpnGw1 SKU is about $0.19/hour from memory (Microsoft's pricing page wouldn't load for northcentralus, so price it in the calculator first).
 - **NME's own Azure footprint** is about $248/month list (App Service B3 $219, SQL S1 $29) per [Nerdio](https://nmehelp.getnerdio.com/hc/en-us/articles/26124345260941-Nerdio-Manager-Default-Deployment-Resources-and-Costs), about $0.34/hour. Deploy it for the test window and remove it after. Nerdio offers a free trial; I couldn't load its terms.
 - **Rough cost of one 8-hour NME hybrid test day:** NME about $2.70 plus VPN gateway about $1.50, so about $4-5 in Azure, plus the AVD Hybrid user license, after the one-time hardware.
-- **For nerdio-hcl:** the client secret on the app registration conflicts with that kit's "no long-lived secrets where an identity works" guardrail. Note it as an accepted risk or an upstream ask, not something to automate around.
+- **For nme-deployment-toolkit:** the client secret on the app registration conflicts with that kit's "no long-lived secrets where an identity works" guardrail. Note it as an accepted risk or an upstream ask, not something to automate around.
 
 ## Skip list
 

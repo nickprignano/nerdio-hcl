@@ -73,6 +73,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             dist/nerdio-preflight.pyz \
             dist/nerdio-preflight.pyz.sha256 \
-            --title "nerdio-hcl $GITHUB_REF_NAME" \
+            --title "nme-deployment-toolkit $GITHUB_REF_NAME" \
             --notes-file notes.md \
             $prerelease_flag

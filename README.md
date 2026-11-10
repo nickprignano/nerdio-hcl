@@ -1,4 +1,4 @@
-# nerdio-hcl
+# nme-deployment-toolkit
 
 A HashiCorp-stack deployment kit for **Nerdio Manager for Enterprise** on Azure Virtual Desktop,
 built around Nerdio's official Terraform provider, [`nerdio/nme`](https://github.com/Get-Nerdio/NME-Terraform-Provider).
@@ -50,17 +50,19 @@ check it, run it:
 
 ```bash
 V=preflight-v0.1.0   # pinned; never "latest"
-curl -fsSLO "https://github.com/nickprignano/nerdio-hcl/releases/download/$V/nerdio-preflight.pyz"
+curl -fsSLO "https://github.com/nickprignano/nme-deployment-toolkit/releases/download/$V/nerdio-preflight.pyz"
 echo "f1ef3fd042d8ffb0e66414e61d7439d8b11ed0103f3edbe003bcdc983ec5466b  nerdio-preflight.pyz" | sha256sum -c && python3 nerdio-preflight.pyz
 ```
 
 | Release | SHA-256 of `nerdio-preflight.pyz` |
 |---|---|
-| [`preflight-v0.1.0`](https://github.com/nickprignano/nerdio-hcl/releases/tag/preflight-v0.1.0) | `f1ef3fd042d8ffb0e66414e61d7439d8b11ed0103f3edbe003bcdc983ec5466b` |
+| [`preflight-v0.1.0`](https://github.com/nickprignano/nme-deployment-toolkit/releases/tag/preflight-v0.1.0) | `f1ef3fd042d8ffb0e66414e61d7439d8b11ed0103f3edbe003bcdc983ec5466b` |
 
 The checksum lives here, not only beside the download, so a swapped file can't bring its own.
-With `gh` signed in, `gh attestation verify nerdio-preflight.pyz --repo nickprignano/nerdio-hcl`
-also proves the file came from this repository's release workflow. What it checks and how to read
+With `gh` signed in, `gh attestation verify nerdio-preflight.pyz --repo nickprignano/nme-deployment-toolkit`
+also proves the file came from this repository's release workflow. A release signed before the
+repository was renamed names its old name in the signature; if `--repo` with the new name
+rejects it, verify with `--repo nickprignano/nerdio-hcl` (old name) instead. What it checks and how to read
 the result: [docs/knowledge/nerdio/readiness.md](docs/knowledge/nerdio/readiness.md).
 
 To deploy without pasting commands, run the one-time pipeline bootstrap from Cloud Shell. After

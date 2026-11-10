@@ -3,7 +3,7 @@ name: deploy
 description: Plan, apply, verify, and manage the two-stage Terraform deployment and gated GitHub Actions pipeline for Nerdio Manager for Enterprise.
 ---
 
-# Deploy Skill (`nerdio-hcl`)
+# Deploy Skill (`nme-deployment-toolkit`)
 
 Use this skill when deploying Stage 1 (`01-platform`), completing the first-run wizard, deploying
 Stage 2 (`02-nerdio-config`), or running post-deployment verification.

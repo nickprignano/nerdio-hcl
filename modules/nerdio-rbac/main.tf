@@ -14,7 +14,7 @@ locals {
 resource "azurerm_role_definition" "nerdio_operator" {
   name        = "Nerdio Manager Least-Privilege Operator (${var.prefix})"
   scope       = local.subscription_scope
-  description = "Least-privilege custom role for Nerdio Manager for Enterprise on managed AVD spoke resource groups (managed by nerdio-hcl)."
+  description = "Least-privilege custom role for Nerdio Manager for Enterprise on managed AVD spoke resource groups (managed by nme-deployment-toolkit)."
 
   permissions {
     actions = distinct(concat([

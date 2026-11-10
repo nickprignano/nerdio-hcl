@@ -39,7 +39,7 @@ variables {
   subscription_id = "00000000-0000-0000-0000-000000000000"
   github = {
     owner      = "contoso"
-    repository = "nerdio-hcl"
+    repository = "nme-deployment-toolkit"
     reviewers  = ["contoso-admin"]
   }
 }
@@ -48,11 +48,11 @@ run "gate_and_identities" {
   command = plan
 
   assert {
-    condition     = azurerm_federated_identity_credential.this["plan"].subject == "repo:contoso/nerdio-hcl:environment:sandbox-plan"
+    condition     = azurerm_federated_identity_credential.this["plan"].subject == "repo:contoso/nme-deployment-toolkit:environment:sandbox-plan"
     error_message = "The plan identity must trust only the plan environment."
   }
   assert {
-    condition     = azurerm_federated_identity_credential.this["apply"].subject == "repo:contoso/nerdio-hcl:environment:sandbox-apply"
+    condition     = azurerm_federated_identity_credential.this["apply"].subject == "repo:contoso/nme-deployment-toolkit:environment:sandbox-apply"
     error_message = "The apply identity must trust only the gated apply environment."
   }
   assert {
@@ -103,7 +103,7 @@ run "allow_pr_plans_and_custom_runners" {
   variables {
     github = {
       owner          = "contoso"
-      repository     = "nerdio-hcl"
+      repository     = "nme-deployment-toolkit"
       reviewers      = ["contoso-admin"]
       allow_pr_plans = true
       runner_labels  = ["self-hosted", "linux", "x64", "vnet"]
@@ -127,7 +127,7 @@ run "needs_a_reviewer" {
   variables {
     github = {
       owner      = "contoso"
-      repository = "nerdio-hcl"
+      repository = "nme-deployment-toolkit"
       reviewers  = []
     }
   }

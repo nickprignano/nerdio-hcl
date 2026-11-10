@@ -6,7 +6,7 @@ variables {
   resource_group_name        = "rg-test-network"
   infrastructure_subnet_id   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test-network/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/snet-vnet-runner"
   log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test-mon/providers/Microsoft.OperationalInsights/workspaces/log-test"
-  github_repo_url            = "https://github.com/contoso/nerdio-hcl"
+  github_repo_url            = "https://github.com/contoso/nme-deployment-toolkit"
   key_vault_id               = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-test-nerdio/providers/Microsoft.KeyVault/vaults/kv-test"
 }
 

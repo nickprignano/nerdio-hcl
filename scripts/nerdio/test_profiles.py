@@ -40,6 +40,14 @@ class ProfileTests(unittest.TestCase):
             code = nerdio.main(list(argv))
         return code, out.getvalue() + err.getvalue()
 
+    def test_profiles_saved_under_the_old_repo_name_still_load(self):
+        base = Path(self.tmp.name)
+        self.assertEqual(profiles.home(), base / "nme-deployment-toolkit")
+        (base / profiles.LEGACY_DIR).mkdir()
+        self.assertEqual(profiles.home(), base / profiles.LEGACY_DIR)
+        (base / "nme-deployment-toolkit").mkdir()
+        self.assertEqual(profiles.home(), base / "nme-deployment-toolkit")
+
     def test_first_use_saves_private_profile_and_sets_current(self):
         with mock.patch.object(engine, "az_json", return_value=TRIAL):
             code, out = self.run_cli("use", "trial", "--yes")

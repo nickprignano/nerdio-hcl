@@ -34,7 +34,7 @@ example to grant admin consent yourself, set `access` in `00-pipeline/terraform.
 ## Set it up (once, in Cloud Shell)
 
 ```bash
-cd ~/nerdio-hcl
+cd ~/nme-deployment-toolkit
 ./nerdio use trial                                         # once: remember this tenant and subscription as "trial"
 gh auth login                                              # choose "Login with a web browser"; works on an iPad
 ./nerdio assistant --admin-group "AVD Admins" --pipeline   # or ./scripts/pipeline/bootstrap.sh --assistant "AVD Admins"
@@ -51,7 +51,7 @@ sign-in, and you pin them once per environment:
 - **Cloud Shell** signs you in to the directory you open it in. Open
   `https://shell.azure.com/<tenant domain>` and add it to your home screen, one icon per tenant.
 - **`./nerdio use <env>`** saves the signed-in tenant and subscription for that environment, after
-  you type yes, to `~/.config/nerdio-hcl/profiles/<env>.json` in your Cloud Shell home folder. Only
+  you type yes, to `~/.config/nme-deployment-toolkit/profiles/<env>.json` in your Cloud Shell home folder. Only
   you can read it, and it's never in the repo. After that, `./nerdio` commands and the bootstrap
   check it: they switch to that subscription if you're signed in to the right tenant, and stop if
   you're not. `./nerdio use` lists your environments; `--forget` removes one. The bootstrap uses

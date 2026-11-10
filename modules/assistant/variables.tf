@@ -116,7 +116,7 @@ variable "effort" {
 variable "kit_repo_url" {
   description = "Repository the Cloud Shell commands clone (your fork, if you use one)."
   type        = string
-  default     = "https://github.com/nickprignano/nerdio-hcl"
+  default     = "https://github.com/nickprignano/nme-deployment-toolkit"
 }
 
 variable "max_replicas" {

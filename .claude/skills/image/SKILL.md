@@ -3,7 +3,7 @@ name: image
 description: Build and customize Windows 11 multi-session AVD golden images with Packer, VDOT, and optional Ansible playbooks, then link them to Nerdio Manager via Azure Compute Gallery.
 ---
 
-# Image Skill (`nerdio-hcl`)
+# Image Skill (`nme-deployment-toolkit`)
 
 Use this skill when building or customizing AVD session host golden images in `packer/avd-win11/`.
 

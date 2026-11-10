@@ -97,11 +97,11 @@ run "github_auth_when_asked" {
   command = plan
 
   variables {
-    github_oidc = { repository = "example/nerdio-hcl" }
+    github_oidc = { repository = "example/nme-deployment-toolkit" }
   }
 
   assert {
-    condition     = strcontains(local.openbao_hcl, "repository  = \"example/nerdio-hcl\"")
+    condition     = strcontains(local.openbao_hcl, "repository  = \"example/nme-deployment-toolkit\"")
     error_message = "GitHub login should be bound to the repository."
   }
 }

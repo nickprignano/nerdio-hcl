@@ -3,7 +3,7 @@ name: troubleshoot
 description: Diagnose Nerdio Manager, Azure Virtual Desktop, FSLogix, Private Link, and Terraform state issues using the knowledge base and read-only readiness engine.
 ---
 
-# Troubleshoot Skill (`nerdio-hcl`)
+# Troubleshoot Skill (`nme-deployment-toolkit`)
 
 Use this skill when diagnosing deployment failures, unhealthy session hosts, FSLogix profile mount
 errors, or Nerdio Manager health issues.

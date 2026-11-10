@@ -22,7 +22,7 @@ All of it is Terraform: `modules/assistant`, deployed by `environments/example/0
 In Azure Cloud Shell (Bash), signed in to the tenant and subscription you're setting up:
 
 ```bash
-git clone https://github.com/nickprignano/nerdio-hcl ~/nerdio-hcl && cd ~/nerdio-hcl
+git clone https://github.com/nickprignano/nme-deployment-toolkit ~/nme-deployment-toolkit && cd ~/nme-deployment-toolkit
 ./nerdio assistant --admin-group "AVD Admins" --pipeline
 ```
 
@@ -157,7 +157,7 @@ The pilot's per-turn numbers and how to report them are in [model-pilot.md](mode
 ## The image
 
 GitHub Actions builds the app from `assistant/Dockerfile` and publishes it to
-`ghcr.io/nickprignano/nerdio-hcl-assistant` on every merge to main. Pull requests only build it.
+`ghcr.io/nickprignano/nme-deployment-toolkit-assistant` on every merge to main. Pull requests only build it.
 For production, pin a digest with `--image ghcr.io/…@sha256:…`. To build your own from Cloud Shell
 without Docker, use `az acr build` into your own registry and pass its image with `--image`.
 

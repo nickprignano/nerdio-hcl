@@ -33,7 +33,8 @@ PROMPT = (Path(__file__).resolve().parent / "prompt.md").read_text(encoding="utf
 PROVIDER = os.environ.get("NERDIO_MODEL_PROVIDER", "foundry")
 MODEL = os.environ.get("NERDIO_MODEL", "claude-opus-5-5")  # the Foundry deployment name, or the Claude API model
 EFFORT = os.environ.get("NERDIO_EFFORT", "medium")
-REPO_URL = os.environ.get("NERDIO_KIT_REPO", "https://github.com/nickprignano/nerdio-hcl")
+REPO_URL = os.environ.get("NERDIO_KIT_REPO", "https://github.com/nickprignano/nme-deployment-toolkit")
+LEGACY_CLONE = "~/nerdio-hcl"  # Cloud Shell clones made under the repository's old name
 MAX_STEPS = 12
 KB_ALLOWED = [ROOT / "docs" / "knowledge", ROOT / "docs" / "deployment-runbook.md", ROOT / "docs" / "setup.md",
               ROOT / "docs" / "pipeline.md"]
@@ -259,8 +260,10 @@ class Session:
             values["prefix"] = resolved.values.get("prefix", "")
         sets = " ".join(f"--set {shlex.quote(f'{k}={_as_text(v)}')}"
                         for k, v in sorted(values.items()) if not k.startswith("_"))
-        fetch = (f"{{ [ -d ~/nerdio-hcl ] || git clone -q {shlex.quote(REPO_URL)} ~/nerdio-hcl; }} && "
-                 "cd ~/nerdio-hcl && git pull -q --ff-only")
+        # Reuse a clone made before the repository rename (LEGACY_CLONE); GitHub redirects it.
+        fetch = (f"{{ [ -d ~/nme-deployment-toolkit ] || [ -d {LEGACY_CLONE} ] || "
+                 f"git clone -q {shlex.quote(REPO_URL)} ~/nme-deployment-toolkit; }} && "
+                 f"{{ cd ~/nme-deployment-toolkit 2>/dev/null || cd {LEGACY_CLONE}; }} && git pull -q --ff-only")
         if kind == "preflight":
             cmd = f"{fetch} && ./nerdio init --phase discover --non-interactive {sets} >/dev/null && ./nerdio preflight"
             what = "Runs read-only checks. Paste the whole output back here."
