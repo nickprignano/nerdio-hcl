@@ -1,0 +1,170 @@
+name: stage
+
+# Reusable: plan, apply or unlock one kit stage inside its GitHub environment (decisions 0016,
+# 0033). deploy.yml and drift.yml call it, so every run signs in, masks IDs and hands results to
+# scripts/pipeline/stage.sh the same way. A plan runs in <environment>-plan as the read-only plan
+# identity; apply and unlock run in <environment>-apply, which GitHub holds until a reviewer
+# approves and only then issues the token the apply identity trusts.
+#
+# The environment's secrets (tenant, subscription, identities, state storage) are read here, in
+# the job that names the environment, so a caller never passes them.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Kit environment, such as sandbox, dev or prod."
+        required: true
+        type: string
+      stage:
+        description: "assistant, platform, config, bicep, preflight, verify, fix-quota or fix-vcpu."
+        required: true
+        type: string
+      action:
+        description: "plan, apply or unlock."
+        required: true
+        type: string
+      runner:
+        description: "Runner labels as a JSON array. Blank uses the environment's NERDIO_RUNNER_LABELS or ubuntu-latest."
+        required: false
+        type: string
+        default: ""
+      plan_blob:
+        description: "apply only: the saved plan from the plan job."
+        required: false
+        type: string
+        default: ""
+      plan_sha256:
+        description: "apply only: the saved plan's hash, checked before applying."
+        required: false
+        type: string
+        default: ""
+      destroy:
+        required: false
+        type: boolean
+        default: false
+      allow_replace:
+        required: false
+        type: boolean
+        default: false
+      drift:
+        description: "Plan without saving a plan to apply (drift.yml)."
+        required: false
+        type: boolean
+        default: false
+      skip_missing_platform:
+        required: false
+        type: boolean
+        default: false
+      lock_id:
+        required: false
+        type: string
+        default: ""
+      fix_family:
+        required: false
+        type: string
+        default: ""
+      fix_limit:
+        required: false
+        type: string
+        default: ""
+      fix_contact:
+        required: false
+        type: string
+        default: ""
+    outputs:
+      changes:
+        description: "true when the plan has changes."
+        value: ${{ jobs.run.outputs.changes }}
+      plan_blob:
+        value: ${{ jobs.run.outputs.plan_blob }}
+      plan_sha256:
+        value: ${{ jobs.run.outputs.plan_sha256 }}
+      summary_md:
+        description: "The run summary, IDs masked, for a pull request comment or drift issue."
+        value: ${{ jobs.run.outputs.summary_md }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run:
+    name: ${{ inputs.action }}
+    runs-on: ${{ fromJSON(inputs.runner != '' && inputs.runner || vars.NERDIO_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    environment: ${{ inputs.environment }}-${{ inputs.action == 'plan' && 'plan' || 'apply' }}
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      changes: ${{ steps.stage.outputs.changes }}
+      plan_blob: ${{ steps.stage.outputs.plan_blob }}
+      plan_sha256: ${{ steps.stage.outputs.plan_sha256 }}
+      summary_md: ${{ steps.stage.outputs.summary_md }}
+    # Environment secrets, so GitHub masks every ID in the logs.
+    env:
+      TF_IN_AUTOMATION: "true"
+      ARM_USE_OIDC: "true"
+      NERDIO_ENV: ${{ inputs.environment }}
+      STAGE: ${{ inputs.stage }}
+      ACTION: ${{ inputs.action }}
+      DESTROY: ${{ inputs.destroy && 'true' || 'false' }}
+      ALLOW_REPLACE: ${{ inputs.allow_replace && 'true' || 'false' }}
+      DRIFT: ${{ inputs.drift && 'true' || 'false' }}
+      SKIP_MISSING_PLATFORM: ${{ inputs.skip_missing_platform && 'true' || 'false' }}
+      LOCK_ID: ${{ inputs.lock_id }}
+      FIX_FAMILY: ${{ inputs.fix_family }}
+      FIX_LIMIT: ${{ inputs.fix_limit }}
+      FIX_CONTACT: ${{ inputs.fix_contact }}
+      PLAN_BLOB: ${{ inputs.plan_blob }}
+      PLAN_SHA256: ${{ inputs.plan_sha256 }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TFSTATE_RESOURCE_GROUP: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+      TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+      NERDIO_PLAN_PRINCIPAL_ID: ${{ secrets.NERDIO_PLAN_PRINCIPAL_ID }}
+      NERDIO_APPLY_PRINCIPAL_ID: ${{ secrets.NERDIO_APPLY_PRINCIPAL_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+      # az signs in for group lookups, blobs and Bicep; Terraform gets its own OIDC tokens.
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: ${{ inputs.action }} ${{ inputs.stage }}
+        id: stage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/pipeline/stage.sh "$ACTION"
+      # drift.yml: one small artifact per environment and stage, IDs already masked, for the job
+      # that files the drift issue (it has no Azure access). A matrix of reusable-workflow calls
+      # can't return each leg's outputs, so this is how the results travel.
+      - name: drift result
+        if: always() && inputs.drift
+        env:
+          OUTCOME: ${{ steps.stage.outcome }}
+          CHANGES: ${{ steps.stage.outputs.changes }}
+        run: |
+          out="$RUNNER_TEMP/drift-result"
+          mkdir -p "$out"
+          status="$OUTCOME"
+          if [ "$OUTCOME" = success ]; then status="$([ "$CHANGES" = true ] && echo drift || echo clean)"; fi
+          jq -n --arg env "$NERDIO_ENV" --arg stage "$STAGE" --arg status "$status" \
+            '{environment: $env, stage: $stage, status: $status}' > "$out/result.json"
+          cp "$RUNNER_TEMP/nerdio-$STAGE/summary.md" "$out/summary.md" 2>/dev/null || : > "$out/summary.md"
+      - name: upload drift result
+        if: always() && inputs.drift
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: drift-${{ inputs.environment }}-${{ inputs.stage }}
+          path: ${{ runner.temp }}/drift-result/
+          retention-days: 7

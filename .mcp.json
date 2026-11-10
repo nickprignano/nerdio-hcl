@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "azure": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure/mcp@3.0.0",
+        "server",
+        "start",
+        "--read-only",
+        "--namespace", "subscription",
+        "--namespace", "group",
+        "--namespace", "virtualdesktop",
+        "--namespace", "compute",
+        "--namespace", "monitor",
+        "--namespace", "resourcehealth",
+        "--namespace", "quota",
+        "--namespace", "policy",
+        "--namespace", "role",
+        "--namespace", "azureterraformbestpractices"
+      ]
+    },
+    "nme-automation": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["scripts/mcp/nerdio_mcp.py"]
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}

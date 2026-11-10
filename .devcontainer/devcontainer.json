@@ -1,6 +1,7 @@
 // Dev container for GitHub Codespaces (VS Code in the browser, an iPad included).
 // Codespaces is an optional workbench next to Azure Cloud Shell, the kit's baseline
-// (decision 0012); see docs/codespaces.md. Tools come from the official dev container
+// (decision 0012), and it's billed past GitHub's free monthly allowance; see
+// docs/codespaces.md. Tools come from the official dev container
 // features; post-create.sh only adds the nerdio/nme provider from Nerdio's own release.
 {
   "name": "nme-automation",

@@ -1,0 +1,29 @@
+# Keep pinned dependencies current through pull requests (decision 0033). Workflow actions are
+# pinned to commit SHAs with the version in a comment; Dependabot bumps both. Nothing merges on
+# its own: each update is a normal pull request with the validate checks.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+  - package-ecosystem: pip
+    directory: /assistant
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps"
+  - package-ecosystem: docker
+    directory: /assistant
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "deps"

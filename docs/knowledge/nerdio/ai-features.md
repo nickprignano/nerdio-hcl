@@ -3,7 +3,7 @@ title: "Nerdio Manager's AI features"
 summary: "Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat"
 topic: nerdio
 status: verified
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-10
 ---
 
 # Nerdio Manager's AI features
@@ -54,6 +54,11 @@ Nerdio Manager has its own AI features. They are separate from the kit's setup c
   the workspace, host pools and profiles exist as planned. Open questions before building on it:
   whether a server-side app can call it as the signed-in admin (the OAuth flow is per user), how
   the bridging app registration works, and whether it stays read-only.
+- **Kit support ([docs/ai.md](../../ai.md), [decision 0031](../decisions/0031-ai-tools-read-only-by-default.md)):**
+  the connector stays out of the repo's `.mcp.json` because its URL is per installation; a Nerdio
+  admin can add it to their own Claude Code. Live Azure reads for the same phases come from
+  Microsoft's Azure MCP Server, which `.mcp.json` runs read-only. For Copilot planning,
+  `./nerdio preflight --features ai` checks the Cognitive Services provider, a model and quota.
 - **Upstream asks:** an API or Terraform setting to enable Copilot and the MCP connector, model
   choice (Claude through Foundry or the Claude API), and documentation for the bridging app.
 

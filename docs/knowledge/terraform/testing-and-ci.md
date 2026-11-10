@@ -3,7 +3,7 @@ title: "Testing and CI"
 summary: "terraform test, tflint, the CI workflow and planned post-deploy checks"
 topic: terraform
 status: verified
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-10
 ---
 
 # Testing and CI
@@ -148,6 +148,30 @@ Tips:
   includes `[::1]`, `httpx`'s proxy mount parser raises `InvalidURL: Invalid port: ':1]'` when
   `anthropic.Anthropic()` initializes. Override `NO_PROXY="localhost,127.0.0.1"` when running
   `python3 -m unittest discover -s assistant`.
+
+## CI/CD pipeline lessons (decision 0033)
+
+- **Bicep what-if needs an action Reader doesn't have.** `az deployment sub what-if` calls
+  `Microsoft.Resources/deployments/whatIf/action`; Reader is `*/read` only. By default what-if
+  also checks write rights on every resource. `--validation-level ProviderNoRbac` (Azure CLI 2.76+)
+  checks read rights instead, so a read-only identity plus a custom role with only `whatIf/action`
+  and `validate/action` can preview (`plan_bicep_whatif`; not yet verified live).
+- **ARM has no stale-plan refusal.** Terraform refuses a saved plan once state moves; ARM deploys
+  whatever template it gets. `stage.sh` re-runs what-if as the apply identity and refuses when the
+  change list differs from the reviewed one.
+- **Deployment stacks and Graph Bicep:** Microsoft Graph Bicep resources aren't supported in
+  deployment stacks or what-if, so Entra objects need a separate, non-stack deployment.
+- **Reusable workflows in a matrix don't return per-leg outputs.** A caller only sees one leg's
+  `outputs`; `drift.yml` passes each leg's result as a small artifact instead.
+- **Environment secrets in reusable workflows:** a called workflow's job that names the
+  `environment` reads that environment's secrets itself; callers can't pass them, and
+  `secrets: inherit` isn't needed for them. The caller job must still grant `id-token: write`.
+- **Fork pull requests get no OIDC token or secrets**, so plan-on-PR skips them up front instead
+  of failing at sign-in.
+- **actionlint runs ShellCheck on `run:` blocks** when `shellcheck` is on `PATH` (it is on
+  GitHub-hosted runners), so an intentional word split needs a `# shellcheck disable=` comment.
+- **CRLF workflow files:** `configure.yml` has CRLF endings; a `sed` anchored on `$` won't match
+  those lines, and a plain replacement drops the `\r` on the lines it touches.
 
 ## Post-deployment checks
 

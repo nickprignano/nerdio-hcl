@@ -27,6 +27,7 @@ Two kinds of access:
 | Readiness check after the install (`--stage post-install` or `post-wizard`, pipeline stage **verify**) | Whoever checks Nerdio Manager | **Reader** on the subscription; **Key Vault Reader** on Nerdio's vault for certificate expiry (metadata only); **Security Reader** for the Defender check. Still read-only | **Directory Readers** for Nerdio's app registration, consent and role holders | Each run |
 | Readiness check, Nerdio data tier (`--nerdio-data`) | A Nerdio admin, after the install | **Key Vault Secrets User** on the kit's secret store only: a standing right to read the REST client secret. Standalone needs none (the secret is in your own shell) | None; Nerdio's API checks the REST client's own role | Each run |
 | Readiness probe (`--probe url-check`) | Whoever may run code on a session host, with change approval | **Virtual Machine Contributor** on that one VM (Run Command runs as SYSTEM) | None | Each run, after a typed yes |
+| Ask an AI assistant about live Azure (Claude Code with `.mcp.json`'s read-only Azure MCP Server, [docs/ai.md](ai.md)) | Whoever investigates | **Reader** on the subscription; **Log Analytics Reader** for Monitor log queries. The server only offers read tools, but it runs as you, so let PIM roles expire first | None | Each session |
 | Approve an apply | A named GitHub reviewer | None | None | Per run, in GitHub |
 | Apply GitHub settings (`./github/settings.sh apply`) | The repository owner | None | None. On GitHub: a fine-grained token for this repository only with *Administration: read and write*, *Issues: read and write* (labels) and *Metadata: read* | One day; revoke it after the apply ([github/](../github/README.md)) |
 | Nerdio first-run wizard | Nerdio admin | None beyond what Nerdio asks for | Sign-in only | Once |
@@ -42,7 +43,8 @@ it after.
 
 | Identity | Created by | Azure rights | Entra (Microsoft Graph) rights | Used when |
 |---|---|---|---|---|
-| Pipeline **plan** identity | Bootstrap | **Reader** on the subscription; the state storage | **Directory.Read.All** | Any plan or readiness check from `main` |
+| Pipeline **plan** identity | Bootstrap | **Reader** on the subscription; the state storage. With the Bicep variant (`access.plan_bicep_whatif = true`), a custom role with only `Microsoft.Resources/deployments/whatIf/action` and `validate/action`, because Reader can't call what-if; it still can't deploy | **Directory.Read.All** | Any plan or readiness check from `main`, the daily drift check (`drift.yml`), and same-repository pull request plans when `github.allow_pr_plans = true` |
+| Workflow token (`GITHUB_TOKEN`) in the report jobs | GitHub, per run | None | None. On GitHub: *pull-requests: write* in `deploy.yml`'s comment job (the plan comment) and *issues: write* in `drift.yml`'s report job (the `infra-drift` issue). Neither job signs in to Azure; they post summaries the plan jobs already masked | Pull request plans; the daily drift check |
 | Pipeline **apply** identity | Bootstrap | **Contributor** and **Role Based Access Control Administrator** on the subscription. Azure only lets it assign or remove the roles in `apply_assignable_roles` (a role assignment condition), so it can't grant Owner or widen its own access | **Application.ReadWrite.All**, **Group.ReadWrite.All**, **Directory.Read.All**, and by default **AppRoleAssignment.ReadWrite.All** and **DelegatedPermissionGrant.ReadWrite.All** so it can grant admin consent (drop both if you consent yourself, below) | Only after a reviewer approves the run in GitHub |
 | Setup chat (managed identity) | Chat deploy | With Foundry, **Cognitive Services User** on its Foundry resource. With the pipeline, **Storage Blob Data Contributor** on the `answers` container, **Storage Blob Data Reader** on `plans` and **Key Vault Crypto Officer** on its own vault, which holds only the GitHub App key | None. With the Claude API it asks Entra for tokens for its audience app, which has no permissions of its own | While someone is chatting |
 | Setup chat on the Claude side (service account) | `--connect-claude` | None | None. In Anthropic: *developer* organization role, *user* in its own workspace, and a federation rule that accepts only the chat's managed identity (object ID, tenant, audience) and mints 10-minute `workspace:inference` tokens | While someone is chatting |
@@ -68,6 +70,9 @@ These are supported switches, not forks of the kit. Set them in `00-pipeline/ter
 - **Split the bootstrap.** The Azure part needs a subscription admin; the Graph roles need a
   Privileged Role Administrator. They can be different people, each activating their role
   through PIM for the step.
+- **Leave pull request plans off** (`github.allow_pr_plans = false`, the default) where state holds
+  secrets you can't let a branch read: a pull request plan runs that branch's Terraform as the plan
+  identity, which can read state. Drift checks and plans from `main` don't need it.
 - **Keep the approval gate tight.** Name specific reviewers (`NME_REVIEWERS`), not a team, and
   keep the branch ruleset on (`ruleset.enabled` in `github/main.tf`).
 - **Private networking.** `enable_hardening` turns public access off; enable `enable_vnet_runner`

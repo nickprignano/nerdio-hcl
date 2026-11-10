@@ -113,12 +113,14 @@ packer/
   avd-win11/           Windows 11 multi-session image build
 ansible/               optional image and hybrid AD DS playbooks (decision 0028)
 github/                this repository's own GitHub settings in Terraform
+bicep/                 proposed Bicep variant of stage 1, same answers file (decision 0032)
 templates/
   nerdio-manager/      exported Marketplace template (marketplace install only)
 docs/
   guardrails.md          non-negotiable security, browser and license rules
   setup.md               guided setup across chat, CLI and the Actions form
   assistant.md           deploying and connecting the self-hosted setup chatbot
+  ai.md                  AI assistants and MCP servers: what they may touch, and the build plan
   deployment-runbook.md  end-to-end order of operations and manual wizard steps
   pipeline.md            plan and apply from GitHub Actions behind an approval
   access.md              every Azure, Entra, GitHub and Anthropic right the kit needs
@@ -154,7 +156,8 @@ terraform init && terraform apply              # reads the REST secret from Key 
 From Azure Cloud Shell (any browser, tablets included) `scripts/cloudshell-bootstrap.sh` reads
 the tenant and subscription from your sign-in instead; see [docs/cloud-shell.md](docs/cloud-shell.md).
 Prefer a full editor? The repo opens in GitHub Codespaces with the tools preinstalled; see
-[docs/codespaces.md](docs/codespaces.md).
+[docs/codespaces.md](docs/codespaces.md). Codespaces is optional and isn't free: past GitHub's
+monthly allowance it's billed, while Cloud Shell covers every step.
 
 The full order of operations, including the manual Nerdio steps, is in
 [docs/deployment-runbook.md](docs/deployment-runbook.md).

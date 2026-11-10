@@ -50,5 +50,6 @@ module "settings" {
     "handoff"          = { color = "ededed" }
     "handoff-proposed" = { color = "ededed" }
     "settings-drift"   = { color = "b60205", description = "GitHub settings differ from github/ (drift workflow)" }
+    "infra-drift"      = { color = "b60205", description = "Azure or Nerdio differ from main (drift.yml)" }
   }
 }

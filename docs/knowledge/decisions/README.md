@@ -35,5 +35,8 @@ marked *Superseded by NNNN*.
 | [0028](0028-targeted-ansible-for-images-and-hybrid.md) | Targeted Ansible for image provisioning, hybrid AD DS storage joins and static host day-2 configuration | Accepted |
 | [0029](0029-v2-multi-region-enterprise-landing-zone.md) | v2 multi-region peer `regions` map, `./nerdio migrate` and enterprise landing zone architecture | Accepted |
 | [0030](0030-enterprise-guardrails-locks-and-gitops.md) | End-to-end VNet runner, destructive-change guardrails, resource locks and GitOps answers | Accepted |
+| [0031](0031-ai-tools-read-only-by-default.md) | AI tools in the kit are read-only by default, with an allowlist CI enforces | Proposed |
+| [0032](0032-bicep-variant.md) | A Bicep variant of the kit lives in `bicep/`, shares the schema and answers, and hands Nerdio configuration to stage 2 | Proposed |
+| [0033](0033-ci-cd-reusable-stage-pr-plans-drift.md) | CI/CD: one reusable stage workflow, plans on pull requests, daily drift check, Bicep stage | Proposed |
 | [0035](0035-rename-repository-to-nme-automation.md) | Rename the repository to nme-automation, in place, keeping GitHub's redirect | Proposed |
 <!-- END GENERATED: decision-index -->

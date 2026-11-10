@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Read-only Model Context Protocol (MCP) server over stdio for nme-automation.
 
-Standard library only (Python 3.9+). Exposes three read-only tools:
+Standard library only (Python 3.9+). It reads only files in this repository: no Azure, Nerdio or
+network calls (live Azure state comes from the read-only Azure MCP server in .mcp.json; decision 0031).
+Exposes three read-only tools:
   - nerdio_readiness_catalogue: list registered readiness checks (optionally filtered by stage/feature)
-  - nerdio_kb_search: search docs/knowledge/index.json by keyword or topic
+  - nerdio_kb_search: search the docs/knowledge/ pages by keyword or topic
   - nerdio_schema_parameters: query schema/parameters.json by phase or parameter id
 """
 
@@ -24,6 +26,9 @@ from readiness.model import REGISTRY  # noqa: E402
 SERVER_INFO = {"name": "nme-automation-mcp", "version": "1.0.0"}
 PROTOCOL_VERSION = "2024-11-05"
 
+# MCP tool annotations: every tool only reads repository files.
+READ_ONLY = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}
+
 TOOLS: List[Dict[str, Any]] = [
     {
         "name": "nerdio_readiness_catalogue",
@@ -35,10 +40,11 @@ TOOLS: List[Dict[str, Any]] = [
                 "feature": {"type": "string", "description": "Filter by feature domain (e.g. hardening, rbac, ai, insights)"},
             },
         },
+        "annotations": READ_ONLY,
     },
     {
         "name": "nerdio_kb_search",
-        "description": "Search the nme-automation knowledge base index (docs/knowledge/index.json) by query text or topic.",
+        "description": "Search the nme-automation knowledge base pages (docs/knowledge/**/*.md) by query text or topic.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -46,6 +52,7 @@ TOOLS: List[Dict[str, Any]] = [
                 "topic": {"type": "string", "description": "Optional topic filter (e.g. nerdio, packer, security, decisions)"},
             },
         },
+        "annotations": READ_ONLY,
     },
     {
         "name": "nerdio_schema_parameters",
@@ -57,6 +64,7 @@ TOOLS: List[Dict[str, Any]] = [
                 "id": {"type": "string", "description": "Optional exact parameter id"},
             },
         },
+        "annotations": READ_ONLY,
     },
 ]
 

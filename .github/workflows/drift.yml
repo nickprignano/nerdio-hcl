@@ -1,0 +1,93 @@
+name: drift
+
+# Daily read-only check that Azure and Nerdio Manager still match main (decision 0033). Each
+# listed environment's stages are planned as the read-only plan identity, with nothing saved that
+# could be applied. Any change, whether someone edited a resource in the portal or Nerdio's
+# console, or main has code that was never applied, opens (or updates) one issue per environment
+# labelled `drift`; a clean run closes it. Fixing drift is a normal deploy run with a reviewer.
+#
+# Off until you list environments: set the repository variable NERDIO_DRIFT_ENVS to a JSON array,
+# for example ["sandbox"], and NERDIO_DRIFT_STAGES (default ["platform","config"]; add "bicep" for
+# the Bicep variant, "assistant" for the setup chatbot).
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # daily, 05:17 UTC
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which environment? Blank checks every environment in NERDIO_DRIFT_ENVS."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drift
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        env:
+          ONE: ${{ inputs.environment }}
+          ENVS: ${{ vars.NERDIO_DRIFT_ENVS }}
+          STAGES: ${{ vars.NERDIO_DRIFT_STAGES }}
+        run: |
+          if [ -n "$ONE" ]; then envs="$(jq -cn --arg e "$ONE" '[$e]')"; else envs="$(jq -c . <<<"${ENVS:-[]}")"; fi
+          stages="$(jq -c . <<<"${STAGES:-[\"platform\",\"config\"]}")"
+          jq -e 'all(.[]; test("^[a-z][a-z0-9-]{1,20}$"))' <<<"$envs" >/dev/null || { echo "::error::bad environment name"; exit 1; }
+          jq -e 'all(.[]; IN("assistant","platform","config","bicep"))' <<<"$stages" >/dev/null \
+            || { echo "::error::NERDIO_DRIFT_STAGES may list assistant, platform, config or bicep"; exit 1; }
+          matrix="$(jq -cn --argjson e "$envs" --argjson s "$stages" '[$e[] as $env | $s[] as $stage | {environment: $env, stage: $stage}]')"
+          [ "$matrix" != "[]" ] || echo "::notice::No environments to check. Set NERDIO_DRIFT_ENVS, for example [\"sandbox\"]."
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  plan:
+    needs: targets
+    if: needs.targets.outputs.matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/stage.yml
+    with:
+      environment: ${{ matrix.environment }}
+      stage: ${{ matrix.stage }}
+      action: plan
+      drift: true
+      skip_missing_platform: true
+
+  # Each leg leaves a drift-<env>-<stage> artifact (stage.yml); this job has no Azure access.
+  report:
+    needs: [targets, plan]
+    if: always() && needs.targets.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: drift-*
+          path: drift-results
+      - name: open, update or close the drift issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ./scripts/pipeline/drift-report.sh drift-results

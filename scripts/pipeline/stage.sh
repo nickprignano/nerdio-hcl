@@ -7,6 +7,15 @@
 #                                     and STAGE=verify the same check after Nerdio's wizard)
 #   scripts/pipeline/stage.sh apply   fetch the saved plan, check its hash, apply exactly it
 #
+# STAGE=bicep is the Bicep variant's platform stage (bicep/main.bicep, decision 0033): the plan is
+# a what-if of the compiled template and parameters, saved with its hash like a Terraform plan; the
+# apply re-checks the hash, re-runs the what-if as the apply identity and refuses if the live
+# changes differ from the reviewed ones, then deploys exactly that template as a deployment stack.
+#
+# DRIFT=true (drift.yml) plans without saving anything to apply: a scheduled read-only check
+# that reports whether Azure or Nerdio still match main. The destructive-change guardrail reports
+# instead of failing, because nothing can be applied from a drift run.
+#
 # Every run leaves a result in the plans container for the setup chatbot, failures included
 # (with the last lines of the log, IDs masked), so the chat can explain what happened without
 # anyone opening the log. A platform apply also saves the outputs Nerdio's wizard asks for.
@@ -17,7 +26,9 @@
 # repository's Actions logs are public.
 #
 # Inputs (set by the workflow from the GitHub environment's variables):
-#   STAGE                    assistant | platform | config | preflight | verify | fix-quota | fix-vcpu
+#   STAGE                    assistant | platform | config | bicep | preflight | verify | fix-quota | fix-vcpu
+#   DRIFT                    true | false (default false: true plans without saving a plan to apply)
+#   BICEP_STACK_NAME         optional: the deployment stack name (default nerdio-<prefix>-platform)
 #   NERDIO_ENV               sandbox | dev | prod
 #   ALLOW_REPLACE            true | false (default false: blocks plans that delete or replace stateful resources when DESTROY=false)
 #   SKIP_MISSING_PLATFORM    true | false (default false: used by GitOps auto mode so config is skipped cleanly before 01-platform is applied)
@@ -32,19 +43,25 @@ action="${1:-}"
 case "$action" in plan | apply | unlock) ;; *) echo "usage: $0 plan|apply|unlock" >&2; exit 64 ;; esac
 readiness_stage=""
 fix_target=""
+bicep_stage=""
 case "${STAGE:-}" in
   assistant) dir_name=00-assistant ;;
   platform) dir_name=01-platform ;;
   config) dir_name=02-nerdio-config ;;
+  bicep) dir_name="" bicep_stage=true ;;
   preflight) dir_name="" readiness_stage=pre-install ;;
   verify) dir_name="" readiness_stage=post-wizard ;;
   fix-quota) dir_name="" fix_target=quota ;;
   fix-vcpu) dir_name="" fix_target=vcpu ;;
-  *) echo "STAGE must be assistant, platform, config, preflight, verify, fix-quota or fix-vcpu" >&2; exit 64 ;;
+  *) echo "STAGE must be assistant, platform, config, bicep, preflight, verify, fix-quota or fix-vcpu" >&2; exit 64 ;;
 esac
 [ -z "${readiness_stage:-}" ] || [ "$action" = plan ] || { echo "$STAGE only checks; it never applies or unlocks" >&2; exit 64; }
 [ -z "${fix_target:-}" ] || [ "$action" != unlock ] || { echo "$STAGE cannot unlock Terraform state" >&2; exit 64; }
-if [ "${DESTROY:-false}" = true ] && { [ -n "${readiness_stage:-}" ] || [ -n "${fix_target:-}" ]; }; then
+[ -z "${bicep_stage:-}" ] || [ "$action" != unlock ] || { echo "bicep has no Terraform state to unlock" >&2; exit 64; }
+if [ "${DRIFT:-false}" = true ] && { [ "$action" != plan ] || [ -n "${readiness_stage:-}" ] || [ -n "${fix_target:-}" ]; }; then
+  echo "DRIFT only plans assistant, platform, config or bicep" >&2; exit 64
+fi
+if [ "${DESTROY:-false}" = true ] && { [ -n "${readiness_stage:-}" ] || [ -n "${fix_target:-}" ] || [ -n "${bicep_stage:-}" ]; }; then
   echo "$STAGE cannot be run with DESTROY=true" >&2; exit 64
 fi
 [[ "${NERDIO_ENV:-}" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "NERDIO_ENV is missing or malformed" >&2; exit 64; }
@@ -70,7 +87,17 @@ done
 
 # Everything printed goes through this, so no GUID reaches a log or the summary.
 redact() { sed -E 's/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/<id>/g'; }
-summary() { if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then redact >> "$GITHUB_STEP_SUMMARY"; else redact; fi; }
+# A copy of the summary, IDs masked, goes to the step output summary_md: deploy.yml posts it on the
+# pull request and drift.yml on the drift issue, so neither needs Azure access to report.
+summary() { if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then redact | tee -a "$work/summary.md" >> "$GITHUB_STEP_SUMMARY"; else redact | tee -a "$work/summary.md"; fi; }
+emit_summary() {
+  [ -s "$work/summary.md" ] && [ -n "${GITHUB_OUTPUT:-}" ] || return 0
+  local eof
+  eof="EOF_$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+  { echo "summary_md<<$eof"; head -c 60000 "$work/summary.md"; echo; echo "$eof"; } >> "$GITHUB_OUTPUT"
+}
+: > "$work/summary.md"
+trap emit_summary EXIT
 
 blob() { # $1 upload|download, $2 container, $3 blob name, $4 file, then any extra az arguments
   az storage blob "$1" --auth-mode login --only-show-errors --account-name "$TFSTATE_STORAGE_ACCOUNT" \
@@ -96,6 +123,25 @@ init_stage() { # $1 dir, $2 state name
     -backend-config="container_name=tfstate" \
     -backend-config="key=nerdio/$NERDIO_ENV/$2.tfstate" \
     -backend-config="use_azuread_auth=true" 2>&1 | redact | tail -n 3
+}
+
+# The Bicep variant's deployment stack: named from the answers so plan, apply and the config
+# stage agree on it without another input.
+bicep_stack() {
+  if [ -n "${BICEP_STACK_NAME:-}" ]; then echo "$BICEP_STACK_NAME"; return; fi
+  local prefix
+  prefix="$(jq -r '.prefix // empty' "$platform/setup.auto.tfvars.json" 2>/dev/null || true)"
+  echo "nerdio-${prefix:-nme}-platform"
+}
+bicep_location() { jq -r '.control_plane_location // .location // "eastus2"' "$platform/setup.auto.tfvars.json" 2>/dev/null || echo eastus2; }
+
+# What-if of the compiled template: the change list as [{action, address}], no-ops left out.
+bicep_whatif() { # $1 work dir holding main.json and main.parameters.json, $2 output file, $3 validation level
+  az deployment sub what-if --only-show-errors --no-pretty-print --location "$(bicep_location)" \
+    --template-file "$1/main.json" --parameters "@$1/main.parameters.json" --validation-level "$3" \
+    > "$1/whatif.raw.json" 2>> "$log" || return 1
+  jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")
+       | {action: .changeType, address: .resourceId}] | sort_by(.address, .action)' "$1/whatif.raw.json" > "$2"
 }
 
 if [ "$STAGE" = config ]; then
@@ -253,10 +299,67 @@ if [ "$action" = plan ]; then
       "$out" > "$work/p.json" && cat "$work/p.json" > "$out"
   fi
 
+  if [ -n "${bicep_stage:-}" ]; then
+    bicep_root="$root/bicep"
+    param_file="$bicep_root/environments/$NERDIO_ENV/platform.bicepparam"
+    [ -f "$bicep_root/main.bicep" ] || fail "No bicep/main.bicep in this commit; the bicep stage needs the Bicep variant."
+    [ -f "$param_file" ] || fail "No bicep/environments/$NERDIO_ENV/platform.bicepparam for $NERDIO_ENV."
+    # The .bicepparam reads the same rendered answers Terraform uses, from environments/<env>/01-platform.
+    if [ "$NERDIO_ENV" != example ]; then
+      mkdir -p "$env_dir/../$NERDIO_ENV/01-platform"
+      cp "$platform/setup.auto.tfvars.json" "$env_dir/../$NERDIO_ENV/01-platform/setup.auto.tfvars.json"
+    fi
+    echo "== bicep: build"
+    log="$work/bicep.log"
+    az bicep install --only-show-errors > "$log" 2>&1 || true
+    az bicep build --file "$bicep_root/main.bicep" --outfile "$work/main.json" --only-show-errors >> "$log" 2>&1 \
+      || { redact < "$log"; fail "bicep build failed"; }
+    az bicep build-params --file "$param_file" --outfile "$work/main.parameters.json" --only-show-errors >> "$log" 2>&1 \
+      || { redact < "$log"; fail "bicep build-params failed"; }
+    echo "== bicep: what-if (read-only, ProviderNoRbac)"
+    # ProviderNoRbac checks read rights instead of write rights, so the plan identity can preview.
+    bicep_whatif "$work" "$work/changes.json" ProviderNoRbac || { grep -v '^\s*$' "$log" | tail -n 30 | redact; fail "what-if failed"; }
+    n="$(jq length "$work/changes.json")"
+    {
+      echo "## $NERDIO_ENV / bicep (stack $(bicep_stack))"
+      echo
+      if [ "$n" = 0 ]; then
+        echo "No changes. Nothing to apply."
+      else
+        echo "Changes: $n. What-if can list values it can't evaluate (reference(), secure values) as changes."
+        echo
+        echo "| Action | Resource |"
+        echo "|---|---|"
+        jq -r '.[] | "| \(.action) | `\(.address)` |"' "$work/changes.json"
+      fi
+    } | summary
+    jq --arg stage "$STAGE" --arg summary "Changes: $n" '{stage: $stage, status: "planned", summary: $summary, adopted: [], changes: .}' \
+      "$work/changes.json" > "$work/summary.json"
+    blob upload plans "$result_blob" "$work/summary.json" --overwrite
+    changes=false
+    if [ "$n" != 0 ] && [ "${DRIFT:-false}" != true ]; then
+      changes=true
+      jq -n --arg name "$(bicep_stack)" --arg location "$(bicep_location)" '{name: $name, location: $location}' > "$work/stack.json"
+      tar -C "$work" -cf "$work/plan.tar" main.json main.parameters.json changes.json stack.json
+      PLAN_BLOB="$run_dir/$STAGE.tar"
+      blob upload plans "$PLAN_BLOB" "$work/plan.tar" --overwrite
+      sha="$(sha256sum "$work/plan.tar" | cut -d' ' -f1)"
+      { echo "plan_blob=$PLAN_BLOB"; echo "plan_sha256=$sha"; } >> "${GITHUB_OUTPUT:-/dev/null}"
+      echo "Saved plan $sha"
+    elif [ "$n" != 0 ]; then
+      changes=true
+    fi
+    echo "changes=$changes" >> "${GITHUB_OUTPUT:-/dev/null}"
+    exit 0
+  fi
+
   if [ "$STAGE" = config ]; then
     echo "== Inputs from 01-platform"
     init_stage "$platform" platform
-    if ! terraform -chdir="$platform" output -json nerdio_config_inputs > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null; then
+    if ! terraform -chdir="$platform" output -json nerdio_config_inputs > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null \
+      && ! az stack sub show --only-show-errors --name "$(bicep_stack)" --query "outputs.nerdio_config_inputs.value" -o json \
+        > "$stage_dir/platform.auto.tfvars.json" 2>/dev/null; then
+      # Neither the Terraform platform state nor the Bicep variant's stack has the inputs yet.
       if [ "${SKIP_MISSING_PLATFORM:-false}" = true ]; then
         echo "01-platform has no state outputs yet; skipping 02-nerdio-config in GitOps auto mode."
         { echo "## $NERDIO_ENV / $dir_name"; echo; echo "Skipped: **01-platform** has not been applied yet."; } | summary
@@ -360,7 +463,8 @@ if [ "$action" = plan ]; then
           echo "|---|---|"
           echo "$destructive"
         } | summary
-        fail "Plan deletes or replaces stateful resources; blocked by destructive-change guardrail. Re-run with allow_replace=true if intentional."
+        [ "${DRIFT:-false}" = true ] \
+          || fail "Plan deletes or replaces stateful resources; blocked by destructive-change guardrail. Re-run with allow_replace=true if intentional."
       fi
     fi
 
@@ -374,7 +478,9 @@ if [ "$action" = plan ]; then
   blob upload plans "$result_blob" "$work/summary.json" --overwrite
 
   changes=false
-  if [ "$code" = 2 ]; then
+  if [ "$code" = 2 ] && [ "${DRIFT:-false}" = true ]; then
+    changes=true  # report only: a drift run never saves a plan anyone could apply
+  elif [ "$code" = 2 ]; then
     changes=true
     tar -C "$work" -cf "$work/plan.tar" tfplan
     tar -C "$stage_dir" -rf "$work/plan.tar" .terraform.lock.hcl
@@ -406,6 +512,40 @@ if [ -n "${fix_target:-}" ]; then
   { echo "## $NERDIO_ENV / $STAGE"; echo; echo "Sent the reviewed quota request."; } | summary
   jq -n --arg stage "$STAGE" --arg detail "$detail" \
     '{stage: $stage, action: "apply", status: "applied", outputs: {detail: $detail}}' > "$work/applied.json"
+  blob upload plans "$result_blob" "$work/applied.json" --overwrite
+  exit 0
+fi
+if [ -n "${bicep_stage:-}" ]; then
+  tar -C "$work" -xf "$work/plan.tar" main.json main.parameters.json changes.json stack.json
+  stack="$(jq -r .name "$work/stack.json")"
+  location="$(jq -r .location "$work/stack.json")"
+  # ARM has no saved plan that refuses to go stale, so check it here: the apply identity runs the
+  # same what-if and stops if Azure would now change anything the reviewer didn't see.
+  echo "== bicep: what-if again, as the apply identity"
+  log="$work/bicep.log"
+  : > "$log"
+  bicep_location() { echo "$location"; }
+  bicep_whatif "$work" "$work/changes.now.json" Provider || { grep -v '^\s*$' "$log" | tail -n 30 | redact; fail "what-if failed"; }
+  if ! diff -q "$work/changes.json" "$work/changes.now.json" >/dev/null; then
+    { echo "## $NERDIO_ENV / bicep"; echo; echo "Not applied: the live changes differ from the reviewed what-if. Plan again."; } | summary
+    fail "The live changes differ from the reviewed what-if; not applying"
+  fi
+  echo "== bicep: deployment stack $stack"
+  log="$work/apply.log"
+  set +e
+  az stack sub create --only-show-errors --yes --name "$stack" --location "$location" \
+    --template-file "$work/main.json" --parameters "@$work/main.parameters.json" \
+    --action-on-unmanage detachAll --deny-settings-mode none -o none > "$log" 2>&1
+  code=$?
+  set -e
+  redact < "$log"
+  [ "$code" = 0 ] || fail "az stack sub create failed"
+  { echo "## $NERDIO_ENV / bicep"; echo; echo "Applied the reviewed template as stack $stack."; } | summary
+  outputs="$(az stack sub show --only-show-errors --name "$stack" --query outputs -o json 2>/dev/null \
+    | jq '{nerdio_url, avd_vnet_names, resource_group_names} | with_entries(select(.value != null) | .value = .value.value)' \
+    || echo '{}')"
+  jq -n --arg stage "$STAGE" --argjson outputs "$outputs" \
+    '{stage: $stage, action: "apply", status: "applied", outputs: $outputs}' > "$work/applied.json"
   blob upload plans "$result_blob" "$work/applied.json" --overwrite
   exit 0
 fi

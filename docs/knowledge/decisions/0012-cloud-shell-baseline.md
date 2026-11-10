@@ -41,7 +41,7 @@ any device. Edge on an iPad is the test case, and every step must work there:
 ## More Information
 
 GitHub Codespaces is a supported optional workbench (a dev container ships in `.devcontainer/`;
-see [workbenches](../workbenches.md)). Cloud Shell stays the baseline every step is tested
-against.
+see [workbenches](../workbenches.md)). It isn't free past GitHub's monthly allowance, so it stays
+optional (2026-11-10). Cloud Shell stays the baseline every step is tested against.
 
 *Untested:* Packer builds from Cloud Shell.

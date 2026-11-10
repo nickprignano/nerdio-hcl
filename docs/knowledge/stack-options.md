@@ -3,7 +3,7 @@ title: "Roadmap: turnkey, maximum-automation Nerdio deployment"
 summary: "Roadmap to a turnkey, maximum-automation deployment: the experience, which manual steps can go, which tools fit, and what Nerdio would need to change"
 topic: roadmap
 status: plan
-last_reviewed: 2026-10-28
+last_reviewed: 2026-11-10
 ---
 
 # Roadmap: turnkey, maximum-automation Nerdio deployment
@@ -29,7 +29,7 @@ thing to maintain and test.
 `bootstrap`, `deploy`, `image`, `check` and `destroy` commands. Every front door calls these.
 
 **Front door 1, copy-paste:** a [GitHub template repo](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template)
-plus a dev container, so Codespaces or VS Code opens with Terraform, Packer, az, pwsh, Playwright
+plus a dev container, so Codespaces (optional, billed past GitHub's free allowance) or VS Code opens with Terraform, Packer, az, pwsh, Playwright
 and the `nme` provider already installed. The user runs `./nerdio bootstrap`, answers a few prompts,
 and runs `./nerdio deploy`.
 
@@ -110,8 +110,9 @@ encryption, Intune/ConfigMgr, security review, readiness, troubleshooting and da
   gets the same guided flow.
 - The parameter schema is the single source of truth. The skills read it, and so do
   `./nerdio init` (a plain CLI wizard for users without AI) and the workflow forms.
-- MCP for context and actions: HashiCorp's Terraform MCP server for docs, and a Nerdio MCP server
-  that's read-only by default for live state.
+- MCP for context: Microsoft's Azure MCP Server (read-only, namespace allowlist) for live Azure
+  and AVD state, the kit's own repository MCP server, and Microsoft Learn for docs
+  ([decision 0031](decisions/0031-ai-tools-read-only-by-default.md), [docs/ai.md](../ai.md)).
 - MCP works with other clients too, but the skills are written for Claude Code first.
 
 **Guardrails:**
@@ -275,7 +276,8 @@ scripted actions own runtime work. Where `nerdio/nme` has no resource:
 | microsoft365 community provider (v1.4.0) | Optional alternative | Purpose-built resources, but effectively one maintainer; the kit uses `azure/azapi` (`Microsoft.Graph/v1.0` & `beta`) instead. |
 | GitHub Actions `workflow_dispatch` | The button UX ([decision 0007](decisions/0007-button-ux.md)) | Free, form inputs, runs the same engine. |
 | HCP Terraform no-code modules | Optional | Tier not verified. |
-| Terraform MCP server (HashiCorp) | Built (`.mcp.json`) | Official; pairs with the kit's read-only Nerdio MCP server (`scripts/mcp/nerdio_mcp.py`). |
+| Azure MCP Server (Microsoft) | Built (`.mcp.json`, read-only, pinned, [decision 0031](decisions/0031-ai-tools-read-only-by-default.md)) | Live Azure and AVD reads from Claude Code in Cloud Shell; pairs with the kit's repository MCP server (`scripts/mcp/nerdio_mcp.py`). |
+| Terraform MCP server (HashiCorp) | Not wired | Needs Docker or a separate binary, neither in Cloud Shell; Microsoft Learn and Azure MCP's Terraform guidance cover docs for now. |
 | Terraform Stacks | Later | Available on all HCP Terraform plans and TFE 2.0; worth it once the steps between stages are automated and `nme` has a license. |
 | Boundary | Dropped | RDP credential injection is Enterprise/HCP only and has no Entra sign-in; Azure Bastion covers this. |
 | Turbonomic, Cloudability, Instana | Document only | Turbonomic conflicts with Nerdio auto-scale; Cloudability only needs consistent tags; Instana has no AVD sensor. |

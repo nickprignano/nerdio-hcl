@@ -17,6 +17,9 @@ the kit documents the manual step and the workaround instead
 If Terraform (or Packer) can do it, it's done in HCL. A script is allowed only as a minimal
 bootstrap (installing Terraform, writing gitignored tfvars) or as a stopgap until Terraform can
 take over, and it says so in its header. Never add a script for something Terraform already does.
+A Bicep variant of stage 1 lives in `bicep/` as an opt-in for Bicep-only teams: Terraform stays the
+reference and lands changes first, and Bicep reads the same answers
+([decision 0032](knowledge/decisions/0032-bicep-variant.md)).
 
 ## 3. Works from a browser: Cloud Shell on an iPad
 
