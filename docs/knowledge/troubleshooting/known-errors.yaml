@@ -136,6 +136,14 @@ errors:
   source: curation.md#weekly-digest-kb-curator
   status: verified
   added: '2026-10-28'
+- id: jq-caret-matches-only-string-start
+  symptom: 'The `kb-curator` workflow closes an older `kb-digest` issue as "no items were ticked" although it has a ticked `- [x]` item below the first line'
+  cause: 'In jq (1.7) and the gojq built into `gh --jq`, `^` in `test("^- \\[[xX]\\]"; "m")` matches only at the start of the whole string, so a ticked item on any later line is missed. Same kind as ai-brain''s `jq-caret-only-matches-string-start`'
+  fix: 'Match a line start with `(^|\n)` and drop the "m" flag: `test("(^|\n)- \\[[xX]\\]")` in `.github/workflows/kb-curator.yml`. Python''s `re.M` (used by `scripts/kb/feedback.py`) is not affected'
+  source: https://github.com/nickprignano/ai-brain/blob/05c8e6e5f585218f2d43305570843709bb8524ca/docs/knowledge/troubleshooting/known-errors.yaml
+  applies_to: jq 1.7, gh 2.89.0 (gojq)
+  status: verified
+  added: '2026-11-08'
 - id: azurerm-action-group-itsm-workspace-id-uuid
   symptom: '`expected the <workSpace id> in "itsm_receiver.0.workspace_id" to be a valid UUID, but got "/subscriptions/..."` on `azurerm_monitor_action_group`'
   cause: 'Unlike `azurerm_monitor_data_collection_rule` (which takes a full ARM resource ID), `itsm_receiver.workspace_id` in `hashicorp/azurerm` v5 validates that both sides of `<subscription_id>|<workspace_id>` are UUIDs (`CustomerId` of the Log Analytics workspace, not its ARM resource ID)'
