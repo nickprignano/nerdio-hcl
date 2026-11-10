@@ -127,6 +127,15 @@ feature_gaps:
     `Mastercard/restapi` bridge in `modules/nerdio-rest-gaps` ([servicenow.md](servicenow.md)).
   status: candidate
 api_asks:
+- id: bicep-extension
+  title: Nerdio Manager Bicep extension
+  evidence: >-
+    Bicep can't use the `nerdio/nme` Terraform provider. Microsoft ships Entra objects as a Bicep
+    extension (Microsoft Graph Bicep v1.0), so the same model works for a vendor REST API.
+  why: >-
+    The kit's Bicep variant (decision 0032) can do stage 1 natively but still needs Terraform for
+    stage 2. A Nerdio extension would make it Bicep end to end, with no scripts holding secrets.
+  status: candidate
 - id: directory-profile-create-api-and-provider-resource
   title: Directory profile create API and provider resource
   evidence: >-

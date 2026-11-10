@@ -111,6 +111,7 @@ packer/
   avd-win11/           Windows 11 multi-session image build
 ansible/               optional image and hybrid AD DS playbooks (decision 0028)
 github/                this repository's own GitHub settings in Terraform
+bicep/                 proposed Bicep variant of stage 1, same answers file (decision 0032)
 templates/
   nerdio-manager/      exported Marketplace template (marketplace install only)
 docs/
