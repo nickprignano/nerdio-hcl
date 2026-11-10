@@ -56,6 +56,7 @@ These are what stand between the kit and a zero-touch install; see
 <!-- BEGIN GENERATED: api_asks (edit the YAML, then run scripts/kb/build.py) -->
 | Ask | Evidence | Why it matters | Status |
 |---|---|---|---|
+| Nerdio Manager Bicep extension | Bicep can't use the `nerdio/nme` Terraform provider. Microsoft ships Entra objects as a Bicep extension (Microsoft Graph Bicep v1.0), so the same model works for a vendor REST API. | The kit's Bicep variant (decision 0032) can do stage 1 natively but still needs Terraform for stage 2. A Nerdio extension would make it Bicep end to end, with no scripts holding secrets. | candidate |
 | Directory profile create API and provider resource | The API only has `GET /api/v1/ad/config` (OpenAPI spec, commit `65e547f`); the profile is chosen in the setup wizard. | The only hard blocker to zero-touch: every install needs a human in the wizard for this. | candidate |
 | First-run / registration completion API | Registration and first-run state are UI only. | Second wizard step with no API. | candidate |
 | Supported non-interactive install path | `Get-Nerdio/NMW` `templates/mainTemplate.json` exists but isn't declared a supported, versioned deploy path. The install script has no public versioned URL and doesn't support service-principal auth. The package API (`/api/package`, `/{ver}/link`) is used by Nerdio's own update runbook but isn't documented. | Would let Terraform replace the portal export and install script on a supported path. | candidate |

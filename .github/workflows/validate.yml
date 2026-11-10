@@ -14,6 +14,26 @@ defaults:
     shell: bash
 
 jobs:
+  bicep:
+    # Proposed Bicep variant of stage 1 (decision 0032): compile and lint against every example answer set.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: install Bicep
+        run: az bicep install --version v0.37.4 && az bicep version
+      - name: build and lint
+        run: |
+          az bicep build --file bicep/main.bicep --stdout >/dev/null
+          az bicep lint --file bicep/main.bicep
+      - name: build params from each example answer set
+        run: |
+          for example in schema/examples/*.json; do
+            echo "::group::$example"
+            # Render the answer set the way ./nerdio init does, with placeholder IDs, into the gitignored answers file.
+            python3 -c 'import json, sys; sys.path.insert(0, "scripts/nerdio"); import engine; s = engine.load_schema(); r = engine.resolve(s, json.load(open(sys.argv[1])), engine.read_sources(placeholders=True)); out, _ = engine.render(s, r, placeholders=True); engine.write_tfvars(s, out, "example")' "$example"
+            az bicep build-params --file bicep/environments/example/platform.bicepparam --stdout >/dev/null
+            echo "::endgroup::"
+          done
   terraform:
     runs-on: ubuntu-latest
     steps:
