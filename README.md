@@ -152,7 +152,8 @@ terraform init && terraform apply              # reads the REST secret from Key 
 From Azure Cloud Shell (any browser, tablets included) `scripts/cloudshell-bootstrap.sh` reads
 the tenant and subscription from your sign-in instead; see [docs/cloud-shell.md](docs/cloud-shell.md).
 Prefer a full editor? The repo opens in GitHub Codespaces with the tools preinstalled; see
-[docs/codespaces.md](docs/codespaces.md).
+[docs/codespaces.md](docs/codespaces.md). Codespaces is optional and isn't free: past GitHub's
+monthly allowance it's billed, while Cloud Shell covers every step.
 
 The full order of operations, including the manual Nerdio steps, is in
 [docs/deployment-runbook.md](docs/deployment-runbook.md).

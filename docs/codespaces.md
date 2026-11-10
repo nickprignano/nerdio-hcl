@@ -1,7 +1,8 @@
 # Working from GitHub Codespaces
 
 [GitHub Codespaces](https://docs.github.com/en/codespaces) gives you VS Code with a real terminal
-in the browser, an iPad included. It's an optional workbench for the kit. Azure Cloud Shell stays
+in the browser, an iPad included. It's an optional workbench for the kit, and it isn't free:
+personal accounts get a monthly allowance, then usage is billed (see [Cost](#cost)). Azure Cloud Shell stays
 the baseline every step is tested against ([decision 0012](knowledge/decisions/0012-cloud-shell-baseline.md)),
 and long applies belong on the [deploy pipeline](pipeline.md).
 
@@ -12,6 +13,15 @@ and long applies belong on the [deploy pipeline](pipeline.md).
 | Signed in to Azure | Already | `az login --use-device-code` |
 | Graph PowerShell (`./nerdio fix roles`) | Built in | Not installed; use Cloud Shell for it |
 | Cost | Free, plus a small storage account | Free monthly allowance on personal accounts, then billed |
+
+## Cost
+
+Codespaces is billed by GitHub. Personal accounts get a free monthly allowance (about 60 hours on
+the smallest machine on GitHub Free; details in [workbenches](knowledge/workbenches.md)).
+Compute counts only while a codespace runs, but storage counts for as long as it exists, so
+delete a codespace when you're done (move any Terraform state first). Nothing in the kit needs
+Codespaces: every step also works from Cloud Shell. See
+[About billing for GitHub Codespaces](https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-codespaces/about-billing-for-github-codespaces).
 
 ## Longer idle timeout
 
