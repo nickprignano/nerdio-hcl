@@ -32,3 +32,13 @@ output "host_pool_reimage_schedule_ids" {
   description = "Host pool re-image schedule IDs keyed by host pool name."
   value       = { for k, s in restapi_object.host_pool_reimage_schedule : k => s.id }
 }
+
+output "notification_condition_ids" {
+  description = "Nerdio notification condition IDs keyed by logical key."
+  value       = { for k, c in restapi_object.notification_condition : k => c.id }
+}
+
+output "notification_action_ids" {
+  description = "Nerdio notification action IDs keyed by logical key."
+  value       = { for k, a in restapi_object.notification_action : k => a.id }
+}

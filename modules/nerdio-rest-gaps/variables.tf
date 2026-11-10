@@ -174,3 +174,43 @@ variable "host_pool_reimage_schedules" {
   }))
   default = {}
 }
+
+variable "notification_conditions" {
+  description = "Nerdio Manager task notification conditions via /api/v1/notifications/conditions/nerdio (for example routing failed auto-scale, host pool, or image tasks to ServiceNow)."
+  type = map(object({
+    name = string
+    targets = optional(list(object({
+      scope = optional(string, "Global")
+      value = optional(string)
+    })), [{ scope = "Global" }])
+    tasks = optional(list(string), ["ALL"])
+    run_by_users = optional(list(object({
+      username  = string
+      user_type = optional(string, "System")
+    })), [])
+    statuses           = optional(list(string), ["Error"])
+    exclusion_keywords = optional(list(string), [])
+  }))
+  default = {}
+}
+
+variable "notification_actions" {
+  description = "Nerdio Manager notification actions via /api/v1/notifications/actions linking notification conditions to a linked webhook (e.g. ServiceNow 'General' JSON payload webhook ID from GET /api/v1/notifications/webhooks) and/or email recipients."
+  type = map(object({
+    condition_ids        = optional(list(number), [])
+    condition_keys       = optional(list(string), [])
+    include_task_details = optional(bool, true)
+    is_active            = optional(bool, true)
+    webhook = optional(object({
+      enable = optional(bool, true)
+      id     = number
+    }))
+    email = optional(object({
+      enable              = optional(bool, false)
+      send_to             = optional(list(string), [])
+      built_in_recipients = optional(list(string), ["None"])
+      mailbox_id          = optional(number)
+    }), {})
+  }))
+  default = {}
+}

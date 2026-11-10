@@ -214,6 +214,13 @@ variable "entra_app" {
     grant_admin_consent    = optional(bool, false)
     enable_mail_send       = optional(bool, false)
     create_rest_api_client = optional(bool, true)
+    rest_api_federated_credentials = optional(map(object({
+      issuer      = string
+      subject     = string
+      description = optional(string, "Federated identity credential for Nerdio REST API client")
+      audiences   = optional(list(string), ["api://AzureADTokenExchange"])
+    })), {})
+    rest_api_additional_principal_object_ids = optional(list(string), [])
   })
   default = {}
 }
@@ -313,9 +320,24 @@ variable "deployer_object_id" {
 }
 
 variable "avd_insights" {
-  description = "Optional Azure Monitor AVD Insights Data Collection Rule, Action Group, and monthly consumption budget in the monitoring resource group (null skips)."
+  description = "Optional Azure Monitor AVD Insights Data Collection Rule, Action Group (email, ServiceNow/webhook with Entra aad_auth, or ITSM Connector receivers), and monthly consumption budget in the monitoring resource group (null skips)."
   type = object({
     alert_email_receivers = optional(list(string), [])
+    webhook_receivers = optional(map(object({
+      service_uri             = string
+      use_common_alert_schema = optional(bool, true)
+      aad_auth = optional(object({
+        object_id      = string
+        identifier_uri = optional(string)
+        tenant_id      = optional(string)
+      }))
+    })), {})
+    itsm_receivers = optional(map(object({
+      workspace_id         = string
+      connection_id        = string
+      ticket_configuration = string
+      region               = string
+    })), {})
     monthly_budget_amount = optional(number)
     budget_start_date     = optional(string, "2026-01-01T00:00:00Z")
   })

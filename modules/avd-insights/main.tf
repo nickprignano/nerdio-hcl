@@ -15,6 +15,35 @@ resource "azurerm_monitor_action_group" "avd" {
       use_common_alert_schema = true
     }
   }
+
+  dynamic "webhook_receiver" {
+    for_each = var.webhook_receivers
+    content {
+      name                    = webhook_receiver.key
+      service_uri             = webhook_receiver.value.service_uri
+      use_common_alert_schema = webhook_receiver.value.use_common_alert_schema
+
+      dynamic "aad_auth" {
+        for_each = webhook_receiver.value.aad_auth == null ? [] : [webhook_receiver.value.aad_auth]
+        content {
+          object_id      = aad_auth.value.object_id
+          identifier_uri = aad_auth.value.identifier_uri
+          tenant_id      = aad_auth.value.tenant_id
+        }
+      }
+    }
+  }
+
+  dynamic "itsm_receiver" {
+    for_each = var.itsm_receivers
+    content {
+      name                 = itsm_receiver.key
+      workspace_id         = itsm_receiver.value.workspace_id
+      connection_id        = itsm_receiver.value.connection_id
+      ticket_configuration = itsm_receiver.value.ticket_configuration
+      region               = itsm_receiver.value.region
+    }
+  }
 }
 
 resource "azurerm_monitor_data_collection_rule" "avd_insights" {
@@ -68,8 +97,16 @@ resource "azurerm_monitor_data_collection_rule" "avd_insights" {
   }
 }
 
+locals {
+  has_alert_receivers = (
+    length(var.alert_email_receivers) > 0 ||
+    length(var.webhook_receivers) > 0 ||
+    length(var.itsm_receivers) > 0
+  )
+}
+
 resource "azurerm_consumption_budget_resource_group" "avd" {
-  count             = var.monthly_budget_amount != null && length(var.alert_email_receivers) > 0 ? 1 : 0
+  count             = var.monthly_budget_amount != null && local.has_alert_receivers ? 1 : 0
   name              = "budget-${var.prefix}-avd"
   resource_group_id = var.resource_group_id
   amount            = var.monthly_budget_amount
@@ -85,6 +122,7 @@ resource "azurerm_consumption_budget_resource_group" "avd" {
     operator       = "GreaterThan"
     threshold_type = "Actual"
     contact_emails = var.alert_email_receivers
+    contact_groups = [azurerm_monitor_action_group.avd.id]
   }
 
   notification {
@@ -93,5 +131,6 @@ resource "azurerm_consumption_budget_resource_group" "avd" {
     operator       = "GreaterThan"
     threshold_type = "Forecasted"
     contact_emails = var.alert_email_receivers
+    contact_groups = [azurerm_monitor_action_group.avd.id]
   }
 }

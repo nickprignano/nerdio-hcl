@@ -32,7 +32,7 @@ variable in a stage. Change a question, default or rule here, never in one front
 | `ask` | `always` (default), `advanced` (only with `--advanced`), or `never` (derived or read from the account) |
 | `when` | Only active when earlier answers match, e.g. `{"fslogix_enabled": [true]}` |
 | `source` | `tenant` or `subscription`: read from `ARM_*` or `az account show`, never asked or saved |
-| `tfvars` | Where the value lands: `stage` (`platform`, `config`), a dotted `path` (may use `{id}`), and optional `value` template, `render` (`list`, `resource_groups`) or `omit_empty` |
+| `tfvars` | Where the value lands: `stage` (`platform`, `config`), a dotted `path` (use `{id}` for map keys inside `map(object(...))` variables, e.g. `host_pools.{host_pool_name}.vm_size` or `avd_insights.webhook_receivers.{prefix}.service_uri`), and optional `value` template, `render` (`list`, `resource_groups`) or `omit_empty` |
 | `form` | Show it on the Actions form. Keep the form to 10 inputs |
 | `kb`, `sources` | What the chatbot cites: pages under `docs/knowledge/`, and external docs |
 | `checks` | Cross-field checks, e.g. `subnets_in_address_space` |
@@ -44,5 +44,7 @@ Top level: `phases` (all eight, for the chatbot), `stages` (folder per stage), `
 ## Checks
 
 `./nerdio schema check` runs in CI. It checks the schema's own shape, that every `tfvars` path is a
-declared variable, that each answer set in `examples/` renders and passes Terraform's variable
-checks, and that the Actions form is in sync. Unit tests: `python3 -m unittest discover -s scripts/nerdio`.
+declared variable (every non-`{...}` segment after the top-level variable name must match a declared
+object attribute in `variables.tf`), that each answer set in `examples/` renders and passes
+Terraform's variable checks, and that the Actions form is in sync. Unit tests:
+`python3 -m unittest discover -s scripts/nerdio`.

@@ -207,8 +207,10 @@ module "nerdio_identity" {
   create_client_secret = var.nerdio_install == "marketplace" && var.create_entra_app
   # With OpenBao, short-lived secrets replace the long-lived one, and OpenBao's identity owns
   # the app so it needs only Application.ReadWrite.OwnedBy.
-  create_rest_api_client_secret          = local.nme_secret_store != "openbao"
-  rest_api_client_extra_owner_object_ids = azurerm_user_assigned_identity.openbao[*].principal_id
+  create_rest_api_client_secret            = local.nme_secret_store != "openbao"
+  rest_api_client_extra_owner_object_ids   = azurerm_user_assigned_identity.openbao[*].principal_id
+  rest_api_federated_credentials           = var.entra_app.rest_api_federated_credentials
+  rest_api_additional_principal_object_ids = var.entra_app.rest_api_additional_principal_object_ids
 }
 
 # Hand-off of the Nerdio REST API client secret to stage 2 (decision 0015). Names are short and
@@ -334,6 +336,8 @@ module "avd_insights" {
   resource_group_id          = module.foundation.resource_group_ids["monitoring"]
   log_analytics_workspace_id = module.foundation.log_analytics_workspace_id
   alert_email_receivers      = var.avd_insights.alert_email_receivers
+  webhook_receivers          = var.avd_insights.webhook_receivers
+  itsm_receivers             = var.avd_insights.itsm_receivers
   monthly_budget_amount      = var.avd_insights.monthly_budget_amount
   budget_start_date          = var.avd_insights.budget_start_date
   tags                       = var.tags

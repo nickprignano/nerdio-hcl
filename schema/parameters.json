@@ -979,6 +979,26 @@
       ]
     },
     {
+      "id": "servicenow_webhook_uri",
+      "phase": "configure",
+      "type": "string",
+      "ask": "advanced",
+      "pattern": "^$|^https://[A-Za-z0-9.-]+(/\\S*)?$",
+      "question": "ServiceNow inbound event or webhook HTTPS URL for AVD Insights alerts (blank to skip)?",
+      "help": "When set, creates an Azure Monitor Action Group webhook receiver (Common Alert Schema) in modules/avd-insights for ServiceNow Event Management (/api/sn_em_connector/em/inbound_event?source=azuremonitor) or a Scripted REST API. Add aad_auth in tfvars for keyless Entra OAuth.",
+      "default": "",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "avd_insights.webhook_receivers.{prefix}.service_uri",
+          "omit_empty": true
+        }
+      ],
+      "kb": [
+        "docs/knowledge/nerdio/servicenow.md"
+      ]
+    },
+    {
       "id": "nme_secret_store",
       "phase": "configure",
       "type": "enum",

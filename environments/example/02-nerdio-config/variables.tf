@@ -343,6 +343,36 @@ variable "rest_gaps" {
       notification_message    = optional(string, "This desktop is scheduled for maintenance and will restart shortly.")
       staged_ring_delay_hours = optional(number, 0)
     })), {})
+    notification_conditions = optional(map(object({
+      name = string
+      targets = optional(list(object({
+        scope = optional(string, "Global")
+        value = optional(string)
+      })), [{ scope = "Global" }])
+      tasks = optional(list(string), ["ALL"])
+      run_by_users = optional(list(object({
+        username  = string
+        user_type = optional(string, "System")
+      })), [])
+      statuses           = optional(list(string), ["Error"])
+      exclusion_keywords = optional(list(string), [])
+    })), {})
+    notification_actions = optional(map(object({
+      condition_ids        = optional(list(number), [])
+      condition_keys       = optional(list(string), [])
+      include_task_details = optional(bool, true)
+      is_active            = optional(bool, true)
+      webhook = optional(object({
+        enable = optional(bool, true)
+        id     = number
+      }))
+      email = optional(object({
+        enable              = optional(bool, false)
+        send_to             = optional(list(string), [])
+        built_in_recipients = optional(list(string), ["None"])
+        mailbox_id          = optional(number)
+      }), {})
+    })), {})
   })
   default = {}
 }

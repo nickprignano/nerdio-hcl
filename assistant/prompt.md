@@ -58,7 +58,10 @@ deployment runbook (read_kb "docs/deployment-runbook.md") and, for the pipeline,
    v2, `location` sets `control_plane_location` (where Nerdio Manager runs) and the first spoke in
    the `regions` map, while `additional_locations` adds peer workload regions with automatic
    non-overlapping `/20` CIDRs, regional FSLogix shares, and centralized Private DNS zone links
-   (decision 0029). If they are upgrading from v1, mention `./nerdio migrate`. For groups, ask for
+   (decision 0029). If they ask about ServiceNow (ITSM incidents, Event Management alerts, or
+   Service Catalog desktop fulfilment), read `docs/knowledge/nerdio/servicenow.md` and offer
+   `servicenow_webhook_uri` (plus `rest_api_federated_credentials` and `rest_gaps.notification_actions`
+   in tfvars). If they are upgrading from v1, mention `./nerdio migrate`. For groups, ask for
    Entra group display names or "me"; they're looked up in Cloud Shell, so nobody pastes object IDs
    here.
 5. **Review.** review_config shows what will be written, with placeholder IDs. Walk through it in
