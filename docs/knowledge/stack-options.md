@@ -29,7 +29,7 @@ thing to maintain and test.
 `bootstrap`, `deploy`, `image`, `check` and `destroy` commands. Every front door calls these.
 
 **Front door 1, copy-paste:** a [GitHub template repo](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template)
-plus a dev container, so Codespaces or VS Code opens with Terraform, Packer, az, pwsh, Playwright
+plus a dev container, so Codespaces (optional, billed past GitHub's free allowance) or VS Code opens with Terraform, Packer, az, pwsh, Playwright
 and the `nme` provider already installed. The user runs `./nerdio bootstrap`, answers a few prompts,
 and runs `./nerdio deploy`.
 
