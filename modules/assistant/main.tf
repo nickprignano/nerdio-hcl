@@ -265,6 +265,6 @@ resource "azapi_resource" "auth" {
 check "claude_in_government" {
   assert {
     condition     = var.cloud == "public"
-    error_message = "cloud is usgovernment: neither Claude path (Claude API or Foundry) is documented for Azure Government, and both would leave the Government boundary. A Government deployment keeps everything in the Government tenant, so set up with ./nerdio init and the pipeline instead. See docs/government.md."
+    error_message = "cloud is usgovernment: neither Claude path (Claude API or Foundry) is documented for Azure Government, and both would leave the Government boundary. A Government deployment keeps everything in the Government tenant, so set up with ./nerdio init and the pipeline until the chat's Azure OpenAI provider for Government lands. See docs/government.md."
   }
 }

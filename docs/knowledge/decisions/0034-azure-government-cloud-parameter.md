@@ -59,7 +59,7 @@ warnings instead of surprises.
 
 - Owner's answer (2026-11-11): in a Government deployment everything runs inside the Government
   tenant. A commercial-hosted chat is ruled out, and Government plans and applies run on the VNet
-  runner in the Government subscription, not GitHub-hosted runners. Still open: an Azure OpenAI
-  provider for the chat in Government, or no chat there; record that as its own decision.
+  runner in the Government subscription, not GitHub-hosted runners. The owner then chose an Azure
+  OpenAI model provider for the chat in a Government region; it gets its own decision and PR.
 - Upstream ask (not sent): a token URL or cloud setting in the `nerdio/nme` provider.
 - Revisit after the first Government spike (gap list in [government.md](../../government.md)).

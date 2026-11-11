@@ -83,9 +83,10 @@ Ordered by what blocks a Government deployment first.
    owner says so.
 2. **The chat has no Claude inside Government.** The owner decided (2026-11-11) that in a
    Government deployment everything runs inside the Government tenant, so a chat hosted in a
-   commercial tenant is ruled out. What's left: give the chat an Azure OpenAI model provider in
-   Government, or set up Government tenants without the chat (`./nerdio init` plus the
-   pipeline). Until one is built the kit warns and the chat can't serve a Government tenant.
+   commercial tenant is ruled out. The owner then chose (2026-11-11) to give the chat an Azure
+   OpenAI model provider in a Government region, inside the tenant; that's a separate build with
+   its own decision. Until it lands the kit warns, and Government setups use `./nerdio init`
+   plus the pipeline.
 3. **No Government test bed.** Azure Government needs an eligibility-validated subscription.
    Every "supported" row above is from documentation, not a run.
 4. **Terraform's own GitHub OIDC audience.** `azure/login` now asks for the Government audience,
@@ -124,7 +125,7 @@ Directional, after the current 90-day window ([roadmap](knowledge/stack-options.
 3. **Nerdio:** draft the provider token-URL ask and ask Nerdio whether its AI features and a
    Terraform-built install are supported in Government. Hold until the owner approves sending.
 4. **Chat in Government:** everything stays in the Government tenant (owner, 2026-11-11).
-   Choose between an Azure OpenAI provider for the chat and no chat there; record it as a new
-   decision.
+   The chat gets an Azure OpenAI provider in a Government region (owner, 2026-11-11), built
+   in its own change with its own decision.
 5. **After that:** Intune and Windows 365 in GCC High (the `microsoft365` provider supports GCC
    High and DoD), and DoD only if Nerdio supports it.
