@@ -40,16 +40,25 @@ variable "admin_group_object_id" {
 
 variable "model_provider" {
   description = <<-EOT
-    Where the chat gets Claude: "claude-api" (the main path: the Claude API, signed in with the
-    app's managed identity through workload identity federation; no API key) or "foundry"
-    (Claude on Microsoft Foundry in this subscription, which needs Microsoft to grant quota).
-    Both are keyless.
+    Where the chat gets its model. Unset (the default) picks by cloud: "claude-api" in commercial
+    Azure, "azure-openai" in Azure Government.
+    - "claude-api": the Claude API, signed in with the app's managed identity through workload
+      identity federation; no API key (decision 0020).
+    - "foundry": Claude on Microsoft Foundry in this subscription, which needs Microsoft to grant quota.
+    - "azure-openai": an Azure OpenAI deployment in this tenant, called with the app's managed
+      identity (decision 0036). The only choice in Azure Government, where Claude isn't offered
+      and everything stays in the Government tenant.
+    All three are keyless.
   EOT
   type        = string
-  default     = "claude-api"
+  default     = null
   validation {
-    condition     = contains(["foundry", "claude-api"], var.model_provider)
-    error_message = "model_provider must be foundry or claude-api."
+    condition     = var.model_provider == null || contains(["foundry", "claude-api", "azure-openai"], coalesce(var.model_provider, "unset"))
+    error_message = "model_provider must be claude-api, foundry or azure-openai."
+  }
+  validation {
+    condition     = var.cloud == "public" || var.model_provider == null || var.model_provider == "azure-openai"
+    error_message = "In Azure Government the chat must use azure-openai: Claude isn't offered there, and a Government deployment keeps everything in the Government tenant (decision 0036). Leave model_provider unset."
   }
 }
 
@@ -70,7 +79,7 @@ variable "foundry" {
   })
   default = null
   validation {
-    condition     = var.model_provider != "foundry" || var.foundry != null
+    condition     = coalesce(var.model_provider, "unset") != "foundry" || var.foundry != null
     error_message = "Set foundry (at least its location) when model_provider is foundry."
   }
 }
@@ -100,6 +109,43 @@ variable "claude_api" {
       (var.claude_api.organization_id == null || can(regex("^[0-9a-fA-F-]{36}$", var.claude_api.organization_id)))
     )
     error_message = "claude_api IDs look like fdrl_..., svac_..., wrkspc_... and a UUID for the organization."
+  }
+}
+
+variable "azure_openai" {
+  description = <<-EOT
+    Azure OpenAI for model_provider = "azure-openai" (decision 0036). location defaults to the app's
+    region; in Azure Government it must be usgovvirginia or usgovarizona. The default model,
+    gpt-4.1 (2025-04-14) on a regional Standard deployment, is offered in both Government regions.
+    capacity is in thousands of tokens per minute. Set reasoning_effort (low, medium or high) only
+    for a reasoning model such as o3-mini or gpt-5.1. With create_deployment = false, deploy the
+    model yourself and set deployment_name to it.
+  EOT
+  type = object({
+    location          = optional(string)
+    create_deployment = optional(bool, true)
+    deployment_name   = optional(string, "chat")
+    model_name        = optional(string, "gpt-4.1")
+    model_version     = optional(string, "2025-04-14")
+    sku_name          = optional(string, "Standard")
+    capacity          = optional(number, 50)
+    api_version       = optional(string, "2024-10-21")
+    reasoning_effort  = optional(string)
+  })
+  default  = {}
+  nullable = false
+  validation {
+    condition     = var.azure_openai.reasoning_effort == null || contains(["minimal", "low", "medium", "high"], coalesce(var.azure_openai.reasoning_effort, "unset"))
+    error_message = "azure_openai.reasoning_effort must be minimal, low, medium or high (or unset for a non-reasoning model)."
+  }
+  validation {
+    condition     = contains(["Standard", "DataZoneStandard", "ProvisionedManaged", "DataZoneProvisionedManaged"], var.azure_openai.sku_name)
+    error_message = "azure_openai.sku_name must be Standard, DataZoneStandard, ProvisionedManaged or DataZoneProvisionedManaged. Global deployments would leave the Government boundary."
+  }
+  validation {
+    condition = var.cloud == "public" || contains(["usgovvirginia", "usgovarizona"],
+    lower(replace(coalesce(var.azure_openai.location, var.location), " ", "")))
+    error_message = "In Azure Government, Azure OpenAI runs in usgovvirginia or usgovarizona. Set azure_openai.location (or the app's location) to one of them."
   }
 }
 

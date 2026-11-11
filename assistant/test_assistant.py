@@ -266,5 +266,129 @@ class ClaudeApiClientTests(unittest.TestCase):
         self.assertEqual(type(client).__name__, "Anthropic")
 
 
+class AzureOpenAITests(unittest.TestCase):
+    """Decision 0036: Azure OpenAI behind the same loop, keyless, for Azure Government."""
+
+    def setUp(self):
+        import azure_openai
+        self.aoai = azure_openai
+        self.requests = []
+
+    def opener(self, *replies):
+        import io as _io
+        queue = list(replies)
+
+        class Reply(_io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def open_(req, timeout=None):
+            self.requests.append(req)
+            return Reply(json.dumps(queue.pop(0)).encode())
+        return open_
+
+    @staticmethod
+    def completion(finish, content=None, calls=None, cached=0):
+        message = {"role": "assistant", "content": content}
+        if calls:
+            message["tool_calls"] = [{"id": f"call_{i}", "type": "function",
+                                      "function": {"name": n, "arguments": json.dumps(a)}} for i, (n, a) in enumerate(calls)]
+        return {"model": "gpt-4.1-2025-04-14", "choices": [{"index": 0, "finish_reason": finish, "message": message}],
+                "usage": {"prompt_tokens": 120, "completion_tokens": 7, "prompt_tokens_details": {"cached_tokens": cached}}}
+
+    def client(self, *replies, **kwargs):
+        return self.aoai.AzureOpenAIClient("https://oai-test.openai.azure.us/", lambda: "entra.jwt.token",
+                                           opener=self.opener(*replies), **kwargs)
+
+    def test_tool_round_trip_through_the_real_loop(self):
+        client = self.client(self.completion("tool_calls", calls=[("get_questions", {"phase": "discover"})]),
+                             self.completion("stop", "Here are the questions.", cached=100))
+        out = agent.chat_turn(client, [], {"_random4": "ab12"}, "start")
+        self.assertEqual(out["reply"], "Here are the questions.")
+        # The transcript the browser keeps stays Claude-shaped, whichever model answered.
+        self.assertEqual(out["messages"][1]["content"][0]["type"], "tool_use")
+        self.assertEqual(out["messages"][2]["content"][0]["type"], "tool_result")
+        second = json.loads(self.requests[1].data)
+        self.assertEqual([m["role"] for m in second["messages"]], ["system", "user", "assistant", "tool"])
+        self.assertEqual(second["messages"][2]["tool_calls"][0]["function"]["name"], "get_questions")
+        self.assertEqual(second["messages"][3]["tool_call_id"], "call_0")
+        self.assertIn("discover", second["messages"][3]["content"])
+
+    def test_request_is_keyless_and_drops_claude_only_options(self):
+        client = self.client(self.completion("stop", "hi"))
+        client.messages.create(model="chat", max_tokens=16000, system=[{"type": "text", "text": "sys",
+                               "cache_control": {"type": "ephemeral"}}], tools=agent.TOOLS,
+                               messages=[{"role": "user", "content": "hello"}], output_config={"effort": "medium"})
+        req = self.requests[0]
+        self.assertEqual(req.full_url, "https://oai-test.openai.azure.us/openai/deployments/chat/chat/completions?api-version=2024-10-21")
+        self.assertEqual(req.get_header("Authorization"), "Bearer entra.jwt.token")
+        self.assertIsNone(req.get_header("Api-key"))
+        body = json.loads(req.data)
+        self.assertEqual(body["max_tokens"], 16000)
+        self.assertNotIn("reasoning_effort", body)
+        self.assertNotIn("output_config", body)
+        self.assertEqual(body["messages"][0], {"role": "system", "content": "sys"})
+        self.assertTrue(all("strict" not in t["function"] for t in body["tools"]))
+        self.assertEqual(body["tools"][0]["function"]["parameters"], agent.TOOLS[0]["input_schema"])
+
+    def test_reasoning_models_get_max_completion_tokens(self):
+        client = self.client(self.completion("stop", "hi"), reasoning_effort="low")
+        client.messages.create(model="chat", max_tokens=100, messages=[{"role": "user", "content": "x"}])
+        body = json.loads(self.requests[0].data)
+        self.assertEqual((body["max_completion_tokens"], body["reasoning_effort"]), (100, "low"))
+        self.assertNotIn("max_tokens", body)
+
+    def test_stop_reasons_and_usage_map_to_the_loops_terms(self):
+        cases = {"stop": "end_turn", "length": "max_tokens", "content_filter": "refusal"}
+        for finish, stop in cases.items():
+            r = self.aoai.from_chat_response(self.completion(finish, "x", cached=20))
+            self.assertEqual(r.stop_reason, stop)
+            self.assertEqual((r.usage.input_tokens, r.usage.cache_read_input_tokens, r.usage.output_tokens), (100, 20, 7))
+
+    def test_bad_tool_arguments_become_an_error_the_model_can_fix(self):
+        body = self.completion("tool_calls", calls=[("read_kb", {})])
+        body["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"] = "{not json"
+        r = self.aoai.from_chat_response(body)
+        self.assertEqual(r.content[0]["input"], {})
+        self.assertIn("error", json.loads(agent.Session({"_random4": "ab12"}).run_tool("read_kb", r.content[0]["input"])))
+
+    def test_http_error_keeps_the_prompt_out_of_the_message(self):
+        import io as _io
+        import urllib.error
+
+        def boom(req, timeout=None):
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {},
+                                         _io.BytesIO(b'{"error": {"code": "429", "message": "prompt text here"}}'))
+        client = self.aoai.AzureOpenAIClient("https://oai-test.openai.azure.us", lambda: "t", opener=boom)
+        with self.assertRaises(self.aoai.AzureOpenAIError) as err:
+            client.messages.create(model="chat", max_tokens=10, messages=[{"role": "user", "content": "x"}])
+        self.assertIn("429", str(err.exception))
+        self.assertNotIn("prompt text", str(err.exception))
+
+    def test_make_client_uses_the_managed_identity_for_the_government_scope(self):
+        from unittest import mock
+        env = {"NERDIO_AOAI_ENDPOINT": "https://oai-test.openai.azure.us/", "NERDIO_CLOUD": "usgovernment",
+               "AZURE_CLIENT_ID": "77777777-7777-7777-7777-777777777777"}
+        with mock.patch.object(agent, "PROVIDER", "azure-openai"), mock.patch.dict("os.environ", env), \
+                mock.patch("azure.identity.ManagedIdentityCredential") as cred:
+            agent.os.environ.pop("NERDIO_AOAI_TOKEN_SCOPE", None)
+            cred.return_value.get_token.return_value = mock.Mock(token="entra.jwt.token")
+            client = MAKE_CLIENT()
+            self.assertEqual(client.token_provider(), "entra.jwt.token")
+        cred.assert_called_once_with(client_id=env["AZURE_CLIENT_ID"])
+        cred.return_value.get_token.assert_called_with("https://cognitiveservices.azure.us/.default")
+        self.assertEqual(client.endpoint, "https://oai-test.openai.azure.us")
+
+    def test_missing_endpoint_is_not_connected(self):
+        from unittest import mock
+        with mock.patch.object(agent, "PROVIDER", "azure-openai"), mock.patch.dict("os.environ", {}):
+            agent.os.environ.pop("NERDIO_AOAI_ENDPOINT", None)
+            with self.assertRaises(agent.NotConnected):
+                MAKE_CLIENT()
+
+
 if __name__ == "__main__":
     unittest.main()

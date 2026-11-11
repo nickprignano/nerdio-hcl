@@ -8,6 +8,16 @@ output "foundry_resource" {
   value       = local.use_foundry ? azurerm_cognitive_account.foundry[0].name : null
 }
 
+output "model_provider" {
+  description = "Which model the chat uses: claude-api, foundry or azure-openai (the default in Azure Government)."
+  value       = local.model_provider
+}
+
+output "azure_openai_resource" {
+  description = "Azure OpenAI account that serves the chat, for model_provider = \"azure-openai\". Null otherwise."
+  value       = local.use_azure_openai ? azurerm_cognitive_account.openai[0].name : null
+}
+
 output "claude_federation" {
   description = <<-EOT
     What the Claude API's federation rule must match, for model_provider = "claude-api": this

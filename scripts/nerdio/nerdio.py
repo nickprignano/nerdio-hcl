@@ -579,6 +579,9 @@ def _terraform(stage: Path, *action: str) -> int:
     return subprocess.run(["terraform", f"-chdir={stage}", *action], check=False).returncode
 
 
+GOV_REGIONS = ("usgovvirginia", "usgovarizona")  # where Azure OpenAI runs in Azure Government
+
+
 def connect_claude(stage: Path, tfvars: dict, console: bool) -> dict | None:
     """Make (or show) the Claude API side of the chat's federation; returns the claude_api IDs."""
     federation = _tf_output(stage, "claude_federation")
@@ -618,8 +621,21 @@ def cmd_assistant(args) -> int:
     tfvars.update({"tenant_id": sources["tenant"], "subscription_id": sources["subscription"],
                    "cloud": engine.read_cloud()})
     if tfvars["cloud"] != "public":
-        print("! This is Azure Government. Claude isn't documented there, so the chat would send prompts outside "
-              "the Government boundary. See docs/government.md before you apply.", file=sys.stderr)
+        # Decision 0036: everything stays in the Government tenant, so the chat uses Azure OpenAI there.
+        if args.connect_claude or args.claude_ids:
+            print("✗ The Claude API isn't used in Azure Government (decision 0036): nothing to connect.", file=sys.stderr)
+            return 1
+        if args.model_provider and args.model_provider != "azure-openai":
+            print(f"✗ {args.model_provider} isn't offered in Azure Government and would leave the Government "
+                  "boundary. Leave out --model-provider: the chat uses Azure OpenAI in this tenant there.", file=sys.stderr)
+            return 1
+        if tfvars.get("model_provider") not in (None, "azure-openai"):
+            tfvars.pop("model_provider")  # a commercial choice saved earlier doesn't carry over
+        if not args.location and tfvars.get("location", "").lower() not in GOV_REGIONS:
+            tfvars["location"] = GOV_REGIONS[0]
+        print("This is Azure Government: the chat will use Azure OpenAI in this tenant "
+              f"({args.location or tfvars['location']}), keyless. Not yet tested in a Government subscription; "
+              "see docs/government.md.")
     for key, value in (("admin_group", args.admin_group), ("location", args.location), ("image", args.image),
                        ("model_provider", args.model_provider)):
         if value:
@@ -801,8 +817,9 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("assistant", help="deploy the setup chatbot into this tenant with Terraform")
     p.add_argument("--admin-group", help="display name of the Entra group allowed to use it")
     p.add_argument("--location", help="region for the app (default eastus2)")
-    p.add_argument("--model-provider", choices=["claude-api", "foundry"],
-                   help="where the chat gets Claude (default claude-api: the Claude API, keyless)")
+    p.add_argument("--model-provider", choices=["claude-api", "foundry", "azure-openai"],
+                   help="where the chat gets its model (default: claude-api in commercial Azure, "
+                        "azure-openai in Azure Government; all keyless)")
     p.add_argument("--foundry-location", help="region for Claude on Foundry, if different")
     p.add_argument("--connect-claude", action="store_true",
                    help="once: trust the chat's managed identity in your Anthropic organization (needs an org admin sign-in)")

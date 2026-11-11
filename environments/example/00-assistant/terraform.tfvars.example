@@ -4,7 +4,7 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 admin_group     = "AVD Admins"
 location        = "eastus2"
 
-# Claude: the Claude API through workload identity federation (default), or Claude on Foundry.
+# Commercial: the Claude API through workload identity federation (default), or Claude on Foundry.
 # model_provider = "claude-api"
 # effort         = "medium"          # low, medium, high, xhigh or max; raise it before changing the model
 # claude_api = {                     # ./nerdio assistant --connect-claude fills these in
@@ -19,4 +19,13 @@ location        = "eastus2"
 #   location = "eastus2"             # a region that offers Claude on Foundry
 #   create_deployment = false        # if you deployed the model in the Foundry portal yourself
 #   deployment_name   = "my-claude"
+# }
+
+# Azure Government (cloud = "usgovernment"): the chat uses Azure OpenAI in this tenant (decision 0036).
+# location = "usgovvirginia"         # the app's region; usgovvirginia or usgovarizona
+# azure_openai = {
+#   location      = "usgovvirginia"  # defaults to the app's region
+#   model_name    = "gpt-4.1"        # offered as a regional Standard deployment in both Government regions
+#   model_version = "2025-04-14"
+#   capacity      = 50               # thousands of tokens per minute; your quota caps it
 # }

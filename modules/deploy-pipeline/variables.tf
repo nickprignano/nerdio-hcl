@@ -104,6 +104,7 @@ variable "apply_assignable_roles" {
     "Backup Reader",
     "Website Contributor",
     "Cognitive Services User",
+    "Cognitive Services OpenAI User",
     "Key Vault Crypto Officer",
     "Key Vault Crypto User",
     "Key Vault Crypto Service Encryption User",

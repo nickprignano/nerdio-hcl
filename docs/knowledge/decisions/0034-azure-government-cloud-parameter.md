@@ -59,6 +59,7 @@ warnings instead of surprises.
 
 - Open question for the owner: how the setup chat serves a Government tenant (keep it commercial
   and drive only the pipeline, add an Azure OpenAI provider in Government, or no chat there).
-  Record the answer as its own decision.
+  Answered by [0036](0036-azure-openai-chat-in-government.md): Azure OpenAI in the Government
+  tenant; the chat's warning became a validation.
 - Upstream ask (not sent): a token URL or cloud setting in the `nerdio/nme` provider.
 - Revisit after the first Government spike (gap list in [government.md](../../government.md)).

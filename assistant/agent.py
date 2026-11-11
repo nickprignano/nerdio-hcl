@@ -32,7 +32,7 @@ from readiness.model import FEATURES as READINESS_FEATURES  # noqa: E402
 
 PROMPT = (Path(__file__).resolve().parent / "prompt.md").read_text(encoding="utf-8")
 PROVIDER = os.environ.get("NERDIO_MODEL_PROVIDER", "foundry")
-MODEL = os.environ.get("NERDIO_MODEL", "claude-opus-5-5")  # the Foundry deployment name, or the Claude API model
+MODEL = os.environ.get("NERDIO_MODEL", "claude-opus-5-5")  # the Foundry or Azure OpenAI deployment name, or the Claude API model
 EFFORT = os.environ.get("NERDIO_EFFORT", "medium")
 REPO_URL = os.environ.get("NERDIO_KIT_REPO", "https://github.com/nickprignano/nme-automation")
 LEGACY_CLONE = "~/nerdio-hcl"  # Cloud Shell clones made under the repository's old name
@@ -366,9 +366,11 @@ FEDERATION_VARS = ("ANTHROPIC_ORGANIZATION_ID", "ANTHROPIC_FEDERATION_RULE_ID", 
 
 
 def make_client():
-    """Claude for the chat, with no stored key: Foundry or the Claude API, both via the app's managed identity."""
+    """The chat's model, with no stored key: Foundry, the Claude API or Azure OpenAI, all via the app's managed identity."""
     if PROVIDER == "claude-api":
         return _claude_api_client()
+    if PROVIDER == "azure-openai":
+        return _azure_openai_client()
     from anthropic import AnthropicFoundry
 
     resource = os.environ["NERDIO_FOUNDRY_RESOURCE"]
@@ -410,6 +412,32 @@ def _claude_api_client():
         service_account_id=os.environ["ANTHROPIC_SERVICE_ACCOUNT_ID"],
         workspace_id=os.environ.get("ANTHROPIC_WORKSPACE_ID") or None,
     ))
+
+
+# Entra scope for Azure OpenAI per cloud, when Terraform doesn't pass one (decision 0036).
+AOAI_SCOPES = {"public": "https://cognitiveservices.azure.com/.default",
+               "usgovernment": "https://cognitiveservices.azure.us/.default"}
+
+
+def _azure_openai_client():
+    """Azure OpenAI in this tenant (decision 0036): the main path in Azure Government, where Claude isn't offered.
+
+    The app's managed identity gets an Entra token for Cognitive Services in its own cloud; the
+    resource has key access turned off, so there is no key to set even by mistake.
+    """
+    from azure_openai import AzureOpenAIClient
+
+    endpoint = os.environ.get("NERDIO_AOAI_ENDPOINT", "")
+    if not endpoint:
+        raise NotConnected("The chat has no Azure OpenAI endpoint. Run ./nerdio assistant again, then reload this page.")
+    cloud = os.environ.get("NERDIO_CLOUD", "public")
+    scope = os.environ.get("NERDIO_AOAI_TOKEN_SCOPE") or AOAI_SCOPES.get(cloud, AOAI_SCOPES["public"])
+    from azure.identity import ManagedIdentityCredential
+
+    identity = ManagedIdentityCredential(client_id=os.environ.get("AZURE_CLIENT_ID"))
+    return AzureOpenAIClient(endpoint, lambda: identity.get_token(scope).token,
+                             api_version=os.environ.get("NERDIO_AOAI_API_VERSION", ""),
+                             reasoning_effort=os.environ.get("NERDIO_AOAI_REASONING_EFFORT", ""))
 
 
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
