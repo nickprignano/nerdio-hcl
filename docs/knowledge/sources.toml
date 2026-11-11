@@ -47,6 +47,14 @@ repo = "Get-Nerdio/NMW"
 kb_page = "nerdio/platform.md"
 
 [[source]]
+name = "Nerdio Compass help center"
+kind = "zendesk"
+url = "https://nerdiohelp.getnerdio.com"
+# Shared help center for several Nerdio products; keep only Compass articles.
+keywords = ["Compass"]
+kb_page = "nerdio/compass.md"
+
+[[source]]
 name = "Nerdio GitHub org"
 kind = "github_org_repos"
 org = "Get-Nerdio"
