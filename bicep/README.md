@@ -13,7 +13,8 @@ upstream ask.
 
 ## Run it from Cloud Shell (Bash)
 
-Cloud Shell's `az` already includes Bicep, so nothing to install. Sign in to the right tenant and
+Cloud Shell's `az` already includes Bicep, so nothing to install. The Entra app has its own step
+(next section). Sign in to the right tenant and
 subscription first (`./nerdio use <env>`), then:
 
 ```bash
@@ -41,6 +42,34 @@ after you've checked what it holds.
 GitHub Codespaces works too, but it isn't free (it bills compute and storage per hour beyond the
 free monthly allowance), so it stays optional; see [docs/codespaces.md](../docs/codespaces.md).
 
+## Entra app (identity.bicep)
+
+Nerdio's app registration, its six app roles, WVD Admin assignments, admin consent and the REST API
+client app are in [identity.bicep](identity.bicep). Microsoft Graph resources can't go in a
+deployment stack and have no what-if, so this is a plain deployment with **no preview**: read the
+template and the parameters before you run it. Run it before the platform stack.
+
+```bash
+az deployment sub create --name nerdio-identity --location "$LOCATION" \
+  --parameters bicep/environments/example/identity.bicepparam
+```
+
+Rights: Application Administrator (or Cloud Application Administrator) to create the apps, plus
+Privileged Role Administrator for admin consent when `grant_admin_consent` is on, the same as the
+Terraform root ([docs/access.md](../docs/access.md)). After Nerdio Manager is installed, deploy it
+again with `--parameters app_service_hostname=<hostname>` to add the redirect URIs.
+
+Deleting the deployment doesn't delete the apps. To tear them down, delete the two app
+registrations (`nerdio-nmw-app` and `nerdio-nmw-app-rest-client`, or your `display_name`) in Entra.
+
+### REST API client secret
+
+The Graph extension can't create passwords, only certificates and federated credentials. Stage 2
+(the `nerdio/nme` provider) still signs in with a client secret, so in the Bicep variant that
+secret is a separate step, run by the tenant owner, that writes it straight to Key Vault without
+showing it. It comes with the `nerdio-secrets` slice. Until then, use the Terraform root for
+stage 1 if you need stage 2.
+
 ## Don't mix engines in one environment
 
 Both engines create the same resource groups and names. Pick one per environment. Moving an
@@ -55,7 +84,7 @@ environment from Terraform to Bicep (or back) isn't supported yet.
 | fslogix-storage | ported | includes the `CanNotDelete` lock when `enable_resource_locks` is on |
 | image-gallery | ported | gallery, Gen2 Trusted Launch definitions, build resource group, Packer roles |
 | anf-storage | not yet | |
-| nerdio-identity | next | Microsoft Graph Bicep extension; must be its own deployment (Graph isn't supported in stacks or what-if) |
+| nerdio-identity | ported | `identity.bicep` (Microsoft Graph Bicep extension): app, app roles, admin consent, REST client app, federated credentials. Its own deployment; no client secrets (see below) |
 | nerdio-core | next | App Service, SQL, Key Vault, Automation; the code deploy job is an ARM resource |
 | nerdio-hardening, nerdio-secrets, nerdio-rbac, cmk-encryption | not yet | |
 | openbao, automation-workers, vnet-runner, avd-insights, azure-local, windows-365, intune-policies | not yet | optional modules |
