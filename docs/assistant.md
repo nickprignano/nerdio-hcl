@@ -11,8 +11,8 @@ questions as `./nerdio init` and the Actions form, because all three read
 |---|---|
 | Container App | The chat web app. Scales to zero when nobody is using it |
 | Entra sign-in | Container Apps authentication with an app registration. Only members of the admin group you name can sign in |
-| Claude | The [Claude API](#claude-api), billed to your Anthropic organization. [Claude on Microsoft Foundry](#claude-on-foundry), billed through Azure, is optional if Microsoft grants you quota. Pick with `--model-provider` |
-| Managed identity | How the app calls Claude, either way. There's no API key to store or leak |
+| Model | Commercial Azure: the [Claude API](#claude-api), billed to your Anthropic organization; [Claude on Microsoft Foundry](#claude-on-foundry), billed through Azure, is optional if Microsoft grants you quota. Azure Government: [Azure OpenAI in the same tenant](#azure-openai-in-azure-government), because Claude isn't offered there. Pick with `--model-provider` |
+| Managed identity | How the app calls the model, every way. There's no API key to store or leak |
 | Log Analytics | App logs, kept 30 days |
 
 All of it is Terraform: `modules/assistant`, deployed by `environments/example/00-assistant`.
@@ -37,8 +37,8 @@ Open it and sign in.
 With the Claude API (the default), connect it once afterwards, as described under
 [Claude API](#claude-api). Until then the chat opens but says it isn't connected yet.
 
-Options: `--model-provider claude-api|foundry`, `--location` (the app's region, default
-`eastus2`), `--foundry-location` (a region that offers Claude on Foundry, if different), `--image`
+Options: `--model-provider claude-api|foundry|azure-openai`, `--location` (the app's region,
+default `eastus2`, or `usgovvirginia` in Azure Government), `--foundry-location` (a region that offers Claude on Foundry, if different), `--image`
 (your own build), and `--plan` to only plan.
 
 **You need** (the full list, with reasons, is in [access.md](access.md)):
@@ -101,6 +101,33 @@ turned off on the resource. If Terraform can't create the model deployment, crea
 Foundry portal and set `foundry = { create_deployment = false, deployment_name = "<its name>" }`
 in the tfvars.
 
+## Azure OpenAI in Azure Government
+
+Claude isn't offered inside Azure Government, and a Government deployment keeps everything in the
+Government tenant ([decision 0036](knowledge/decisions/0036-azure-openai-chat-in-government.md)).
+So when you run `./nerdio assistant` signed in to Azure Government (Cloud Shell from
+`portal.azure.us`), the chat uses an Azure OpenAI deployment instead. There's nothing to connect
+afterwards: the same apply creates everything.
+
+| Piece | Settings |
+|---|---|
+| Azure OpenAI account | In the chat's resource group and region (`usgovvirginia` by default, or `usgovarizona`), key access turned off |
+| Model deployment `chat` | `gpt-4.1` (2025-04-14), regional `Standard`, 50K tokens per minute; your quota caps it |
+| Role | The app's managed identity gets **Cognitive Services OpenAI User** on that account only |
+| Sign-in | Entra token for `https://cognitiveservices.azure.us/.default`, calls to `https://<account>.openai.azure.us` |
+
+Change the model with `azure_openai` in the stage's tfvars, for example
+`azure_openai = { model_name = "o3-mini", model_version = "2025-01-31", sku_name = "DataZoneStandard", reasoning_effort = "medium" }`.
+`Standard` keeps processing in the account's region; `DataZoneStandard` stays inside Azure
+Government's US data zone. Global SKUs, Claude and Foundry are refused in Government. If your
+subscription has no quota for the model, request it, or deploy the model yourself and set
+`azure_openai = { create_deployment = false, deployment_name = "<its name>" }`.
+
+The chat's tools, prompt, logs and saved conversation are the same as with Claude: a small adapter
+(`assistant/azure_openai.py`) translates each call. The prompt was written for Claude, so a GPT
+model may follow it less closely; the Government spike checks this. Commercial Azure can opt in
+with `--model-provider azure-openai` too, but the Claude API stays its default.
+
 ## Put it on your home screen
 
 The chat installs like an app, with no App Store and nothing to pay for. On an iPhone or iPad, open
@@ -131,7 +158,7 @@ sign-in works the same way as in the browser.
 
 The Container App costs nothing while idle (it scales to zero) and a little while you chat. Model
 use is billed per token: by Anthropic to your organization's workspace with the Claude API, or
-through Azure with Foundry. Log Analytics bills per GB ingested, which is small here.
+through Azure with Foundry or Azure OpenAI. Log Analytics bills per GB ingested, which is small here.
 Remove it all with `terraform -chdir=environments/example/00-assistant destroy`.
 
 The model defaults to `claude-opus-5-5` at `medium` effort ([decision 0022](knowledge/decisions/0022-family-model-selection-convention.md)).
@@ -172,3 +199,6 @@ without Docker, use `az acr build` into your own registry and pass its image wit
   deployment. The fallback is the portal plus `create_deployment = false`.
 - That the **Cognitive Services User** role is enough for the managed identity to call Claude on Foundry.
 - Sign-in with ID tokens only (no client secret) on Container Apps authentication.
+- Anything in Azure Government: Container Apps availability, the Azure OpenAI account and
+  deployment, the `2024-10-21` API version there, and how well `gpt-4.1` follows the chat's prompt
+  and tools. The adapter is tested offline only.

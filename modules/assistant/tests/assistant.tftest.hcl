@@ -18,6 +18,12 @@ mock_provider "azurerm" {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-nme-assistant/providers/Microsoft.App/managedEnvironments/cae-nme-assistant"
     }
   }
+  mock_resource "azurerm_cognitive_account" {
+    defaults = {
+      id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-nme-assistant/providers/Microsoft.CognitiveServices/accounts/oai-nme-assistant-abc123"
+      endpoint = "https://oai-nme-assistant-abc123.openai.azure.us/"
+    }
+  }
   mock_resource "azurerm_container_app" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-nme-assistant/providers/Microsoft.App/containerApps/ca-nme-assistant"
@@ -156,25 +162,123 @@ run "foundry_needs_its_settings" {
   expect_failures = [var.foundry]
 }
 
-# Decision 0034: in Azure Government the sign-in issuer moves to login.microsoftonline.us, and the
-# check warns that Claude isn't documented there.
-run "usgovernment_issuer_and_warning" {
+# Decision 0034 moves sign-in to login.microsoftonline.us in Azure Government; decision 0036 keeps
+# the chat's model in the Government tenant: Azure OpenAI in a Government region, keyless.
+run "usgovernment_uses_azure_openai_in_the_tenant" {
+  command = apply
+
+  variables {
+    cloud    = "usgovernment"
+    location = "usgovvirginia"
+  }
+
+  assert {
+    condition     = output.model_provider == "azure-openai"
+    error_message = "Azure Government should default to Azure OpenAI."
+  }
+
+  assert {
+    condition     = length(azuread_application.claude_audience) == 0 && length(azurerm_cognitive_account.foundry) == 0 && output.claude_federation == null
+    error_message = "No Claude path (audience app, Foundry) may be created in Azure Government."
+  }
+
+  assert {
+    condition = (azurerm_cognitive_account.openai[0].kind == "OpenAI" && !azurerm_cognitive_account.openai[0].local_auth_enabled
+    && azurerm_cognitive_account.openai[0].location == "usgovvirginia")
+    error_message = "The Azure OpenAI account must be in the Government region with key access off."
+  }
+
+  assert {
+    condition = (azurerm_cognitive_deployment.openai[0].model[0].format == "OpenAI" && azurerm_cognitive_deployment.openai[0].model[0].name == "gpt-4.1"
+    && azurerm_cognitive_deployment.openai[0].sku[0].name == "Standard")
+    error_message = "The default deployment is gpt-4.1 on a regional Standard SKU."
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.app_uses_openai[0].role_definition_name == "Cognitive Services OpenAI User" && azurerm_role_assignment.app_uses_openai[0].principal_id == "66666666-6666-6666-6666-666666666666"
+    error_message = "The app's identity gets only Cognitive Services OpenAI User on the account."
+  }
+
+  assert {
+    condition = alltrue([for want in [
+      "NERDIO_MODEL_PROVIDER=azure-openai",
+      "NERDIO_CLOUD=usgovernment",
+      "AZURE_AUTHORITY_HOST=https://login.microsoftonline.us",
+      "NERDIO_AOAI_ENDPOINT=https://oai-nme-assistant-abc123.openai.azure.us/",
+      "NERDIO_AOAI_TOKEN_SCOPE=https://cognitiveservices.azure.us/.default",
+      "NERDIO_MODEL=chat",
+    ] : contains([for e in azurerm_container_app.this.template[0].container[0].env : "${e.name}=${e.value}"], want)])
+    error_message = "The app must get the Government endpoint, token scope, authority and deployment name."
+  }
+
+  assert {
+    condition = !anytrue([for e in azurerm_container_app.this.template[0].container[0].env :
+    startswith(e.name, "ANTHROPIC_") || e.name == "AZURE_OPENAI_API_KEY" || e.name == "NERDIO_AOAI_REASONING_EFFORT"])
+    error_message = "No key, no Claude settings, and no reasoning effort for a non-reasoning model."
+  }
+
+  assert {
+    condition     = azapi_resource.auth.body.properties.identityProviders.azureActiveDirectory.registration.openIdIssuer == "https://login.microsoftonline.us/00000000-0000-0000-0000-000000000000/v2.0"
+    error_message = "In Azure Government the sign-in issuer must be login.microsoftonline.us/<tenant>/v2.0."
+  }
+}
+
+run "usgovernment_refuses_claude" {
+  command = plan
+
+  variables {
+    cloud          = "usgovernment"
+    location       = "usgovvirginia"
+    model_provider = "claude-api"
+  }
+
+  expect_failures = [var.model_provider]
+}
+
+run "usgovernment_needs_a_government_region" {
   command = plan
 
   variables {
     cloud = "usgovernment"
   }
 
-  expect_failures = [check.claude_in_government]
+  expect_failures = [var.azure_openai]
+}
 
-  assert {
-    condition     = output.claude_federation.issuer_url == "https://login.microsoftonline.us/00000000-0000-0000-0000-000000000000/v2.0"
-    error_message = "In Azure Government the issuer must be login.microsoftonline.us/<tenant>/v2.0."
+run "usgovernment_refuses_global_deployments" {
+  command = plan
+
+  variables {
+    cloud        = "usgovernment"
+    location     = "usgovvirginia"
+    azure_openai = { sku_name = "GlobalStandard" }
+  }
+
+  expect_failures = [var.azure_openai]
+}
+
+run "azure_openai_reasoning_model" {
+  command = apply
+
+  variables {
+    cloud        = "usgovernment"
+    location     = "usgovarizona"
+    azure_openai = { model_name = "o3-mini", model_version = "2025-01-31", sku_name = "DataZoneStandard", reasoning_effort = "medium" }
   }
 
   assert {
-    condition = anytrue([for e in azurerm_container_app.this.template[0].container[0].env :
-    e.name == "NERDIO_CLOUD" && e.value == "usgovernment"])
-    error_message = "The app must be told which cloud it runs in (NERDIO_CLOUD)."
+    condition = contains([for e in azurerm_container_app.this.template[0].container[0].env : "${e.name}=${e.value}"],
+    "NERDIO_AOAI_REASONING_EFFORT=medium")
+    error_message = "A reasoning model's effort should reach the app."
+  }
+}
+
+# Commercial behavior doesn't change: no Azure OpenAI unless asked for.
+run "commercial_creates_no_azure_openai" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_cognitive_account.openai) == 0 && length(azurerm_role_assignment.app_uses_openai) == 0 && output.model_provider == "claude-api"
+    error_message = "Commercial Azure keeps the Claude API and creates no Azure OpenAI account."
   }
 }

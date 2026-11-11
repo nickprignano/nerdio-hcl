@@ -23,6 +23,7 @@ module "assistant" {
   model_provider        = var.model_provider
   foundry               = var.model_provider == "foundry" ? var.foundry : null
   claude_api            = var.claude_api
+  azure_openai          = var.azure_openai
   effort                = var.effort
   kit_repo_url          = var.kit_repo_url
   pipeline              = var.pipeline

@@ -406,6 +406,56 @@ class AssistantPipelineLinkTests(unittest.TestCase):
                 assistant_tfvars.unlink(missing_ok=True)
 
 
+class AssistantGovernmentTests(unittest.TestCase):
+    """Decision 0036: in Azure Government the chat uses Azure OpenAI in the tenant, never Claude."""
+
+    def setUp(self):
+        self.tfvars = engine.ROOT / "environments" / "example" / "00-assistant" / "assistant.auto.tfvars.json"
+        self.backup = self.tfvars.read_bytes() if self.tfvars.exists() else None
+
+    def tearDown(self):
+        if self.backup is not None:
+            self.tfvars.write_bytes(self.backup)
+        else:
+            self.tfvars.unlink(missing_ok=True)
+
+    def run_assistant(self, *flags, saved=None):
+        if saved is not None:
+            self.tfvars.write_text(json.dumps(saved), encoding="utf-8")
+        else:
+            self.tfvars.unlink(missing_ok=True)
+        calls = []
+        with mock.patch.object(nerdio, "check_profile", return_value=True), \
+             mock.patch.object(nerdio.engine, "read_sources", return_value=SOURCES), \
+             mock.patch.object(nerdio.engine, "read_cloud", return_value="usgovernment"), \
+             mock.patch.object(nerdio, "_terraform", side_effect=lambda stage, *a: calls.append(a) or 0), \
+             mock.patch.object(nerdio, "_tf_output", return_value=None), \
+             redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+            code = nerdio.main(["assistant", "--admin-group", "AVD Admins", *flags])
+        written = json.loads(self.tfvars.read_text(encoding="utf-8")) if self.tfvars.exists() else {}
+        return code, written, calls, err.getvalue()
+
+    def test_defaults_to_a_government_region_and_no_claude_provider(self):
+        code, written, calls, _ = self.run_assistant("--plan", saved={"location": "eastus2", "model_provider": "claude-api"})
+        self.assertEqual(code, 0)
+        self.assertEqual(written["cloud"], "usgovernment")
+        self.assertEqual(written["location"], "usgovvirginia")
+        self.assertNotIn("model_provider", written)
+        self.assertIn(("plan", "-input=false"), calls)
+
+    def test_keeps_a_chosen_government_region(self):
+        code, written, _, _ = self.run_assistant("--plan", "--location", "usgovarizona")
+        self.assertEqual(code, 0)
+        self.assertEqual(written["location"], "usgovarizona")
+
+    def test_refuses_claude_in_government(self):
+        for flags in (("--model-provider", "claude-api"), ("--model-provider", "foundry"), ("--connect-claude",)):
+            code, _, calls, err = self.run_assistant(*flags)
+            self.assertEqual(code, 1, flags)
+            self.assertEqual(calls, [], flags)
+            self.assertIn("Government", err)
+
+
 class MigrateTests(unittest.TestCase):
     def test_upgrade_platform_and_config_tfvars(self):
         import migrate
