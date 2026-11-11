@@ -81,11 +81,11 @@ Ordered by what blocks a Government deployment first.
    filler (already cloud-aware). Upstream ask: expose a token URL or cloud setting. Add it to the
    [upstream asks](knowledge/nerdio/upstream-contributions.md); nothing goes to Nerdio until the
    owner says so.
-2. **The chat has no Claude inside Government.** Options for the owner to choose between (open
-   question, see the decision): keep the chat in a commercial tenant and drive a Government
-   deployment only through the GitHub pipeline with no tenant data in prompts; offer an Azure
-   OpenAI model provider in Government; or set up Government tenants without the chat
-   (`./nerdio init` plus the pipeline). Until then the kit warns and the chat stays commercial.
+2. **The chat has no Claude inside Government.** The owner decided (2026-11-11) that in a
+   Government deployment everything runs inside the Government tenant, so a chat hosted in a
+   commercial tenant is ruled out. What's left: give the chat an Azure OpenAI model provider in
+   Government, or set up Government tenants without the chat (`./nerdio init` plus the
+   pipeline). Until one is built the kit warns and the chat can't serve a Government tenant.
 3. **No Government test bed.** Azure Government needs an eligibility-validated subscription.
    Every "supported" row above is from documentation, not a run.
 4. **Terraform's own GitHub OIDC audience.** `azure/login` now asks for the Government audience,
@@ -104,6 +104,12 @@ Ordered by what blocks a Government deployment first.
 8. **DoD (IL5)** isn't modeled: `cloud` accepts only `public` and `usgovernment`.
 9. **Nerdio licensing** in Government needs a commercial or partner tenant for billing. That's a
    procurement step for the tenant owner, not something the kit automates.
+10. **Pipeline runners and state inside the tenant.** The same rule means GitHub-hosted runners
+    (`runner_labels` defaults to `ubuntu-latest`) shouldn't run Government plans and applies.
+    Use the VNet runner (`modules/vnet-runner`) in the Government subscription, which depends on
+    gap 6, and keep Terraform state in a Government storage account (already the case when
+    `00-pipeline` runs there). The code and plan comments still live on GitHub; plan output must
+    stay free of tenant data, as it already must for public repos.
 
 ## Plan
 
@@ -117,6 +123,8 @@ Directional, after the current 90-day window ([roadmap](knowledge/stack-options.
    status, and `./nerdio preflight` against the tenant. Plan only; the tenant owner applies.
 3. **Nerdio:** draft the provider token-URL ask and ask Nerdio whether its AI features and a
    Terraform-built install are supported in Government. Hold until the owner approves sending.
-4. **Chat in Government:** owner picks an option from gap 2; record it as a new decision.
+4. **Chat in Government:** everything stays in the Government tenant (owner, 2026-11-11).
+   Choose between an Azure OpenAI provider for the chat and no chat there; record it as a new
+   decision.
 5. **After that:** Intune and Windows 365 in GCC High (the `microsoft365` provider supports GCC
    High and DoD), and DoD only if Nerdio supports it.
