@@ -52,3 +52,21 @@ jobs:
               gh issue close "$num" --comment "Superseded by $new_url (no items were ticked)."
             fi
           done
+      # Runs every week, even when nothing new was found. A digest with ticked items that never got
+      # the kb-accepted label would otherwise stay open forever. kb-accepted ones are left alone:
+      # their kb-feedback pull request closes them when it merges.
+      - name: Close stale digests that were never accepted
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STALE_DAYS: "28"
+        run: |
+          cutoff=$(date -u -d "$STALE_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
+          gh issue list --label kb-digest --state open --limit 100 --json number,createdAt,labels \
+            | jq -r --arg cutoff "$cutoff" \
+                '.[] | select(.createdAt < $cutoff) | select([.labels[].name] | index("kb-accepted") | not) | .number' \
+            | while read -r num; do
+                if [ -n "$num" ]; then
+                  gh issue close "$num" --reason "not planned" --comment "Closed after $STALE_DAYS days without the kb-accepted label. To keep the ticked items, reopen this issue and add kb-accepted."
+                fi
+              done

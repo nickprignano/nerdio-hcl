@@ -35,7 +35,9 @@ Working a digest: tick (`- [x]`) the items worth keeping on the `kb-digest` issu
 **kb-accepted** label. [`kb-feedback.yml`](../../.github/workflows/kb-feedback.yml) parses the
 ticked items, adds them to their target KB pages (and updates `last_reviewed`), validates the KB,
 and opens a pull request that closes the digest issue. Any older open `kb-digest` issue with no
-ticked items is automatically closed as superseded when the next Monday digest opens. You can also
+ticked items is automatically closed as superseded when the next Monday digest opens. Any open
+digest older than 28 days without **kb-accepted** (ticked or not) is closed on the next Monday run;
+reopen it and add the label to keep its ticked items. You can also
 curate items into a topic page by hand in a pull request.
 
 To watch something else, add a `[[source]]` table to [sources.toml](sources.toml). Supported
