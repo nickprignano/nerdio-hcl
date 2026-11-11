@@ -166,3 +166,34 @@ errors:
   status: verified
   added: '2026-11-09'
 
+- id: arm-mcp-claude-connector-redirect-trailing-slash
+  symptom: '`AADSTS50011: The redirect URI ''https://claude.ai/api/mcp/auth_callback'' specified in the request does not match the redirect URIs configured for the application` when connecting the ARM MCP server as a claude.ai custom connector'
+  cause: 'Microsoft''s client set-up guide shows the redirect URI with a trailing slash; Claude sends it without one'
+  fix: 'Register both `https://claude.ai/api/mcp/auth_callback` and `https://claude.ai/api/mcp/auth_callback/` as Web redirect URIs on the connector''s app registration (`az ad app update --id <client-id> --web-redirect-uris <both>`), then Connect again'
+  source: https://learn.microsoft.com/azure/azure-resource-manager/management/azure-resource-manager-mcp-other-clients
+  applies_to: ARM MCP server preview, 2026-11
+  status: verified
+  added: '2026-11-11'
+- id: cloud-shell-opens-in-powershell
+  symptom: '`The term ''VAR=value'' is not recognized as a name of a cmdlet` or `ParserError: Missing expression after unary operator ''--''` when pasting the kit''s Bash steps'
+  cause: 'Cloud Shell opened a PowerShell session; the kit''s steps are Bash, so variable assignments, `$(...)` and `\` line continuations fail before reaching Azure'
+  fix: 'Type `bash` first (the prompt changes from `PS ...>` to one ending in `$`), then paste again; switch the default in Cloud Shell''s settings to keep it'
+  source: https://learn.microsoft.com/azure/cloud-shell/overview
+  status: verified
+  added: '2026-11-11'
+- id: azure-mcp-read-only-still-exposes-secret-reads
+  symptom: '`azmcp server start --read-only` still offers `keyvault secret get`, App Service app settings and `insights` tools'
+  cause: '`--read-only` filters by the ReadOnly tool annotation only; those tools are reads annotated Secret, or use MCP sampling over tenant data'
+  fix: 'Also pass an explicit `--namespace` allowlist that leaves out `keyvault`, `appservice` and `insights` (never `--tool`, which bypasses it); the kit''s `.mcp.json` does this and `scripts/mcp/test_mcp_config.py` guards it'
+  source: decisions/0031-ai-tools-read-only-by-default.md
+  applies_to: '@azure/mcp 3.0.0'
+  status: verified
+  added: '2026-11-11'
+- id: azure-mcp-npm-latest-is-beta
+  symptom: '`npx -y @azure/mcp@latest` starts a 4.0.0 beta'
+  cause: 'The npm `latest` dist-tag of `@azure/mcp` pointed at a prerelease (4.0.0-beta.6 on 2026-11-10)'
+  fix: 'Pin an exact stable version (`@azure/mcp@3.0.0`) and bump it by PR after reading the release notes'
+  source: decisions/0031-ai-tools-read-only-by-default.md
+  applies_to: '@azure/mcp npm package, 2026-11'
+  status: verified
+  added: '2026-11-11'
