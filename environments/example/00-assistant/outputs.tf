@@ -12,3 +12,8 @@ output "claude_federation" {
   description = "What the Claude API federation rule matches (not secrets). ./nerdio assistant --connect-claude reads it."
   value       = module.assistant.claude_federation
 }
+
+output "model_provider" {
+  description = "Which model the chat uses: claude-api, foundry or azure-openai (the default in Azure Government)."
+  value       = module.assistant.model_provider
+}

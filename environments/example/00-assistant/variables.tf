@@ -39,12 +39,30 @@ variable "image" {
 
 variable "model_provider" {
   description = <<-EOT
-    Where the chat gets Claude: "claude-api" (the Claude API through workload identity federation,
-    the main path) or "foundry" (Claude on Microsoft Foundry, if Microsoft grants you quota).
-    ./nerdio assistant --model-provider sets it.
+    Where the chat gets its model. Unset picks by cloud: "claude-api" (the Claude API through
+    workload identity federation) in commercial Azure, "azure-openai" (Azure OpenAI in this tenant,
+    decision 0036) in Azure Government. "foundry" is Claude on Microsoft Foundry, if Microsoft
+    grants you quota. ./nerdio assistant --model-provider sets it.
   EOT
   type        = string
-  default     = "claude-api"
+  default     = null
+}
+
+variable "azure_openai" {
+  description = "Azure OpenAI for model_provider = \"azure-openai\", the default in Azure Government (see modules/assistant)."
+  type = object({
+    location          = optional(string)
+    create_deployment = optional(bool, true)
+    deployment_name   = optional(string, "chat")
+    model_name        = optional(string, "gpt-4.1")
+    model_version     = optional(string, "2025-04-14")
+    sku_name          = optional(string, "Standard")
+    capacity          = optional(number, 50)
+    api_version       = optional(string, "2024-10-21")
+    reasoning_effort  = optional(string)
+  })
+  default  = {}
+  nullable = false
 }
 
 variable "effort" {

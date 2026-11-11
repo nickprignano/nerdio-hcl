@@ -7,7 +7,7 @@
 # made once by `./nerdio assistant --connect-claude`, which reads the claude_federation output.
 
 locals {
-  use_claude_api = var.model_provider == "claude-api"
+  use_claude_api = local.model_provider == "claude-api"
   # The token's aud claim is the audience app's client ID (v2.0 tokens); the app asks for api://<id>.
   claude_audience = local.use_claude_api ? azuread_application.claude_audience[0].client_id : null
   claude_api_env = local.use_claude_api ? {

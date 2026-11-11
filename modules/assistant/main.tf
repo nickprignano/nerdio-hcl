@@ -14,7 +14,8 @@ resource "azurerm_user_assigned_identity" "app" {
   tags                = var.tags
 }
 
-# --- Which Claude: Microsoft Foundry, or the Claude API (claude_api.tf) ------------------
+# --- Which model: the Claude API (claude_api.tf), Microsoft Foundry, or Azure OpenAI ------
+# (azure_openai.tf, the default in Azure Government, decision 0036)
 
 locals {
   # Entra sign-in host for this cloud (decision 0034). It sets the Easy Auth issuer and the issuer
@@ -25,14 +26,16 @@ locals {
   }[var.cloud]
   entra_issuer = "${local.login_endpoint}/${var.tenant_id}/v2.0"
 
-  use_foundry = var.model_provider == "foundry"
+  # Unset: the Claude API in commercial Azure (decision 0020), Azure OpenAI in Government (0036).
+  model_provider = coalesce(var.model_provider, var.cloud == "public" ? "claude-api" : "azure-openai")
+  use_foundry    = local.model_provider == "foundry"
   model_env = local.use_foundry ? {
     NERDIO_FOUNDRY_RESOURCE = azurerm_cognitive_account.foundry[0].custom_subdomain_name
     NERDIO_MODEL            = var.foundry.deployment_name
-  } : local.claude_api_env
+  } : local.use_azure_openai ? local.azure_openai_env : local.claude_api_env
 }
 
-# Also names the GitHub key vault (pipeline.tf), so it stays whichever Claude is used.
+# Also names the GitHub key vault (pipeline.tf) and the Azure OpenAI account, so it stays whichever model is used.
 resource "random_string" "foundry" {
   length  = 6
   special = false
@@ -147,7 +150,7 @@ resource "azurerm_container_app" "this" {
       }
       env {
         name  = "NERDIO_MODEL_PROVIDER"
-        value = var.model_provider
+        value = local.model_provider
       }
       dynamic "env" {
         for_each = local.model_env
@@ -181,7 +184,8 @@ resource "azurerm_container_app" "this" {
   }
 
   # The model access must exist before the first revision starts taking chats.
-  depends_on = [azurerm_role_assignment.app_uses_model, azuread_service_principal.claude_audience]
+  depends_on = [azurerm_role_assignment.app_uses_model, azurerm_role_assignment.app_uses_openai,
+  azuread_service_principal.claude_audience, azurerm_cognitive_deployment.openai]
 }
 
 # --- Sign-in: Entra ID, admin group only -------------------------------------------------
@@ -257,14 +261,8 @@ resource "azapi_resource" "auth" {
   }
 }
 
-# Claude isn't documented as available inside Azure Government: Microsoft lists no Claude models
-# in Foundry there, and Anthropic's federation guide covers only login.microsoftonline.com
-# issuers. Both paths would also send prompts outside the Government boundary. Plan and apply
-# still work; this warns so nobody turns it on in a GCC High tenant by accident. See
+# Decision 0036: a Government deployment keeps everything in the Government tenant. Neither Claude
+# path is offered there and both would send prompts outside the Government boundary, so
+# var.model_provider refuses them when cloud = "usgovernment" and the chat uses Azure OpenAI in a
+# Government region instead. Nothing has been tested in a Government subscription yet; see
 # docs/government.md.
-check "claude_in_government" {
-  assert {
-    condition     = var.cloud == "public"
-    error_message = "cloud is usgovernment: neither Claude path (Claude API or Foundry) is documented for Azure Government, and both would leave the Government boundary. A Government deployment keeps everything in the Government tenant, so set up with ./nerdio init and the pipeline until the chat's Azure OpenAI provider for Government lands. See docs/government.md."
-  }
-}

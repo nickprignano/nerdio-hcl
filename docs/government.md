@@ -4,8 +4,10 @@
 with one setting, `cloud = "usgovernment"` (the default stays `public`), and the Azure side of
 the deployment (stages `00-pipeline` and `01-platform`, Packer and the readiness engine) follows
 it. Two pieces still don't work there: stage `02-nerdio-config`, because the `nerdio/nme`
-provider can only sign in to the commercial cloud, and the setup chat, because Claude isn't
-offered inside Azure Government. Nothing has been tested in a Government subscription yet.
+provider can only sign in to the commercial cloud. The setup chat uses Azure OpenAI in the
+Government tenant there, because Claude isn't offered inside Azure Government
+([decision 0036](knowledge/decisions/0036-azure-openai-chat-in-government.md)). Nothing has been
+tested in a Government subscription yet.
 [Decision 0034](knowledge/decisions/0034-azure-government-cloud-parameter.md) records the choice.
 
 Which cloud is which:
@@ -30,7 +32,9 @@ Nothing here deploys anything; it only changes what a plan targets.
 2. `./nerdio init`: answer `usgovernment` to the cloud question. It writes `cloud` into the
    platform stage, and 01-platform's `nerdio_config_inputs` output carries it on to stage 02.
 3. `scripts/pipeline/bootstrap.sh` and `./nerdio assistant` read the cloud from `az cloud show`
-   (or `ARM_ENVIRONMENT`) and write it into their own tfvars.
+   (or `ARM_ENVIRONMENT`) and write it into their own tfvars. In Government, `./nerdio assistant`
+   puts the chat in `usgovvirginia` unless you pass `--location usgovarizona`, and deploys it with
+   Azure OpenAI in the same region ([assistant.md](assistant.md#azure-openai-in-azure-government)).
 4. The pipeline stage sets `NERDIO_CLOUD` on both GitHub environments. The workflows read it to
    pick `azure/login`'s cloud and token audience, and Packer's `cloud_environment_name`.
 
@@ -45,11 +49,12 @@ Nothing here deploys anything; it only changes what a plan targets.
 | OpenBao VM DNS name | `*.cloudapp.usgovcloudapi.net` | Azure Government DNS suffix |
 | GitHub OIDC federation (`modules/deploy-pipeline`, workflows) | Audience `api://AzureADTokenExchangeUSGov`; `azure/login` `environment: azureusgovernment` | [Configure an app to trust a managed identity](https://learn.microsoft.com/entra/workload-id/workload-identity-federation-config-app-trust-managed-identity) lists the audience per cloud |
 | Stage 02 REST gap filler | Token endpoint `login.microsoftonline.us` | [Entra national cloud endpoints](https://learn.microsoft.com/entra/identity-platform/authentication-national-cloud) |
-| Chat (`modules/assistant`) | Easy Auth issuer and Claude federation issuer on `login.microsoftonline.us`; `AZURE_AUTHORITY_HOST`; Government blob and Key Vault hosts in `assistant/pipeline.py` | [Container Apps Entra auth](https://learn.microsoft.com/azure/container-apps/authentication-entra), [Storage with Entra ID](https://learn.microsoft.com/azure/storage/blobs/authorize-access-azure-active-directory) |
+| Chat (`modules/assistant`) | Easy Auth issuer on `login.microsoftonline.us`; `AZURE_AUTHORITY_HOST`; Government blob and Key Vault hosts in `assistant/pipeline.py`; model from Azure OpenAI in the tenant (`*.openai.azure.us`, token scope `cognitiveservices.azure.us`) instead of Claude, decision 0036 | [Container Apps Entra auth](https://learn.microsoft.com/azure/container-apps/authentication-entra), [Storage with Entra ID](https://learn.microsoft.com/azure/storage/blobs/authorize-access-azure-active-directory), [Azure Government developer guide](https://learn.microsoft.com/azure/azure-government/compare-azure-government-global-azure#guidance-for-developers) |
 | Packer | `cloud_environment_name = "USGovernment"` | Packer Azure plugin docs |
 
-Two `check` blocks warn (they don't block a plan) when `cloud` isn't `public`: one in stage 02
-for the `nerdio/nme` provider, one in `modules/assistant` for Claude.
+A `check` block in stage 02 warns (it doesn't block a plan) when `cloud` isn't `public`, for the
+`nerdio/nme` provider. In `modules/assistant`, choosing a Claude provider in Government fails
+validation: the chat uses Azure OpenAI there (decision 0036).
 
 ## What each dependency does in Azure Government
 
@@ -65,6 +70,7 @@ Public documentation only, read on 2026-11-10. "Unknown" means no public source 
 | **Azure Virtual Desktop** | Available; endpoints `*.wvd.azure.us` and `login.microsoftonline.us`; RDP Shortpath over TURN in preview; AVD on Azure Local in preview with no portal provisioning ([required FQDNs](https://learn.microsoft.com/azure/virtual-desktop/required-fqdn-endpoint), [what's new](https://learn.microsoft.com/azure/virtual-desktop/whats-new)) | Supported |
 | App Service, Key Vault, SQL, Automation, Log Analytics, Functions | GA at FedRAMP High and DoD IL4/IL5 ([Government GA roadmap](https://learn.microsoft.com/azure/azure-government/documentation-government-product-roadmap)). App Service managed certificates and App Service Domains aren't available ([comparison](https://learn.microsoft.com/azure/azure-government/compare-azure-government-global-azure#web)); the kit uses neither | Supported |
 | **Container Apps** (the chat's host) | Public preview in US Gov Virginia was announced in July 2024; not on the Government GA roadmap pages read; Container Apps private endpoints are listed for public regions only ([Private Link availability](https://learn.microsoft.com/azure/private-link/availability)) | **Unknown** whether GA |
+| **Azure OpenAI** for the chat | US Gov Arizona and Virginia; `gpt-4.1` (2025-04-14) on regional Standard in both, plus Data Zone Standard within Azure Government for newer models ([Azure OpenAI in Government](https://learn.microsoft.com/azure/ai-foundry/openai/azure-government)); FedRAMP High and DoD IL2 to IL6 audit scope ([compliance scope](https://learn.microsoft.com/azure/azure-government/compliance/azure-services-in-fedramp-auditscope#azure-government-services-by-audit-scope)) | Supported by Microsoft; the kit's use **untested** |
 | **Claude** for the chat | Microsoft states Claude models aren't available to GCC High or DoD customers in Microsoft 365 ([AI subprocessors](https://learn.microsoft.com/copilot/implement/connect-to-ai-subprocessor#opt-in-regions-and-exclusions)); Foundry's Claude pages list no Government regions ([Claude in Foundry](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/claude-models)). The Claude API's federation guide documents only the commercial Entra issuer ([Anthropic: WIF with Entra](https://platform.claude.com/docs/en/manage-claude/wif-providers/azure)). Either path would send prompts outside the Government boundary | **Not available** inside Government |
 | Workload identity federation (GitHub OIDC) | Supported; the audience is `api://AzureADTokenExchangeUSGov` | Supported (now parameterized) |
 | Microsoft Graph and Entra | GCC High: `graph.microsoft.us`, `login.microsoftonline.us`; DoD: `dod-graph.microsoft.us`. Tokens aren't interchangeable across clouds. B2B collaboration has limits; MFA trusted IPs aren't supported ([Graph national clouds](https://learn.microsoft.com/graph/deployments), [comparison: identity](https://learn.microsoft.com/azure/azure-government/compare-azure-government-global-azure#identity)) | Supported (providers handle it) |
@@ -81,12 +87,11 @@ Ordered by what blocks a Government deployment first.
    filler (already cloud-aware). Upstream ask: expose a token URL or cloud setting. Add it to the
    [upstream asks](knowledge/nerdio/upstream-contributions.md); nothing goes to Nerdio until the
    owner says so.
-2. **The chat has no Claude inside Government.** The owner decided (2026-11-11) that in a
-   Government deployment everything runs inside the Government tenant, so a chat hosted in a
-   commercial tenant is ruled out. The owner then chose (2026-11-11) to give the chat an Azure
-   OpenAI model provider in a Government region, inside the tenant; that's a separate build with
-   its own decision. Until it lands the kit warns, and Government setups use `./nerdio init`
-   plus the pipeline.
+2. **The chat has no Claude inside Government.** Decided
+   ([0036](knowledge/decisions/0036-azure-openai-chat-in-government.md)): the chat uses Azure
+   OpenAI in the Government tenant and a Government region, keyless. Built; still to check in the
+   spike: the model's tool use with the kit's prompt, quota for the default model, and the
+   `2024-10-21` API version in Government.
 3. **No Government test bed.** Azure Government needs an eligibility-validated subscription.
    Every "supported" row above is from documentation, not a run.
 4. **Terraform's own GitHub OIDC audience.** `azure/login` now asks for the Government audience,
@@ -99,13 +104,14 @@ Ordered by what blocks a Government deployment first.
 6. **Container Apps GA status** in Government, for the chat and the VNet runner
    (`modules/vnet-runner`).
 7. **Small hard-codes left on purpose:** `assistant/agent.py` asks for the commercial Foundry
-   scope (Foundry has no Claude in Government anyway), `scripts/nerdio/profiles.py` links to
+   scope (Foundry has no Claude in Government, and the chat refuses Foundry there), `scripts/nerdio/profiles.py` links to
    `shell.azure.com`, and `modules/network` uses the `AzureCloud` service tag (its name is the
    same in Government).
 8. **DoD (IL5)** isn't modeled: `cloud` accepts only `public` and `usgovernment`.
 9. **Nerdio licensing** in Government needs a commercial or partner tenant for billing. That's a
    procurement step for the tenant owner, not something the kit automates.
-10. **Pipeline runners and state inside the tenant.** The same rule means GitHub-hosted runners
+10. **Pipeline runners and state inside the tenant.** The owner's rule (2026-11-11) that a Government
+    deployment stays inside the Government tenant also means GitHub-hosted runners
     (`runner_labels` defaults to `ubuntu-latest`) shouldn't run Government plans and applies.
     Use the VNet runner (`modules/vnet-runner`) in the Government subscription, which depends on
     gap 6, and keep Terraform state in a Government storage account (already the case when
@@ -121,11 +127,10 @@ Directional, after the current 90-day window ([roadmap](knowledge/stack-options.
    clouds.
 2. **Government spike** (needs a Government subscription; owner's call): Cloud Shell from
    `portal.azure.us` on an iPad, `00-pipeline` and `01-platform` plans, gap 4, Container Apps
-   status, and `./nerdio preflight` against the tenant. Plan only; the tenant owner applies.
+   status, a `./nerdio assistant --plan` with Azure OpenAI and one chat turn, and
+   `./nerdio preflight` against the tenant. Plan only; the tenant owner applies.
 3. **Nerdio:** draft the provider token-URL ask and ask Nerdio whether its AI features and a
    Terraform-built install are supported in Government. Hold until the owner approves sending.
-4. **Chat in Government:** everything stays in the Government tenant (owner, 2026-11-11).
-   The chat gets an Azure OpenAI provider in a Government region (owner, 2026-11-11), built
-   in its own change with its own decision.
+4. **Chat in Government:** done in code (decision 0036, Azure OpenAI in the tenant); verify in the spike.
 5. **After that:** Intune and Windows 365 in GCC High (the `microsoft365` provider supports GCC
    High and DoD), and DoD only if Nerdio supports it.

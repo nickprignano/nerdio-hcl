@@ -197,3 +197,11 @@ errors:
   applies_to: '@azure/mcp npm package, 2026-11'
   status: verified
   added: '2026-11-11'
+- id: tftest-list-attribute-vs-tuple-literal
+  symptom: '`terraform test` assertion fails although the plan shows the expected value, e.g. `audience == ["api://AzureADTokenExchangeUSGov"]` on `azurerm_federated_identity_credential`'
+  cause: 'A list-typed resource attribute and a tuple literal are different types, so `==` is false even when the elements match'
+  fix: 'Compare elements instead: `one(r.audience) == "..."` for a single-item list, or `tolist([...])` on the literal; wrap `for_each` resources in `alltrue([for r in resource.this : ...])`'
+  source: terraform/testing-and-ci.md#terraform-test
+  applies_to: Terraform 1.x
+  status: verified
+  added: '2026-11-11'

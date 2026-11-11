@@ -40,4 +40,5 @@ marked *Superseded by NNNN*.
 | [0033](0033-ci-cd-reusable-stage-pr-plans-drift.md) | CI/CD: one reusable stage workflow, plans on pull requests, daily drift check, Bicep stage | Proposed |
 | [0034](0034-azure-government-cloud-parameter.md) | One `cloud` setting, default commercial, for Azure Government (GCC High) | Proposed |
 | [0035](0035-rename-repository-to-nme-automation.md) | Rename the repository to nme-automation, in place, keeping GitHub's redirect | Proposed |
+| [0036](0036-azure-openai-chat-in-government.md) | In Azure Government the setup chat uses Azure OpenAI in the same tenant | Proposed |
 <!-- END GENERATED: decision-index -->
