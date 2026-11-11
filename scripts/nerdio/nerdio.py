@@ -398,6 +398,8 @@ def cmd_preflight(args) -> int:
     if args.regions is not None:
         return scan_regions(resolved.values, args.regions, args.json)
     resolved.values.update(extras, _env=args.env)
+    if resolved.values.get("nerdio_ai") and "ai" not in features:
+        features = features + ["ai"]  # the answer to the Copilot question adds its checks
     ctx, results, started = readiness_main.evaluate(
         resolved.values, az=engine.az_json, stage=args.stage, features=features, only=only, skip=skip,
         show_names=args.names, nerdio_data=args.nerdio_data)

@@ -424,6 +424,14 @@ class PreInstallAdditionTests(unittest.TestCase):
         self.assertEqual(statuses(none, "ai.quota"), ["fail"])
         self.assertEqual(statuses(ids(features=["ai"]), "ai.models"), ["skipped"])
 
+    def test_copilot_deployed_is_manual_until_nerdio_turns_it_on(self):
+        vals = values(nerdio_ai=True, ai_resource_group="rg-example-nerdio-ai")
+        on = ids({("cognitiveservices", "account", "list"): ["OpenAI"]}, vals=vals, features=["ai"], stage="post-wizard")
+        self.assertEqual(statuses(on, "ai.copilot"), ["pass"])
+        off = ids({("cognitiveservices", "account", "list"): []}, vals=vals, features=["ai"], stage="post-wizard")
+        self.assertEqual(statuses(off, "ai.copilot"), ["manual"])
+        self.assertIn("Nerdio Manager Copilot", off["ai.copilot"][0].fix)
+
 
 class RegistryContractTests(unittest.TestCase):
     def test_every_check_has_needs_kb_source_and_never_writes(self):
@@ -679,6 +687,19 @@ class CliTests(unittest.TestCase):
         doc = json.loads(out)
         self.assertEqual(doc["schema"], SCHEMA_ID)
         self.assertEqual(code, report.exit_code(doc["verdict"], [Result(**r) for r in doc["results"]], strict=True))
+
+    def test_copilot_answer_adds_the_ai_checks(self):
+        def run(answers):
+            with mock.patch.object(nerdio, "check_profile", return_value=True), \
+                 mock.patch.object(engine, "load_answers", return_value=answers), \
+                 mock.patch.object(engine, "az_json", side_effect=fake_az()), \
+                 mock.patch("readiness.context.shutil.which", side_effect=TOOLS["which"]), \
+                 mock.patch("readiness.context.tool_version", side_effect=TOOLS["run_tool"]):
+                _, out = self.cli("preflight", "--json")
+            return {r["id"] for r in json.loads(out)["results"]}
+
+        self.assertFalse(any(i.startswith("ai.") for i in run({"_random4": "ab12"})))
+        self.assertTrue(any(i.startswith("ai.") for i in run({"_random4": "ab12", "nerdio_ai": True})))
 
 
 if __name__ == "__main__":

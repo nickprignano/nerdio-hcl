@@ -3,7 +3,7 @@ title: "Nerdio Manager's AI features"
 summary: "Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat"
 topic: nerdio
 status: verified
-last_reviewed: 2026-11-10
+last_reviewed: 2026-11-11
 ---
 
 # Nerdio Manager's AI features
@@ -46,9 +46,11 @@ Nerdio Manager has its own AI features. They are separate from the kit's setup c
 
 ## How it fits the kit
 
-- **Not on the setup path.** Nothing in the kit needs Nerdio's AI features, and they don't need
-  the kit's chat. Leave them off by default; a tenant that wants them turns Copilot on after the
-  wizard, with its own Azure OpenAI quota.
+- **Optional, off by default.** Nothing in the kit needs Nerdio's AI features. When the setup
+  answer `nerdio_ai` is yes, the kit creates a resource group for them that Nerdio can deploy into,
+  checks provider, model and quota before the install, and after the wizard reports whether Copilot
+  is on (`ai.copilot`); a Nerdio admin still turns it on in the console, since there's no API
+  ([docs/ai.md](../../ai.md), build plan step 4).
 - **The MCP connector is the interesting one.** Read-only live data is exactly what the chat's
   *verify* and *handover* phases lack (chatbot-first inventory, step 20): the chat could confirm
   the workspace, host pools and profiles exist as planned. Open questions before building on it:

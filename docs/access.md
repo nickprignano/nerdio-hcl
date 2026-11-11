@@ -32,6 +32,7 @@ Two kinds of access:
 | Approve an apply | A named GitHub reviewer | None | None | Per run, in GitHub |
 | Apply GitHub settings (`./github/settings.sh apply`) | The repository owner | None | None. On GitHub: a fine-grained token for this repository only with *Administration: read and write*, *Issues: read and write* (labels) and *Metadata: read* | One day; revoke it after the apply ([github/](../github/README.md)) |
 | Nerdio first-run wizard | Nerdio admin | None beyond what Nerdio asks for | Sign-in only | Once |
+| Turn on Nerdio Copilot (optional, `nerdio_ai`) | Nerdio admin, in Nerdio's console | None of your own: Nerdio deploys Azure OpenAI into the kit's AI resource group with its own rights. Azure OpenAI quota for the model | Sign-in only | Once, after the wizard |
 
 Portal note: when you give someone Owner or Role Based Access Control Administrator, Azure offers
 a condition. Its recommended choice ("all roles except privileged administrator roles") blocks
@@ -51,7 +52,7 @@ it after.
 | Setup chat on the Claude side (service account) | `--connect-claude` | None | None. In Anthropic: *developer* organization role, *user* in its own workspace, and a federation rule that accepts only the chat's managed identity (object ID, tenant, audience) and mints 10-minute `workspace:inference` tokens | While someone is chatting |
 | Settings reader (GitHub App) | The owner, once ([github/](../github/README.md)) | None | None. On GitHub: *Administration: read* (security settings, Dependabot, workflow token), *Issues: read* (labels, needed on private repositories) and *Metadata: read*, on this repository only. Its key is a secret of the `github-settings-read` environment, which only `main` can use | The daily drift plan |
 | Chat's GitHub App | `/setup/github`, two clicks | None | None. On GitHub: *Actions: read and write* on this repository only | When the chat starts a plan |
-| Nerdio web app (managed identity) | Platform stage | **Contributor** on the Nerdio resource group and the groups it manages; **Reader** and **Backup Reader** on the subscription; Key Vault roles on its own vault | None | Always: it is Nerdio |
+| Nerdio web app (managed identity) | Platform stage | **Contributor** on the Nerdio resource group and the groups it manages (with `nerdio_ai`, also the AI group Copilot deploys into: Contributor there even when `nerdio_rbac` replaces it elsewhere); **Reader** and **Backup Reader** on the subscription; Key Vault roles on its own vault | None | Always: it is Nerdio |
 | Nerdio Entra app | Platform stage | Key Vault roles on Nerdio's vault | The delegated and application permissions Nerdio documents for its install (`modules/nerdio-identity`), granted by admin consent | Always: it is Nerdio |
 | Automation account (managed identity) | Platform stage | **Website Contributor** on the Nerdio web app | None | Nerdio's app updates |
 
