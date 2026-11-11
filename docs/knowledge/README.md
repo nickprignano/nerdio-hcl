@@ -28,6 +28,7 @@ belongs to instead of starting a new file.
 | [nerdio/ai-features.md](nerdio/ai-features.md) | Copilot, ScriptPro, AnalyticsPro and the MCP connector: what they run on, and how they relate to the kit's setup chat | verified |
 | [nerdio/avd-hybrid.md](nerdio/avd-hybrid.md) | Azure Virtual Desktop Hybrid (on-premises session hosts via Azure Arc): support status, what Nerdio Manager adds on Nutanix AHV, and the minimum viable lab kit and hardware to test it | verified |
 | [nerdio/community-projects.md](nerdio/community-projects.md) | Other Nerdio + Terraform projects worth knowing about | verified |
+| [nerdio/compass.md](nerdio/compass.md) | Nerdio's free SaaS VDI discovery and assessment tool: what it is, its lack of an API or Terraform surface, and how it relates to the kit | verified |
 | [nerdio/entra-app.md](nerdio/entra-app.md) | The nerdio-nmw-app registration, permissions, app roles and the REST API client | verified |
 | [nerdio/platform.md](nerdio/platform.md) | What the Marketplace deployment creates, the install step, setup wizard, roles and hardening | verified |
 | [nerdio/readiness.md](nerdio/readiness.md) | The read-only readiness engine behind ./nerdio preflight: stages, statuses, rights, and how it sits beside Nerdio's own readiness script | verified |
