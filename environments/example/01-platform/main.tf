@@ -135,6 +135,30 @@ locals {
       for role, id in sf.resource_group_ids : "${reg_key}-${role}" => id if contains(["hostpools", "network", "storage"], role)
     }
   ]...)
+  # Groups Nerdio's built-in Contributor covers: the spokes, plus the AI group when Copilot is planned.
+  nerdio_managed_rg_ids = merge(
+    local.all_managed_spoke_rg_ids,
+    var.nerdio_ai == null ? {} : { nerdio-ai = azurerm_resource_group.nerdio_ai[0].id }
+  )
+}
+
+# Optional: a group for Nerdio's AI features. Nerdio itself deploys and removes the Azure OpenAI
+# resources in it when an admin turns Copilot on or off (no API exists for that step).
+resource "azurerm_resource_group" "nerdio_ai" {
+  count    = var.nerdio_ai == null ? 0 : 1
+  name     = var.nerdio_ai.resource_group_name
+  location = var.control_plane_location
+  tags     = merge(var.tags, { "nerdio-kit-role" = "nerdio-ai" })
+}
+
+# With nerdio_rbac's custom role, the AI group gets built-in Contributor instead of widening that
+# role on every spoke: Nerdio's docs don't list what Copilot deploys beyond Azure OpenAI and a Smart
+# Detector alert rule, and the group holds nothing else. Contributor can't assign roles.
+resource "azurerm_role_assignment" "nerdio_ai" {
+  count                = var.nerdio_ai != null && var.nerdio_rbac != null && local.manage_identity ? 1 : 0
+  scope                = azurerm_resource_group.nerdio_ai[0].id
+  role_definition_name = "Contributor"
+  principal_id         = module.nerdio_identity[0].service_principal_object_id
 }
 
 module "nerdio_core" {
@@ -161,7 +185,7 @@ module "nerdio_core" {
     client_id                   = module.nerdio_identity[0].client_id
     service_principal_object_id = module.nerdio_identity[0].service_principal_object_id
   }
-  managed_resource_group_ids = local.all_managed_spoke_rg_ids
+  managed_resource_group_ids = local.nerdio_managed_rg_ids
   assign_builtin_rbac        = var.nerdio_rbac == null
 
   public_network_access_enabled         = !(var.enable_hardening && var.hardening.disable_public_access)

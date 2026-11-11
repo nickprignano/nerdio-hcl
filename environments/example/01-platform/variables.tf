@@ -421,6 +421,14 @@ variable "nerdio_rbac" {
   default = null
 }
 
+variable "nerdio_ai" {
+  description = "Optional resource group for Nerdio Manager Copilot, ScriptPro and AnalyticsPro. Nerdio deploys their Azure OpenAI resources into it when an admin turns Copilot on; null skips it."
+  type = object({
+    resource_group_name = string
+  })
+  default = null
+}
+
 variable "vnet_runner" {
   description = "Optional ephemeral self-hosted GitHub Actions runner inside the control-plane AVD VNet using Azure Container Apps Jobs, so hardened deployments (enable_hardening = true) can reach private Key Vault, SQL, and state (null skips)."
   type = object({

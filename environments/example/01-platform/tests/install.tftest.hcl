@@ -119,6 +119,42 @@ run "terraform_install" {
   }
 }
 
+run "nerdio_ai_is_optional" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_resource_group.nerdio_ai) == 0 && length(azurerm_role_assignment.nerdio_ai) == 0
+    error_message = "Without nerdio_ai there should be no AI resource group."
+  }
+}
+
+run "nerdio_ai_group_with_builtin_rbac" {
+  command = plan
+
+  variables {
+    nerdio_ai = { resource_group_name = "rg-example-nerdio-ai" }
+  }
+
+  assert {
+    condition     = length(azurerm_resource_group.nerdio_ai) == 1 && length(azurerm_role_assignment.nerdio_ai) == 0
+    error_message = "With built-in RBAC, nerdio-core's Contributor covers the AI group; no extra assignment."
+  }
+}
+
+run "nerdio_ai_group_with_custom_rbac" {
+  command = plan
+
+  variables {
+    nerdio_ai   = { resource_group_name = "rg-example-nerdio-ai" }
+    nerdio_rbac = {}
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.nerdio_ai) == 1 && azurerm_role_assignment.nerdio_ai[0].role_definition_name == "Contributor"
+    error_message = "With the custom role, the AI group alone should get built-in Contributor."
+  }
+}
+
 run "multi_region_spokes_link_to_platform_dns" {
   command = plan
 

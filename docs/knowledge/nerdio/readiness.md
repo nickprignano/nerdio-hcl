@@ -342,6 +342,7 @@ Generated from the registry. Stage letters: P pre-install, I post-install, W pos
 <!-- BEGIN GENERATED: readiness-catalogue (./nerdio preflight --list --write) -->
 | ID | Stage | Check | Feature | Right needed | Reads with |
 |---|---|---|---|---|---|
+| `ai.copilot` | W | [Copilot deployed](https://nmehelp.getnerdio.com/hc/en-us/articles/30352365570957) | ai | Reader on the AI resource group | az cognitiveservices account list |
 | `ai.models` | P | [Copilot model](https://learn.microsoft.com/azure/ai-services/openai/concepts/models) | ai | Reader on the subscription | az cognitiveservices model list |
 | `ai.provider` | P | [Cognitive Services provider](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource) | ai | Reader on the subscription | az provider show |
 | `ai.quota` | P | [Copilot quota](https://learn.microsoft.com/azure/ai-services/openai/quotas-limits) | ai | Reader on the subscription | az cognitiveservices usage list |

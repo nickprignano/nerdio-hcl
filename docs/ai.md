@@ -147,10 +147,19 @@ Each step is a separate PR. Nothing here deploys anything.
 3. **Sandbox spike (personal sandbox only).** Run the Azure MCP Server and Nerdio's MCP connector
    from Claude Code in Cloud Shell on an iPad. Record what works in the KB: the connector's
    sign-in, its tools, whether it's read-only, and Azure MCP's AVD tools against a Nerdio host pool.
-4. **Nerdio AI planning inputs.** The chat can already add `--features ai` (Cognitive Services
-   provider, model and quota checks) when someone says they plan Nerdio Copilot. Still to do: a
-   schema question for it, so the CLI and the Actions form ask too. Turning Copilot on stays a
-   Nerdio portal step: there's no API.
+4. **Done. Nerdio Copilot, optional (off by default).** The setup question `nerdio_ai` (chat and
+   `./nerdio init`; the Actions form is at its 10-input limit) asks whether you plan Copilot, then the
+   model (`ai_model`). Yes does three things:
+   - **Deploy:** 01-platform creates a resource group for Nerdio's AI resources (`ai_resource_group`)
+     and lets Nerdio's service principal deploy into it: built-in Contributor through nerdio-core,
+     or, with the custom least-privilege role, Contributor on that group alone.
+   - **Check:** `./nerdio preflight` adds the `ai` checks on its own: before the install, the
+     Cognitive Services provider, the model in your region and its quota; after the wizard,
+     `ai.copilot` reports whether Nerdio has deployed Copilot's Azure OpenAI resource there.
+   - **Guide:** turning Copilot on stays a Nerdio console step (there's no API), so `ai.copilot`
+     reports `manual` with the exact setting, group and model to pick until it's on. Turning it off
+     in Nerdio removes what Nerdio deployed except a Smart Detector alert rule; `terraform destroy`
+     removes the group and the rule with it.
 5. **Later, only on demand.** A remote Azure MCP Server (Container Apps with on-behalf-of sign-in)
    for clients other than Claude Code. It needs Cloud Application Administrator for consent and a
    new decision first.

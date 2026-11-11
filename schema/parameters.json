@@ -65,6 +65,13 @@
     },
     {
       "stage": "platform",
+      "path": "nerdio_ai",
+      "null_unless": {
+        "nerdio_ai": true
+      }
+    },
+    {
+      "stage": "platform",
       "path": "openbao",
       "null_unless": {
         "nme_secret_store": "openbao"
@@ -732,6 +739,61 @@
       "form": true,
       "kb": [
         "docs/knowledge/packer/avd-image.md"
+      ]
+    },
+    {
+      "id": "nerdio_ai",
+      "phase": "configure",
+      "readiness": ["pre-install", "post-wizard"],
+      "type": "bool",
+      "question": "Do you plan to turn on Nerdio Manager Copilot (and ScriptPro, AnalyticsPro)?",
+      "help": "Nerdio's AI features run on Azure OpenAI in your tenant, billed per token. Saying yes adds the readiness checks for the Cognitive Services provider, the model in your region and its quota. Copilot needs Nerdio Manager 8.0, and a Nerdio admin turns it on in the portal after the wizard: there's no API for it.",
+      "default": false,
+      "kb": [
+        "docs/knowledge/nerdio/ai-features.md"
+      ],
+      "sources": [
+        "https://nmehelp.getnerdio.com/hc/en-us/articles/30352365570957"
+      ]
+    },
+    {
+      "id": "ai_model",
+      "phase": "configure",
+      "readiness": ["pre-install"],
+      "type": "string",
+      "when": {
+        "nerdio_ai": [
+          true
+        ]
+      },
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,63}$",
+      "question": "Which Azure OpenAI model will you pick for Copilot?",
+      "help": "Nerdio lists the models your quota allows when you turn Copilot on. The readiness check confirms this one is offered in your region with quota left. gpt-4o-mini is the cheapest and has default quota on pay-as-you-go and EA subscriptions.",
+      "default": "gpt-4o-mini",
+      "sources": [
+        "https://learn.microsoft.com/azure/ai-services/openai/quotas-limits"
+      ]
+    },
+    {
+      "id": "ai_resource_group",
+      "phase": "configure",
+      "readiness": ["post-wizard"],
+      "type": "string",
+      "ask": "advanced",
+      "when": {
+        "nerdio_ai": [
+          true
+        ]
+      },
+      "pattern": "^[A-Za-z0-9._()-]{1,90}$",
+      "question": "Resource group for Nerdio's AI resources?",
+      "help": "Terraform creates it and lets Nerdio's service principal deploy into it, so you pick it in Nerdio's Copilot settings. Turning Copilot off in Nerdio removes what it deployed here, except a Smart Detector alert rule; terraform destroy removes the group.",
+      "default": "rg-{prefix}-nerdio-ai",
+      "tfvars": [
+        {
+          "stage": "platform",
+          "path": "nerdio_ai.resource_group_name"
+        }
       ]
     },
     {

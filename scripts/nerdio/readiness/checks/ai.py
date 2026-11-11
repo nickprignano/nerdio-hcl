@@ -59,3 +59,21 @@ def quota(ctx, c):
         return c.ok(f"{model}: {best[1]} tokens per minute (thousands) free as {best[0]} in {location}")
     return c.fail(f"{model}: no free quota in {location}",
                   f"There's no API for this: request quota with Microsoft's form ({QUOTA_FORM})")
+
+
+@check("ai.copilot", "Copilot deployed", needs="Reader on the AI resource group", kb=KB, features=["ai"],
+       stages=["post-wizard"], inputs=["ai_resource_group"],
+       source="https://nmehelp.getnerdio.com/hc/en-us/articles/30352365570957",
+       reads=["az cognitiveservices account list"])
+def copilot(ctx, c):
+    """Whether Nerdio has deployed Copilot's Azure OpenAI resource into the kit's AI group. Turning
+    Copilot on is a Nerdio console step with no API, so a missing resource is manual, not a failure."""
+    group = ctx.values["ai_resource_group"]
+    rows = ctx.az(["cognitiveservices", "account", "list", "-g", group, "--query", "[].kind"])
+    if rows is None:
+        return c.warn(f"couldn't list Azure AI resources in {group}")
+    if any(k in ("OpenAI", "AIServices") for k in rows):
+        return c.ok(f"Nerdio's Azure OpenAI resource is in {group}")
+    return c.manual(f"Copilot isn't turned on yet: nothing in {group}",
+                    "In Nerdio Manager: System > Settings > Nerdio > Nerdio Manager Copilot > Enabled; pick "
+                    f"resource group {group}, your model and deployment type, then OK")
