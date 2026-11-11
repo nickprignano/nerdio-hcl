@@ -6,7 +6,7 @@
 
 targetScope = 'subscription'
 
-import { regionType, imageGalleryType } from 'types.bicep'
+import { regionType, imageGalleryType, nmeSecretType } from 'types.bicep'
 
 @description('Short naming prefix, e.g. "contoso-nme".')
 param prefix string
@@ -41,6 +41,16 @@ param image_gallery imageGalleryType?
 
 @description('CanNotDelete locks on stateful resources (decision 0030).')
 param enable_resource_locks bool = false
+
+@description('How stage 2 gets the REST API client secret (decision 0015). key_vault: a Key Vault in the nerdio resource group that bicep/rest-client-secret.sh fills. output: no vault; you supply NME_CLIENT_SECRET yourself. OpenBao isn\'t in the Bicep variant yet.')
+@allowed(['key_vault', 'output'])
+param nme_secret_store string = 'key_vault'
+
+@description('Options for the key_vault hand-off: key_vault_name, reader_object_ids, github_oidc.')
+param nme_secret nmeSecretType = {}
+
+@description('Object ID of the identity that writes the secret (runs rest-client-secret.sh). Empty: whoever deploys this template.')
+param deployer_object_id string?
 
 // ---- Locals (same rules as main.tf) ----
 
@@ -240,6 +250,30 @@ module packerBuild 'modules/rg-role.bicep' = if (image_gallery.?packer_principal
   }
 }
 
+// ---- REST API client secret hand-off (modules/nerdio-secrets, decision 0015) ----
+
+// Same rule as main.tf: the first 12 lower-case letters and digits of the prefix, plus a short
+// suffix stable per subscription and prefix (Key Vault names are global). Terraform uses sha1 for
+// the suffix and Bicep has none, so the default names differ between engines.
+var prefixChars = map(range(0, length(prefix)), i => substring(toLower(prefix), i, 1))
+var compactPrefix = take(join(filter(prefixChars, c => contains('abcdefghijklmnopqrstuvwxyz0123456789', c)), ''), 12)
+var keyVaultName = nme_secret.?key_vault_name ?? 'kvnme${compactPrefix}${take(uniqueString(subscription().subscriptionId, prefix), 6)}'
+var useKeyVault = nme_secret_store == 'key_vault'
+
+module secrets 'modules/nerdio-secrets.bicep' = if (useKeyVault) {
+  name: 'nerdio-secrets'
+  scope: resourceGroup(resource_groups.nerdio)
+  dependsOn: [controlPlaneGroups]
+  params: {
+    keyVaultName: keyVaultName
+    location: control_plane_location
+    tags: tags
+    writerObjectId: deployer_object_id ?? deployer().objectId
+    readerObjectIds: nme_secret.?reader_object_ids ?? []
+    githubOidc: nme_secret.?github_oidc
+  }
+}
+
 // ---- Outputs (named like outputs.tf where they overlap) ----
 
 output resource_group_names object = union(
@@ -254,10 +288,10 @@ output log_analytics_workspace_id string = logAnalytics.outputs.id
 output image_gallery_id string = gallery.?outputs.galleryId ?? ''
 
 // What the Terraform config stage (02-nerdio-config) needs, in the same shape as the Terraform
-// output of this name, so the pipeline can run stage 2 after the stack. Every value is derived
-// from inputs and the kit's naming, not read back from Azure. The nme_* values come from the
-// identity and Nerdio install slices, which aren't ported yet, so they are null for now and
-// stage 2 can't run against a Bicep-only platform until they are.
+// output of this name, so the pipeline can run stage 2 after the stack. nme_client_id and nme_scope
+// come from identity.bicep's outputs of the same names (a separate deployment, so the pipeline
+// merges them in), and nme_base_url from the Nerdio install slice, which isn't ported yet; until it
+// is, stage 2 can't run against a Bicep-only platform.
 var fileSuffix = 'file.${environment().suffixes.storage}'
 output nerdio_config_inputs object = {
   nme_base_url: null
@@ -284,10 +318,11 @@ output nerdio_config_inputs object = {
     d => d,
     d => resourceId(regions[controlPlaneRegionKey].resource_groups.hostpools, 'Microsoft.Compute/galleries/images', image_gallery.?name ?? '', d)
   )
-  nme_secret_source: null
-  nme_key_vault: null
+  nme_secret_source: nme_secret_store
+  nme_key_vault: useKeyVault ? { id: secrets.?outputs.keyVaultId ?? '', secret_name: secrets.?outputs.secretName ?? '' } : null
   openbao: null
 }
 
+output github_oidc_client_id string = secrets.?outputs.githubClientId ?? ''
 output nerdio_url string = '' // set once the Nerdio install slice is ported
 output avd_vnet_names object = toObject(regionList, r => r.key, r => 'vnet-${r.prefix}-avd')

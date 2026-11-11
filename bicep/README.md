@@ -65,10 +65,32 @@ registrations (`nerdio-nmw-app` and `nerdio-nmw-app-rest-client`, or your `displ
 ### REST API client secret
 
 The Graph extension can't create passwords, only certificates and federated credentials. Stage 2
-(the `nerdio/nme` provider) still signs in with a client secret, so in the Bicep variant that
-secret is a separate step, run by the tenant owner, that writes it straight to Key Vault without
-showing it. It comes with the `nerdio-secrets` slice. Until then, use the Terraform root for
-stage 1 if you need stage 2.
+(the `nerdio/nme` provider) still signs in with a client secret, so in the Bicep variant that one
+step is a script. The platform stack builds the Key Vault and its access (decision 0015, same as
+Terraform's `nerdio-secrets`); then the tenant owner runs, from the repo root in Cloud Shell:
+
+```bash
+bicep/rest-client-secret.sh
+```
+
+It creates the secret on the REST API client app and pipes it straight into Key Vault. The value is
+never printed, never in a shell variable, file or argument, and no deployment holds it (the
+Terraform root keeps it in stage 1 state). Stage 2 reads it from Key Vault on the fly. Run it again
+to rotate; it replaces every password on that app, so only the new one works afterwards. Lifetime
+is 365 days (`SECRET_DAYS` changes it), and the Key Vault secret gets the same expiry.
+
+Rights: owner of the REST API client app (whoever deployed `identity.bicep` is) and Key Vault
+Secrets Officer on the vault. The stack grants that role to whoever deploys it; when a pipeline
+deploys the stack, set `deployer_object_id` to the person who runs the script.
+
+Readers (you, `nme_secret.reader_object_ids` and the optional `nme_secret.github_oidc` identity)
+get Key Vault Secrets User on the vault, not on the secret as in Terraform, because the secret
+doesn't exist yet when the stack deploys. The vault holds only this secret, so the reach is the
+same; don't store anything else in it. OpenBao (`nme_secret_store = "openbao"`) isn't in the Bicep
+variant yet. With `output`, there's no vault and you supply `NME_CLIENT_SECRET` yourself.
+
+The default vault name follows Terraform's pattern (`kvnme` + prefix + a 6-character suffix), but
+the suffix is computed differently, so the two engines pick different names.
 
 ## Don't mix engines in one environment
 
@@ -84,16 +106,18 @@ environment from Terraform to Bicep (or back) isn't supported yet.
 | fslogix-storage | ported | includes the `CanNotDelete` lock when `enable_resource_locks` is on |
 | image-gallery | ported | gallery, Gen2 Trusted Launch definitions, build resource group, Packer roles |
 | anf-storage | not yet | |
-| nerdio-identity | ported | `identity.bicep` (Microsoft Graph Bicep extension): app, app roles, admin consent, REST client app, federated credentials. Its own deployment; no client secrets (see below) |
+| nerdio-identity | ported | `identity.bicep` (Microsoft Graph Bicep extension): app, app roles, admin consent, REST client app, federated credentials. Its own deployment; the client secret comes from `rest-client-secret.sh` |
+| nerdio-secrets | ported | `modules/nerdio-secrets.bicep` in the platform stack: Key Vault, RBAC, optional GitHub OIDC identity; readers scoped to the single-purpose vault; OpenBao not yet |
 | nerdio-core | next | App Service, SQL, Key Vault, Automation; the code deploy job is an ARM resource |
-| nerdio-hardening, nerdio-secrets, nerdio-rbac, cmk-encryption | not yet | |
+| nerdio-hardening, nerdio-rbac, cmk-encryption | not yet | |
 | openbao, automation-workers, vnet-runner, avd-insights, azure-local, windows-365, intune-policies | not yet | optional modules |
 | nerdio-manager (Marketplace) | not planned | the Terraform-native install is the default |
 | nerdio-config (stage 2) | stays Terraform | needs `nerdio/nme`; see decision 0032 |
 
 `main.bicep` also outputs `nerdio_config_inputs` in the same shape as the Terraform output, so a
-pipeline can run the Terraform config stage after the stack. Its `nme_*` values stay null until the
-identity and Nerdio install slices are ported.
+pipeline can run the Terraform config stage after the stack. `nme_secret_source` and `nme_key_vault`
+are filled; `nme_client_id` and `nme_scope` are outputs of the `nerdio-identity` deployment, to merge
+in; `nme_base_url` stays null until the Nerdio install slice is ported.
 
 Per-region `subscription_id` isn't used yet: every region deploys into the signed-in subscription.
 

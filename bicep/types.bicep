@@ -77,3 +77,14 @@ type imageGalleryType = {
   build_resource_group_name: string
   packer_principal_id: string?
 }
+
+@export()
+@description('Options for the Key Vault hand-off of the REST API client secret (Terraform: nme_secret).')
+type nmeSecretType = {
+  key_vault_name: string?
+  reader_object_ids: string[]?
+  github_oidc: {
+    repository: string
+    environment: string?
+  }?
+}
