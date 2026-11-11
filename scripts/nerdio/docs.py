@@ -68,6 +68,8 @@ DOCS: dict[str, str] = {
     "assistant.md": "deploying and connecting the self-hosted setup chatbot",
     "ai.md": "AI assistants and MCP servers: what they may touch, and the build plan",
     "deployment-runbook.md": "end-to-end order of operations and manual wizard steps",
+    "dress-rehearsal.md": "the full pilot path in a throwaway sandbox, with a run log",
+    "pilot.md": "first production pilot in a governed tenant: gates, access, rollback",
     "pipeline.md": "plan and apply from GitHub Actions behind an approval",
     "access.md": "every Azure, Entra, GitHub and Anthropic right the kit needs",
     "secrets.md": "how stage 2 gets the REST API secret without anyone handling it",
