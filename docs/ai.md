@@ -13,6 +13,7 @@ a person applies.
 | Claude Code in Cloud Shell, with [`.mcp.json`](../.mcp.json) | Admins and contributors | Read-only Azure, the kit's repository data, Microsoft Learn | Built (this page) |
 | `AGENTS.md`, `CLAUDE.md`, `.claude/skills/`, [`llms.txt`](../llms.txt) | Any coding agent | The repository | Built; CI checks the commands and paths they name |
 | Machine-readable inputs and outputs | Any tool | [`schema/parameters.json`](../schema/README.md) for questions; `./nerdio preflight --json` for readiness (`nerdio-readiness/1`) | Built |
+| A Claude chat (claude.ai), with Microsoft's ARM MCP server as a custom connector | One admin, opt-in | Azure Resource Graph, resource reads, costs, and **write tools** | Optional, per user; tested in a personal sandbox |
 | Nerdio Manager MCP connector (preview) | A Nerdio admin's own agent | Live Nerdio data, read-only | Optional, per user; untested |
 | Nerdio Copilot, ScriptPro, AnalyticsPro | Nerdio users | Azure OpenAI in your tenant | Nerdio's feature; not on the setup path |
 
@@ -69,6 +70,59 @@ claude mcp add --transport http nerdio "https://nmw-app-<instance>.azurewebsites
 
 Untested: the browser sign-in from Cloud Shell, and whether it stays read-only. Treat it as a
 verify-phase helper only until the sandbox spike below.
+
+## Optional: Azure from a Claude chat (ARM MCP server, preview)
+
+Microsoft hosts an Azure Resource Manager MCP server at `https://mcp.management.azure.com`
+([overview](https://learn.microsoft.com/azure/azure-resource-manager/management/azure-resource-manager-mcp-overview),
+[client set-up](https://learn.microsoft.com/azure/azure-resource-manager/management/azure-resource-manager-mcp-other-clients),
+[governance](https://learn.microsoft.com/azure/azure-resource-manager/management/azure-resource-manager-mcp-governance),
+[repo with the current IDs](https://github.com/Azure/Azure-Resource-Manager-MCP)). Added as a custom connector in claude.ai,
+it lets a Claude chat or project query Azure as you, with nothing to run in Cloud Shell.
+
+**It isn't read-only.** Besides Resource Graph queries, resource reads and cost queries, it offers
+`create_deployment`, `create_or_update_resource`, `create_or_update_resource_group`,
+`execute_resource_action` (which can restart VMs or list storage keys) and `cancel_deployment`.
+Decision 0031's allowlist doesn't apply to it, so it's never part of `.mcp.json`. Use it only:
+
+- in a **personal sandbox**, never a production or intake-gated subscription;
+- signed in as an account with **Reader** (and no active PIM roles), so the write tools fail;
+- with the write tools switched off in the connector's tool settings, where your client offers that.
+
+Microsoft's governance guidance has a sample Azure Policy that denies requests whose caller app ID is
+the ARM MCP server's. Assign it in the sandbox if you want Azure, not just the role, to block writes;
+Microsoft notes a policy that targets deployments doesn't block every other tool on its own.
+
+Set-up, from Cloud Shell in **Bash** (type `bash` first if the prompt starts with `PS`), signed in to
+the sandbox tenant. The app ID and scope ID are Microsoft's published IDs for the ARM MCP server; check its repository
+for the current values before you run this.
+
+```bash
+ARM=22bfbae3-f4e7-485f-be43-8cee15065084
+APP=$(az ad app create --display-name "Claude ARM MCP connector" --web-redirect-uris "https://claude.ai/api/mcp/auth_callback" "https://claude.ai/api/mcp/auth_callback/" --sign-in-audience AzureADMyOrg --query appId -o tsv)
+az ad app permission add --id "$APP" --api "$ARM" --api-permissions 601b3b64-a3c4-4faa-ab9c-8f97ba332aa3=Scope
+az ad sp show --id "$ARM" >/dev/null 2>&1 || az ad sp create --id "$ARM" >/dev/null
+az ad sp create --id "$APP" >/dev/null
+az ad app permission admin-consent --id "$APP"
+echo "Client ID: $APP"
+az ad app credential reset --id "$APP" --display-name claude --end-date "$(date -d '+90 days' +%F)" --query password -o tsv
+```
+
+The last line prints a client secret. Paste it and the client ID only into the connector's settings
+in claude.ai (Settings, Connectors, Add custom connector, URL `https://mcp.management.azure.com`,
+then Advanced), run `clear`, and never paste either into a chat. Then Connect and sign in.
+
+Gotchas from the sandbox test:
+
+- **Redirect URI without the trailing slash.** Microsoft's guide shows
+  `https://claude.ai/api/mcp/auth_callback/`, but Claude sends it without the slash, and sign-in
+  fails with `AADSTS50011`. The commands above register both.
+- **Bash, not PowerShell.** Cloud Shell can open in PowerShell, where every line above fails before
+  reaching Azure. Switch with `bash`.
+- Admin consent needs Cloud Application Administrator or higher once. The secret expires in 90
+  days; reset it the same way and update the connector.
+- To remove it: delete the connector in claude.ai, then `az ad app delete --id <client-id>` (you run
+  it; Claude Code's settings deny Azure deletes).
 
 ## Why the setup chat doesn't use MCP (yet)
 
