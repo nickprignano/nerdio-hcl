@@ -3,6 +3,8 @@
 // URIs, then with api://<appId>, because an app can't refer to its own appId in one resource.
 // Both passes send the full definition, so the second never reverts the first.
 
+targetScope = 'subscription'
+
 extension microsoftGraphV1
 
 param uniqueName string

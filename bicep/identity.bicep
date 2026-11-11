@@ -53,28 +53,39 @@ resource asmSp 'Microsoft.Graph/servicePrincipals@v1.0' existing = {
   appId: asmAppId
 }
 
-var appParams = {
-  uniqueName: display_name
-  displayName: display_name
-  ownerObjectIds: owners
-  appServiceHostname: app_service_hostname
-  enableMailSend: enable_mail_send
-  graphAppId: graphAppId
-  graphScopes: graphSp.oauth2PermissionScopes
-  graphRoles: graphSp.appRoles
-  asmAppId: asmAppId
-  asmScopes: asmSp.oauth2PermissionScopes
-}
-
+// Both passes take the same parameters; only identifierUris differs.
 module appFirstPass 'modules/identity/nerdio-app.bicep' = if (create_entra_app) {
   name: 'nerdio-app-1'
-  params: appParams
+  params: {
+    uniqueName: display_name
+    displayName: display_name
+    ownerObjectIds: owners
+    appServiceHostname: app_service_hostname
+    enableMailSend: enable_mail_send
+    graphAppId: graphAppId
+    graphScopes: graphSp.oauth2PermissionScopes
+    graphRoles: graphSp.appRoles
+    asmAppId: asmAppId
+    asmScopes: asmSp.oauth2PermissionScopes
+  }
 }
 
 // The REST API needs api://<client_id>, which needs the appId from the first pass.
 module app 'modules/identity/nerdio-app.bicep' = if (create_entra_app) {
   name: 'nerdio-app-2'
-  params: union(appParams, { identifierUris: ['api://${appFirstPass.?outputs.appId ?? ''}'] })
+  params: {
+    uniqueName: display_name
+    displayName: display_name
+    ownerObjectIds: owners
+    appServiceHostname: app_service_hostname
+    enableMailSend: enable_mail_send
+    graphAppId: graphAppId
+    graphScopes: graphSp.oauth2PermissionScopes
+    graphRoles: graphSp.appRoles
+    asmAppId: asmAppId
+    asmScopes: asmSp.oauth2PermissionScopes
+    identifierUris: ['api://${appFirstPass.?outputs.appId ?? ''}']
+  }
 }
 
 resource sp 'Microsoft.Graph/servicePrincipals@v1.0' = if (create_entra_app) {
