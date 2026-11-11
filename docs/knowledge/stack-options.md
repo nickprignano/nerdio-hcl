@@ -361,7 +361,8 @@ Packer (optional only).
   app-credential linking there, and what the Gov package API and REST API endpoints are.
 - Whether the Claude API's workload identity federation accepts Azure Government's Entra issuer for
   the setup chatbot (its main model path, decision 0020), and whether Claude on Foundry is offered
-  there, or the chatbot has to stay in a commercial tenant.
+  there. (A commercial-hosted chatbot is ruled out: the owner wants a Government deployment
+  entirely inside the Government tenant, 2026-11-11; see decision 0034.)
 - Whether Nerdio adopts Windows 365 provisioning policies and Intune policies that Terraform created.
 
 ## Sources

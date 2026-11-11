@@ -110,6 +110,13 @@ Ordered by what blocks a Government deployment first.
 8. **DoD (IL5)** isn't modeled: `cloud` accepts only `public` and `usgovernment`.
 9. **Nerdio licensing** in Government needs a commercial or partner tenant for billing. That's a
    procurement step for the tenant owner, not something the kit automates.
+10. **Pipeline runners and state inside the tenant.** The owner's rule (2026-11-11) that a Government
+    deployment stays inside the Government tenant also means GitHub-hosted runners
+    (`runner_labels` defaults to `ubuntu-latest`) shouldn't run Government plans and applies.
+    Use the VNet runner (`modules/vnet-runner`) in the Government subscription, which depends on
+    gap 6, and keep Terraform state in a Government storage account (already the case when
+    `00-pipeline` runs there). The code and plan comments still live on GitHub; plan output must
+    stay free of tenant data, as it already must for public repos.
 
 ## Plan
 
