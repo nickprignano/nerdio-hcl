@@ -95,6 +95,11 @@ hub), vWAN connection, FSLogix storage with locks, Compute Gallery. Not ported: 
 (`nerdio-core`), identity, hardening, secrets, ANF and the optional modules. Next slices, in order:
 identity (Graph extension), `nerdio-core`, hardening.
 
+The secrets slice keeps decision 0015's Key Vault hand-off. Because the Graph extension can't create
+passwords, the REST API client secret is the one step done by a thin script
+(`bicep/rest-client-secret.sh`), which pipes it from Entra into Key Vault unseen; the vault and its
+access stay in Bicep.
+
 ## More Information
 
 - [Microsoft Graph Bicep limitations](https://learn.microsoft.com/graph/templates/bicep/limitations)

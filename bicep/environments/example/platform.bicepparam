@@ -19,3 +19,10 @@ param extra_private_dns_zones = answers.?extra_private_dns_zones ?? []
 param regions = answers.regions
 param image_gallery = answers.?image_gallery
 param enable_resource_locks = answers.?enable_resource_locks ?? false
+
+// Same rule as main.tf: without a REST API client app there's nothing to hand off, so no vault.
+var entra = answers.?entra_app ?? {}
+var hasRestClient = ((answers.?create_entra_app ?? true) || entra.?existing_client_id != null) && (entra.?create_rest_api_client ?? true)
+param nme_secret_store = hasRestClient ? (answers.?nme_secret_store ?? 'key_vault') : 'output'
+param nme_secret = answers.?nme_secret ?? {}
+param deployer_object_id = answers.?deployer_object_id
