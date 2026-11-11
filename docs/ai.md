@@ -76,24 +76,27 @@ The Claude API can call remote MCP servers itself, but only ones it can reach on
 internet, with a bearer token sent in each request. The chat's Azure access is a managed identity
 inside your tenant, and putting an Azure MCP Server on a public URL with a forwarded token would
 widen the attack surface for little gain. The chat keeps calling its own narrow tools; when it
-needs live reads for the verify phase, they'll be more of those tools (plan below), not an MCP hop.
+needs live reads for the verify phase, they come from the read-only readiness engine (plan step 2),
+not an MCP hop.
 
 ## Build plan
 
 Each step is a separate PR. Nothing here deploys anything.
 
-1. **Done in this PR.** Decision 0031, `.mcp.json` with the read-only Azure MCP Server, the guard
+1. **Done (PR #68).** Decision 0031, `.mcp.json` with the read-only Azure MCP Server, the guard
    tests in CI, Claude Code deny rules, annotations on the kit's MCP tools, and fixes to skills
    that named commands and files that don't exist.
-2. **Verify-phase reads in the setup chat.** Add read-only chat tools that call
-   `./nerdio preflight --stage post-wizard --json` and summarise the `nerdio-readiness/1` report,
-   so the chat's verify and handover phases work without new Azure rights.
+2. **Done.** Verify without the pipeline. With the pipeline the chat already ran stage `verify`
+   and read its results. Without it, the chat now gives a Cloud Shell paste for the read-only
+   checks after the install (`--stage post-install`) and after the wizard (`--stage post-wizard`),
+   as a masked Markdown report, with optional feature checks such as `ai`. No new Azure rights.
 3. **Sandbox spike (personal sandbox only).** Run the Azure MCP Server and Nerdio's MCP connector
    from Claude Code in Cloud Shell on an iPad. Record what works in the KB: the connector's
    sign-in, its tools, whether it's read-only, and Azure MCP's AVD tools against a Nerdio host pool.
-4. **Nerdio AI planning inputs.** If Nerdio Copilot is wanted, ask for it in the interview and run
-   the existing `ai.*` readiness checks (`--features ai`: Cognitive Services provider, model and
-   quota) before the wizard. Turning Copilot on stays a Nerdio portal step: there's no API.
+4. **Nerdio AI planning inputs.** The chat can already add `--features ai` (Cognitive Services
+   provider, model and quota checks) when someone says they plan Nerdio Copilot. Still to do: a
+   schema question for it, so the CLI and the Actions form ask too. Turning Copilot on stays a
+   Nerdio portal step: there's no API.
 5. **Later, only on demand.** A remote Azure MCP Server (Container Apps with on-behalf-of sign-in)
    for clients other than Claude Code. It needs Cloud Application Administrator for consent and a
    new decision first.

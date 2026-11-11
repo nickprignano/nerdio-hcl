@@ -84,6 +84,17 @@ class ToolTests(unittest.TestCase):
         pre = self.session.cloud_shell_command("preflight")["command"]
         self.assertTrue(pre.endswith("./nerdio preflight"))
 
+    def test_verify_commands_are_read_only_reports(self):
+        ver = self.session.cloud_shell_command("verify", ["ai", "not-a-feature"])["command"]
+        self.assertTrue(ver.endswith("./nerdio preflight --stage post-wizard --features ai --format md"))
+        inst = json.loads(self.session.run_tool("cloud_shell_command", {"kind": "verify-install"}))["command"]
+        self.assertTrue(inst.endswith("./nerdio preflight --stage post-install --format md"))
+        for cmd in (ver, inst):
+            self.assertNotIn("--no-redact", cmd)
+            self.assertNotIn("--probe", cmd)
+            self.assertNotIn("--nerdio-data", cmd)
+        self.assertIn("error", self.session.cloud_shell_command("apply"))
+
     def test_bad_tool_input_is_an_error_result_not_a_crash(self):
         self.assertIn("error", json.loads(self.session.run_tool("get_questions", {})))
         self.assertIn("error", json.loads(self.session.run_tool("nope", {})))
