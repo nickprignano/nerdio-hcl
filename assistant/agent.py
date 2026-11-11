@@ -28,6 +28,7 @@ import engine  # noqa: E402
 import nerdio  # noqa: E402
 import tfcheck  # noqa: E402
 from pipeline import Pipeline, PipelineError  # noqa: E402
+from readiness.model import FEATURES as READINESS_FEATURES  # noqa: E402
 
 PROMPT = (Path(__file__).resolve().parent / "prompt.md").read_text(encoding="utf-8")
 PROVIDER = os.environ.get("NERDIO_MODEL_PROVIDER", "foundry")
@@ -36,6 +37,7 @@ EFFORT = os.environ.get("NERDIO_EFFORT", "medium")
 REPO_URL = os.environ.get("NERDIO_KIT_REPO", "https://github.com/nickprignano/nme-automation")
 LEGACY_CLONE = "~/nerdio-hcl"  # Cloud Shell clones made under the repository's old name
 MAX_STEPS = 12
+VERIFY_STAGES = {"verify-install": "post-install", "verify": "post-wizard"}  # read-only, after the install
 KB_ALLOWED = [ROOT / "docs" / "knowledge", ROOT / "docs" / "deployment-runbook.md", ROOT / "docs" / "setup.md",
               ROOT / "docs" / "pipeline.md"]
 KB_MAX_CHARS = 40_000
@@ -101,10 +103,17 @@ TOOLS = [
         "name": "cloud_shell_command",
         "description": "Build the one command the user pastes into Azure Cloud Shell (Bash). `preflight` runs the "
                        "read-only readiness checks for the current answers. `init` writes the configuration files "
-                       "after Terraform checks them.",
+                       "after Terraform checks them. `verify-install` runs the same read-only checks after the "
+                       "Terraform install, and `verify` after Nerdio's setup wizard; both print a report to paste "
+                       "back, with IDs and names masked. `features` adds optional feature checks (for example "
+                       "`ai` when they plan Nerdio Copilot).",
         "input_schema": {
             "type": "object",
-            "properties": {"kind": {"type": "string", "enum": ["preflight", "init"]}},
+            "properties": {
+                "kind": {"type": "string", "enum": ["preflight", "init", "verify-install", "verify"]},
+                "features": {"type": "array", "items": {"type": "string", "enum": list(READINESS_FEATURES)},
+                             "description": "Optional feature checks. Default none."},
+            },
             "required": ["kind"],
             "additionalProperties": False,
         },
@@ -252,7 +261,7 @@ class Session:
         text = target.read_text(encoding="utf-8")
         return {"path": rel, "content": text[:KB_MAX_CHARS], "truncated": len(text) > KB_MAX_CHARS}
 
-    def cloud_shell_command(self, kind: str) -> dict:
+    def cloud_shell_command(self, kind: str, features: list | None = None) -> dict:
         values = dict(self.answers)
         if "prefix" not in values:
             # Pin the generated prefix so Cloud Shell writes the same names the chat showed.
@@ -264,9 +273,18 @@ class Session:
         fetch = (f"{{ [ -d ~/nme-automation ] || [ -d {LEGACY_CLONE} ] || "
                  f"git clone -q {shlex.quote(REPO_URL)} ~/nme-automation; }} && "
                  f"{{ cd ~/nme-automation 2>/dev/null || cd {LEGACY_CLONE}; }} && git pull -q --ff-only")
+        picked = [f for f in (features or []) if f in READINESS_FEATURES]
+        extra = f" --features {','.join(picked)}" if picked else ""
         if kind == "preflight":
-            cmd = f"{fetch} && ./nerdio init --phase discover --non-interactive {sets} >/dev/null && ./nerdio preflight"
+            cmd = f"{fetch} && ./nerdio init --phase discover --non-interactive {sets} >/dev/null && ./nerdio preflight{extra}"
             what = "Runs read-only checks. Paste the whole output back here."
+        elif kind in VERIFY_STAGES:
+            cmd = (f"{fetch} && ./nerdio init --phase discover --non-interactive {sets} >/dev/null && "
+                   f"./nerdio preflight --stage {VERIFY_STAGES[kind]}{extra} --format md")
+            what = ("Runs the read-only checks against what's installed and prints a report with IDs and names "
+                    "masked. Paste the whole report back here.")
+        elif kind != "init":
+            return {"error": f"unknown command kind {kind}"}
         else:
             cmd = f"{fetch} && ./nerdio init --non-interactive {sets}"
             what = "Writes setup.auto.tfvars.json in both stages after Terraform checks them. Paste the output back here."
@@ -304,7 +322,7 @@ class Session:
             elif name == "read_kb":
                 result = self.read_kb(str(args["path"]))
             elif name == "cloud_shell_command":
-                result = self.cloud_shell_command(args["kind"])
+                result = self.cloud_shell_command(args["kind"], list(args.get("features") or []))
             elif name.startswith("pipeline_") and self.pipeline is None:
                 result = {"error": "This chat isn't connected to the deploy pipeline."}
             elif name == "pipeline_save_answers":
