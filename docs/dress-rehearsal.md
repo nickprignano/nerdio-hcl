@@ -20,7 +20,8 @@ Rules for the rehearsal:
   bill while they're up. Plan one or two sittings and tear down at the end of the last.
 
 Every command runs in Azure Cloud Shell (Bash, persistent storage) in a browser, iPad included.
-You run each step yourself; an assistant may explain a plan but never applies it.
+If the Cloud Shell prompt starts with `PS`, type `bash` first. You run each step yourself; an
+assistant may explain a plan but never applies it.
 
 ## What the rehearsal proves
 
