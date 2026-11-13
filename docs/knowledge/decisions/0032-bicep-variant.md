@@ -42,11 +42,13 @@ interview drives either engine, and preflight, the knowledge base, decisions, gu
 shared instead of copied. A separate repository would need its own copy of every one of those and
 would drift. `bicep/` takes no content from other projects.
 
-**HCL first, restated.** Terraform stays the reference implementation and the default. Bicep is an
-opt-in variant for the Azure side only: same names, same resource layout, same inputs, and a
-parity table in [bicep/README.md](../../../bicep/README.md). A change to stage 1 lands in Terraform
-first; the Bicep side follows or is marked "not ported". Scripts are still thin glue in both
-engines. Guardrail 2 gains one sentence pointing here.
+**HCL first, restated.** We adopt Terraform (HCL) as the preferred codebase across all of the
+AVD toolsets, while still offering Bicep (`bicep/`) as a secondary option. Terraform stays the
+reference implementation and the default. Bicep is an opt-in secondary variant for the Azure side
+only: same names, same resource layout, same inputs, and a parity table in
+[bicep/README.md](../../../bicep/README.md). A change to stage 1 lands in Terraform first; the Bicep
+side follows or is marked "not ported". Scripts are still thin glue in both engines. Guardrail 2
+gains one sentence pointing here.
 
 **S1 over S2.** Stage 2 isn't Azure infrastructure; it is Nerdio's API, and `nerdio/nme` already
 models it with state, plan and drift. A `deploymentScripts` port (S2) would:
@@ -65,6 +67,27 @@ it gets its own decision. S4 is rejected (no portal click-paths).
 **S3** is the clean end state: a Nerdio Bicep extension would make stage 2 native the way the
 Microsoft Graph extension made Entra native. It's recorded as an upstream ask, not sent
 ([guardrail 8](../../guardrails.md)).
+
+### Why Terraform is the preferred codebase (and Bicep stays secondary)
+
+1. **Multi-cloud and non-Azure resources in one graph:** Terraform manages Azure alongside Entra
+   ID, `nerdio/nme`, GitHub, Intune, Windows 365, Azure Local, SaaS, and on-prem providers in a
+   single workflow and dependency graph. Bicep is ARM-scoped with limited extensibility and has no
+   `nerdio/nme` provider.
+2. **Explicit state and reliable deletion:** `tfstate` tracks created resources, deletes removed
+   ones, and supports `moved` blocks for refactoring. Bicep is stateless unless wrapped in
+   Deployment Stacks, and Microsoft Graph resources cannot participate in a stack.
+3. **Stronger `plan` / diff experience:** `terraform plan` compares code against state and live
+   APIs for an exact diff. ARM `what-if` produces noisier false positives on complex or nested
+   templates and cannot preview Graph resources.
+4. **Organizational standardization & hiring:** One language (HCL), one CI/CD pattern, and one
+   policy/approval pipeline across all AVD toolsets.
+5. **Ecosystem & language flexibility:** A large module registry, mature static analysis and policy
+   tools (OPA/Conftest, Checkov, Trivy), and `data` sources at plan time without ARM compile-time
+   constraints.
+
+**When Bicep still wins (why we keep it as a secondary option):** 100% Azure-only teams wanting zero
+state-file management and Day-0 Azure API support (though `azapi` closes much of that gap).
 
 ### What Bicep can and can't do in stage 1 (checked 2026-11-10)
 

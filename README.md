@@ -26,6 +26,15 @@ no API for the directory profile or first run yet.
 [coverage notes](https://github.com/Get-Nerdio/NME-Terraform-Provider/blob/main/AVD-COVERAGE.md)
 before you rely on it for something; app groups and session host actions aren't covered yet, for example.
 
+**Why Terraform:** Terraform (HCL) is the preferred codebase across all AVD toolsets because one
+dependency graph and workflow covers Azure, Entra ID, `nerdio/nme`, GitHub, Intune, Windows 365,
+Azure Local, and on-prem/SaaS providers, with explicit state (`tfstate`), reliable deletions and
+`moved` refactoring, an accurate `plan` diff, one CI/CD and policy pipeline (OPA/Conftest, Checkov,
+Trivy), and plan-time `data` sources. A secondary Bicep option for stage 1 lives in
+[`bicep/`](bicep/README.md) for 100% Azure-only teams that want zero state-file management and Day-0
+ARM coverage; see [decision 0032](docs/knowledge/decisions/0032-bicep-variant.md) for the full
+comparison.
+
 ## Guided setup
 
 One set of questions, three ways to answer them. All three read
