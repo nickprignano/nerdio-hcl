@@ -1,11 +1,12 @@
 # Bicep variant
 
 The same landing zone as [environments/example/01-platform](../environments/example/01-platform),
-written in Bicep for teams that standardise on it. It reads the **same answers**: the chat,
-`./nerdio init` and the Actions form render one `setup.auto.tfvars.json`, and
-[platform.bicepparam](environments/example/platform.bicepparam) loads it. Terraform stays the
-reference implementation and the default; why and how the two fit is in
-[decision 0032](../docs/knowledge/decisions/0032-bicep-variant.md).
+written in Bicep as a secondary option for teams that standardize on it. Terraform (HCL) is the
+preferred codebase across all AVD toolsets and remains the reference implementation and default; the
+rationale and how the two fit are in
+[decision 0032](../docs/knowledge/decisions/0032-bicep-variant.md). This variant reads the **same
+answers**: the chat, `./nerdio init` and the Actions form render one `setup.auto.tfvars.json`, and
+[platform.bicepparam](environments/example/platform.bicepparam) loads it.
 
 Stage 2 (Nerdio workspaces, host pools, auto-scale, FSLogix profiles) stays the Terraform root on
 Nerdio's `nerdio/nme` provider, because Bicep can't call it. A Nerdio Bicep extension is the
